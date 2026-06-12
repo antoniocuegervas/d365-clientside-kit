@@ -1,5 +1,19 @@
 /**
- * clientui bundle entry, webresource shell bootstrap.
- * Phase 8 replaces this placeholder with the real boot flow.
+ * clientui bundle entry, registers all apps and exposes the shell on
+ * window.ClientUI. The HTML template calls ClientUI.bootstrap() on load;
+ * smoke tests call it with explicit options.
  */
-export {};
+import "./apps";
+import { bootstrap } from "./bootstrap";
+
+const ClientUI = { bootstrap };
+
+declare global {
+  interface Window {
+    ClientUI: typeof ClientUI;
+  }
+}
+
+window.ClientUI = ClientUI;
+
+export { bootstrap };
