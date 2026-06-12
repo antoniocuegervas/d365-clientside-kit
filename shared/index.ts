@@ -110,6 +110,20 @@ export {
 export { SearchBar, type ISearchBarProps } from "./controls/presentational/SearchBar";
 export { WaitingMessage, type IWaitingMessageProps } from "./controls/presentational/WaitingMessage";
 
+// Smart (metadata-aware) controls (declarative code blocks)
+export { SmartFieldBase, type ISmartFieldProps } from "./controls/smart/SmartFieldBase";
+export { SmartTextField, type ISmartTextFieldProps } from "./controls/smart/SmartTextField";
+export { SmartOptionSet, type ISmartOptionSetProps } from "./controls/smart/SmartOptionSet";
+export {
+  SmartMultiSelectOptionSet,
+  type ISmartMultiSelectOptionSetProps,
+} from "./controls/smart/SmartMultiSelectOptionSet";
+export { SmartBooleanField, type ISmartBooleanFieldProps } from "./controls/smart/SmartBooleanField";
+export { SmartNumberField, type ISmartNumberFieldProps } from "./controls/smart/SmartNumberField";
+export { SmartDatePicker, type ISmartDatePickerProps } from "./controls/smart/SmartDatePicker";
+export { SmartLookup, type ISmartLookupProps } from "./controls/smart/SmartLookup";
+export { SmartViewGrid, type ISmartViewGridProps } from "./controls/smart/SmartViewGrid";
+
 // Data access
 export {
   CdsClient,
