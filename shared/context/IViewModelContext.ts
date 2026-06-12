@@ -116,6 +116,8 @@ export type AttributeKind =
 export interface IAttributeMetadata {
   logicalName: string;
   displayName: string;
+  /** Attribute description label, when authored, tooltips surface this. */
+  description?: string;
   kind: AttributeKind;
   /** True for ApplicationRequired/SystemRequired. */
   required: boolean;

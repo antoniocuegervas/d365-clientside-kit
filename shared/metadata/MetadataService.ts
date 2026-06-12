@@ -83,7 +83,7 @@ export class MetadataService implements IMetadataApi {
       `EntityDefinitions(LogicalName='${entityLogicalName}')` +
       `/Attributes(LogicalName='${attributeLogicalName}')`;
     const base = await this.client.get(
-      `${basePath}?$select=LogicalName,DisplayName,AttributeTypeName,RequiredLevel`
+      `${basePath}?$select=LogicalName,DisplayName,Description,AttributeTypeName,RequiredLevel`
     );
 
     const typeName =
@@ -95,6 +95,7 @@ export class MetadataService implements IMetadataApi {
     const metadata: IAttributeMetadata = {
       logicalName: attributeLogicalName,
       displayName: localizedLabel(base.DisplayName) ?? attributeLogicalName,
+      description: localizedLabel(base.Description),
       kind,
       required: requiredValue === "ApplicationRequired" || requiredValue === "SystemRequired",
     };

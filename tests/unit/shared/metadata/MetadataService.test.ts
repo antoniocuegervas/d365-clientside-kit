@@ -107,7 +107,7 @@ describe("MetadataService", () => {
 
   it("resolves lookup targets", async () => {
     server.respondWith((request) =>
-      request.url.includes("$select=LogicalName,DisplayName,AttributeTypeName")
+      request.url.includes("$select=LogicalName,DisplayName,Description,AttributeTypeName")
         ? {
             status: 200,
             responseText: JSON.stringify({
@@ -132,7 +132,7 @@ describe("MetadataService", () => {
 
   it("downgrades DateOnly datetimes to kind 'date'", async () => {
     server.respondWith((request) =>
-      request.url.includes("$select=LogicalName,DisplayName,AttributeTypeName")
+      request.url.includes("$select=LogicalName,DisplayName,Description,AttributeTypeName")
         ? {
             status: 200,
             responseText: JSON.stringify({
@@ -155,7 +155,7 @@ describe("MetadataService", () => {
 
   it("reads boolean true/false options in false-first order", async () => {
     server.respondWith((request) =>
-      request.url.includes("$select=LogicalName,DisplayName,AttributeTypeName")
+      request.url.includes("$select=LogicalName,DisplayName,Description,AttributeTypeName")
         ? {
             status: 200,
             responseText: JSON.stringify({
@@ -190,7 +190,7 @@ describe("MetadataService", () => {
 
   it("loads money precision via the cast query", async () => {
     server.respondWith((request) =>
-      request.url.includes("$select=LogicalName,DisplayName,AttributeTypeName")
+      request.url.includes("$select=LogicalName,DisplayName,Description,AttributeTypeName")
         ? {
             status: 200,
             responseText: JSON.stringify({
