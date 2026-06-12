@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build outputs (generated in CI/CD, never committed, section 14)
+dist/
+out/
+storybook-static/
+pcfs/*/out/
+pcfs/*/obj/
+pcfs/*/bin/
+pcfs/*/generated/
+
+# Test artifacts
+coverage/
+
+# Deployment secrets and logs
+deployment/*.local.*
+deployment/connection*.json
+*.log
+spkl-log*
+
+# Tooling caches
+.eslintcache
+*.tsbuildinfo
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
