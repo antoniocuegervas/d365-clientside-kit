@@ -119,6 +119,17 @@ export class CdsClient {
     return parseCollection(response.responseText);
   }
 
+  /**
+   * Raw GET for paths the typed helpers don't cover (metadata endpoints like
+   * "EntityDefinitions(LogicalName='account')/Attributes(...)"). `path` is
+   * appended to the API root unless it is already absolute.
+   */
+  async get(path: string): Promise<Record<string, unknown>> {
+    const url = /^https?:\/\//.test(path) ? path : `${this.apiUrl}${path}`;
+    const response = await this.request("GET", url);
+    return JSON.parse(response.responseText) as Record<string, unknown>;
+  }
+
   // ------------------------------------------------------------- FetchXML
 
   /**

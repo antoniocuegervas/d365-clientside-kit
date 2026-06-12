@@ -1,0 +1,286 @@
+import { CdsClient } from "../../../../shared/data/CdsClient";
+import { MetadataService, parseLayoutColumns } from "../../../../shared/metadata/MetadataService";
+import { FakeXhrServer } from "../../../mocks/FakeXhr";
+
+const API = "https://org.crm.dynamics.com/api/data/v9.2/";
+
+function label(text: string) {
+  return { UserLocalizedLabel: { Label: text } };
+}
+
+describe("MetadataService", () => {
+  let server: FakeXhrServer;
+  let service: MetadataService;
+
+  beforeEach(() => {
+    server = new FakeXhrServer();
+    server.install();
+    service = new MetadataService(new CdsClient({ clientUrl: "https://org.crm.dynamics.com" }));
+  });
+
+  afterEach(() => server.uninstall());
+
+  it("normalizes entity metadata", async () => {
+    server.respondWith((request) =>
+      request.url.startsWith(`${API}EntityDefinitions(LogicalName='account')`)
+        ? {
+            status: 200,
+            responseText: JSON.stringify({
+              LogicalName: "account",
+              DisplayName: label("Account"),
+              EntitySetName: "accounts",
+              PrimaryIdAttribute: "accountid",
+              PrimaryNameAttribute: "name",
+            }),
+          }
+        : undefined
+    );
+    const metadata = await service.getEntityMetadata("account");
+    expect(metadata).toEqual({
+      logicalName: "account",
+      displayName: "Account",
+      entitySetName: "accounts",
+      primaryIdAttribute: "accountid",
+      primaryNameAttribute: "name",
+    });
+  });
+
+  it("resolves a picklist attribute with options (base + cast query)", async () => {
+    server.respondWith((request) =>
+      request.url.includes("/Attributes(LogicalName='industrycode')?$select=")
+        ? {
+            status: 200,
+            responseText: JSON.stringify({
+              LogicalName: "industrycode",
+              DisplayName: label("Industry"),
+              AttributeTypeName: { Value: "PicklistType" },
+              RequiredLevel: { Value: "None" },
+            }),
+          }
+        : undefined
+    );
+    server.respondWith((request) =>
+      request.url.includes("Microsoft.Dynamics.CRM.PicklistAttributeMetadata")
+        ? {
+            status: 200,
+            responseText: JSON.stringify({
+              OptionSet: {
+                Options: [
+                  { Value: 1, Label: label("Accounting"), Color: "#0000ff" },
+                  { Value: 2, Label: label("Consulting") },
+                ],
+              },
+            }),
+          }
+        : undefined
+    );
+
+    const metadata = await service.getAttributeMetadata("account", "industrycode");
+    expect(metadata.kind).toBe("optionset");
+    expect(metadata.displayName).toBe("Industry");
+    expect(metadata.required).toBe(false);
+    expect(metadata.options).toEqual([
+      { value: 1, label: "Accounting", color: "#0000ff" },
+      { value: 2, label: "Consulting", color: undefined },
+    ]);
+  });
+
+  it("caches attribute metadata (one load per entity.attribute)", async () => {
+    server.respondAlways({
+      status: 200,
+      responseText: JSON.stringify({
+        LogicalName: "name",
+        DisplayName: label("Account Name"),
+        AttributeTypeName: { Value: "StringType" },
+        RequiredLevel: { Value: "ApplicationRequired" },
+        MaxLength: 160,
+      }),
+    });
+    const first = await service.getAttributeMetadata("account", "name");
+    const requestCount = server.requests.length;
+    const second = await service.getAttributeMetadata("account", "name");
+    expect(second).toBe(first);
+    expect(server.requests.length).toBe(requestCount);
+    expect(first.required).toBe(true);
+    expect(first.kind).toBe("text");
+  });
+
+  it("resolves lookup targets", async () => {
+    server.respondWith((request) =>
+      request.url.includes("$select=LogicalName,DisplayName,AttributeTypeName")
+        ? {
+            status: 200,
+            responseText: JSON.stringify({
+              LogicalName: "parentcustomerid",
+              DisplayName: label("Company Name"),
+              AttributeTypeName: { Value: "CustomerType" },
+              RequiredLevel: { Value: "SystemRequired" },
+            }),
+          }
+        : undefined
+    );
+    server.respondWith((request) =>
+      request.url.includes("Microsoft.Dynamics.CRM.LookupAttributeMetadata")
+        ? { status: 200, responseText: JSON.stringify({ Targets: ["account", "contact"] }) }
+        : undefined
+    );
+    const metadata = await service.getAttributeMetadata("contact", "parentcustomerid");
+    expect(metadata.kind).toBe("lookup");
+    expect(metadata.required).toBe(true);
+    expect(metadata.targets).toEqual(["account", "contact"]);
+  });
+
+  it("downgrades DateOnly datetimes to kind 'date'", async () => {
+    server.respondWith((request) =>
+      request.url.includes("$select=LogicalName,DisplayName,AttributeTypeName")
+        ? {
+            status: 200,
+            responseText: JSON.stringify({
+              LogicalName: "birthdate",
+              DisplayName: label("Birthday"),
+              AttributeTypeName: { Value: "DateTimeType" },
+              RequiredLevel: { Value: "None" },
+            }),
+          }
+        : undefined
+    );
+    server.respondWith((request) =>
+      request.url.includes("Microsoft.Dynamics.CRM.DateTimeAttributeMetadata")
+        ? { status: 200, responseText: JSON.stringify({ Format: "DateOnly" }) }
+        : undefined
+    );
+    const metadata = await service.getAttributeMetadata("contact", "birthdate");
+    expect(metadata.kind).toBe("date");
+  });
+
+  it("reads boolean true/false options in false-first order", async () => {
+    server.respondWith((request) =>
+      request.url.includes("$select=LogicalName,DisplayName,AttributeTypeName")
+        ? {
+            status: 200,
+            responseText: JSON.stringify({
+              LogicalName: "donotemail",
+              DisplayName: label("Do Not Email"),
+              AttributeTypeName: { Value: "BooleanType" },
+              RequiredLevel: { Value: "None" },
+            }),
+          }
+        : undefined
+    );
+    server.respondWith((request) =>
+      request.url.includes("Microsoft.Dynamics.CRM.BooleanAttributeMetadata")
+        ? {
+            status: 200,
+            responseText: JSON.stringify({
+              OptionSet: {
+                TrueOption: { Value: 1, Label: label("Do Not Allow") },
+                FalseOption: { Value: 0, Label: label("Allow") },
+              },
+            }),
+          }
+        : undefined
+    );
+    const metadata = await service.getAttributeMetadata("contact", "donotemail");
+    expect(metadata.kind).toBe("boolean");
+    expect(metadata.options).toEqual([
+      { value: 0, label: "Allow", color: undefined },
+      { value: 1, label: "Do Not Allow", color: undefined },
+    ]);
+  });
+
+  it("loads money precision via the cast query", async () => {
+    server.respondWith((request) =>
+      request.url.includes("$select=LogicalName,DisplayName,AttributeTypeName")
+        ? {
+            status: 200,
+            responseText: JSON.stringify({
+              LogicalName: "revenue",
+              DisplayName: label("Annual Revenue"),
+              AttributeTypeName: { Value: "MoneyType" },
+              RequiredLevel: { Value: "None" },
+            }),
+          }
+        : undefined
+    );
+    server.respondWith((request) =>
+      request.url.includes("Microsoft.Dynamics.CRM.MoneyAttributeMetadata")
+        ? { status: 200, responseText: JSON.stringify({ Precision: 2 }) }
+        : undefined
+    );
+    const metadata = await service.getAttributeMetadata("account", "revenue");
+    expect(metadata.kind).toBe("money");
+    expect(metadata.precision).toBe(2);
+  });
+
+  describe("getView (read-only view grid)", () => {
+    const layoutXml =
+      '<grid name="resultset" jump="name" select="1">' +
+      '<row name="result" id="accountid">' +
+      '<cell name="name" width="300" /><cell name="telephone1" width="120" />' +
+      '<cell name="primarycontactid" width="150" /></row></grid>';
+
+    it("loads a view by id and parses layout columns", async () => {
+      server.respondWith((request) =>
+        request.url.includes("savedqueries(11110000-0000-0000-0000-000000000001)")
+          ? {
+              status: 200,
+              responseText: JSON.stringify({
+                savedqueryid: "11110000-0000-0000-0000-000000000001",
+                name: "Active Accounts",
+                returnedtypecode: "account",
+                fetchxml: "<fetch><entity name='account'/></fetch>",
+                layoutxml: layoutXml,
+              }),
+            }
+          : undefined
+      );
+      const view = await service.getView("account", "{11110000-0000-0000-0000-000000000001}");
+      expect(view.name).toBe("Active Accounts");
+      expect(view.columns).toEqual([
+        { name: "name", width: 300 },
+        { name: "telephone1", width: 120 },
+        { name: "primarycontactid", width: 150 },
+      ]);
+    });
+
+    it("falls back to the default grid view when no id is given", async () => {
+      server.respondWith((request) =>
+        request.url.includes("savedqueries?")
+          ? {
+              status: 200,
+              responseText: JSON.stringify({
+                value: [
+                  {
+                    savedqueryid: "22220000-0000-0000-0000-000000000002",
+                    name: "My Active Accounts",
+                    returnedtypecode: "account",
+                    fetchxml: "<fetch/>",
+                    layoutxml: layoutXml,
+                  },
+                ],
+              }),
+            }
+          : undefined
+      );
+      const view = await service.getView("account");
+      expect(view.id).toBe("22220000-0000-0000-0000-000000000002");
+      const url = server.lastRequest.url;
+      expect(url).toContain("querytype eq 0");
+      expect(url).toContain("isdefault eq true");
+    });
+  });
+});
+
+describe("parseLayoutColumns", () => {
+  it("preserves order and defaults width", () => {
+    const columns = parseLayoutColumns('<row><cell name="subject"/><cell name="prioritycode" width="90"/></row>');
+    expect(columns).toEqual([
+      { name: "subject", width: 100 },
+      { name: "prioritycode", width: 90 },
+    ]);
+  });
+
+  it("returns empty for blank layout", () => {
+    expect(parseLayoutColumns("")).toEqual([]);
+  });
+});

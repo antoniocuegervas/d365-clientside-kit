@@ -1,0 +1,331 @@
+import type { CdsClient } from "../data/CdsClient";
+import type {
+  AttributeKind,
+  IAttributeMetadata,
+  IEntityMetadata,
+  IMetadataApi,
+  IViewDefinition,
+} from "../context/IViewModelContext";
+import type { IOptionItem } from "../utils/EntityModel";
+import { normalizeGuid } from "../utils/EntityModel";
+
+/**
+ * MetadataService, cached, context-mediated Dataverse metadata.
+ *
+ * One implementation for all hosts: metadata is read through the same-origin
+ * OData metadata endpoints via cds-client, then normalized to the kit's
+ * IAttributeMetadata shape. Results are cached for the session, metadata is
+ * effectively immutable at runtime.
+ */
+export class MetadataService implements IMetadataApi {
+  private readonly client: CdsClient;
+  private readonly entityCache = new Map<string, Promise<IEntityMetadata>>();
+  private readonly attributeCache = new Map<string, Promise<IAttributeMetadata>>();
+  private readonly viewCache = new Map<string, Promise<IViewDefinition>>();
+
+  constructor(client: CdsClient) {
+    this.client = client;
+  }
+
+  getEntityMetadata(entityLogicalName: string): Promise<IEntityMetadata> {
+    let cached = this.entityCache.get(entityLogicalName);
+    if (!cached) {
+      cached = this.loadEntityMetadata(entityLogicalName);
+      this.entityCache.set(entityLogicalName, cached);
+    }
+    return cached;
+  }
+
+  getAttributeMetadata(
+    entityLogicalName: string,
+    attributeLogicalName: string
+  ): Promise<IAttributeMetadata> {
+    const key = `${entityLogicalName}.${attributeLogicalName}`;
+    let cached = this.attributeCache.get(key);
+    if (!cached) {
+      cached = this.loadAttributeMetadata(entityLogicalName, attributeLogicalName);
+      this.attributeCache.set(key, cached);
+    }
+    return cached;
+  }
+
+  getView(entityLogicalName: string, savedQueryId?: string): Promise<IViewDefinition> {
+    const key = savedQueryId ? normalizeGuid(savedQueryId) : `default:${entityLogicalName}`;
+    let cached = this.viewCache.get(key);
+    if (!cached) {
+      cached = this.loadView(entityLogicalName, savedQueryId);
+      this.viewCache.set(key, cached);
+    }
+    return cached;
+  }
+
+  // ----------------------------------------------------------------- loads
+
+  private async loadEntityMetadata(entityLogicalName: string): Promise<IEntityMetadata> {
+    const raw = await this.client.get(
+      `EntityDefinitions(LogicalName='${entityLogicalName}')` +
+        `?$select=LogicalName,DisplayName,EntitySetName,PrimaryIdAttribute,PrimaryNameAttribute`
+    );
+    return {
+      logicalName: entityLogicalName,
+      displayName: localizedLabel(raw.DisplayName) ?? entityLogicalName,
+      entitySetName: (raw.EntitySetName as string) ?? "",
+      primaryIdAttribute: (raw.PrimaryIdAttribute as string) ?? "",
+      primaryNameAttribute: (raw.PrimaryNameAttribute as string) ?? "",
+    };
+  }
+
+  private async loadAttributeMetadata(
+    entityLogicalName: string,
+    attributeLogicalName: string
+  ): Promise<IAttributeMetadata> {
+    const basePath =
+      `EntityDefinitions(LogicalName='${entityLogicalName}')` +
+      `/Attributes(LogicalName='${attributeLogicalName}')`;
+    const base = await this.client.get(
+      `${basePath}?$select=LogicalName,DisplayName,AttributeTypeName,RequiredLevel`
+    );
+
+    const typeName =
+      ((base.AttributeTypeName as { Value?: string } | undefined)?.Value ?? "").toString();
+    const kind = kindFromTypeName(typeName);
+    const requiredValue =
+      ((base.RequiredLevel as { Value?: string } | undefined)?.Value ?? "None").toString();
+
+    const metadata: IAttributeMetadata = {
+      logicalName: attributeLogicalName,
+      displayName: localizedLabel(base.DisplayName) ?? attributeLogicalName,
+      kind,
+      required: requiredValue === "ApplicationRequired" || requiredValue === "SystemRequired",
+    };
+
+    await this.applyKindSpecifics(basePath, typeName, metadata);
+    return metadata;
+  }
+
+  /** Second, cast-typed query for the details each attribute kind needs. */
+  private async applyKindSpecifics(
+    basePath: string,
+    typeName: string,
+    metadata: IAttributeMetadata
+  ): Promise<void> {
+    switch (metadata.kind) {
+      case "optionset": {
+        const cast = castTypeForOptionSet(typeName);
+        const raw = await this.client.get(`${basePath}/${cast}?$expand=OptionSet,GlobalOptionSet`);
+        metadata.options = readOptions(raw.OptionSet ?? raw.GlobalOptionSet);
+        return;
+      }
+      case "multioptionset": {
+        const raw = await this.client.get(
+          `${basePath}/Microsoft.Dynamics.CRM.MultiSelectPicklistAttributeMetadata` +
+            `?$expand=OptionSet,GlobalOptionSet`
+        );
+        metadata.options = readOptions(raw.OptionSet ?? raw.GlobalOptionSet);
+        return;
+      }
+      case "boolean": {
+        const raw = await this.client.get(
+          `${basePath}/Microsoft.Dynamics.CRM.BooleanAttributeMetadata?$expand=OptionSet`
+        );
+        const optionSet = raw.OptionSet as
+          | { TrueOption?: RawOption; FalseOption?: RawOption }
+          | undefined;
+        const options: IOptionItem[] = [];
+        if (optionSet?.FalseOption) {
+          options.push(readOption(optionSet.FalseOption));
+        }
+        if (optionSet?.TrueOption) {
+          options.push(readOption(optionSet.TrueOption));
+        }
+        metadata.options = options;
+        return;
+      }
+      case "lookup": {
+        const raw = await this.client.get(
+          `${basePath}/Microsoft.Dynamics.CRM.LookupAttributeMetadata?$select=Targets`
+        );
+        metadata.targets = (raw.Targets as string[] | undefined) ?? [];
+        return;
+      }
+      case "datetime": {
+        const raw = await this.client.get(
+          `${basePath}/Microsoft.Dynamics.CRM.DateTimeAttributeMetadata?$select=Format`
+        );
+        if ((raw.Format as string | undefined) === "DateOnly") {
+          metadata.kind = "date";
+        }
+        return;
+      }
+      case "text": {
+        const raw = await this.client.get(
+          `${basePath}/Microsoft.Dynamics.CRM.StringAttributeMetadata?$select=MaxLength`
+        );
+        metadata.maxLength = raw.MaxLength as number | undefined;
+        return;
+      }
+      case "memo": {
+        const raw = await this.client.get(
+          `${basePath}/Microsoft.Dynamics.CRM.MemoAttributeMetadata?$select=MaxLength`
+        );
+        metadata.maxLength = raw.MaxLength as number | undefined;
+        return;
+      }
+      case "integer": {
+        const raw = await this.client.get(
+          `${basePath}/Microsoft.Dynamics.CRM.IntegerAttributeMetadata?$select=MinValue,MaxValue`
+        );
+        metadata.minValue = raw.MinValue as number | undefined;
+        metadata.maxValue = raw.MaxValue as number | undefined;
+        return;
+      }
+      case "decimal": {
+        const raw = await this.client.get(
+          `${basePath}/Microsoft.Dynamics.CRM.DecimalAttributeMetadata` +
+            `?$select=Precision,MinValue,MaxValue`
+        );
+        metadata.precision = raw.Precision as number | undefined;
+        metadata.minValue = raw.MinValue as number | undefined;
+        metadata.maxValue = raw.MaxValue as number | undefined;
+        return;
+      }
+      case "double": {
+        const raw = await this.client.get(
+          `${basePath}/Microsoft.Dynamics.CRM.DoubleAttributeMetadata` +
+            `?$select=Precision,MinValue,MaxValue`
+        );
+        metadata.precision = raw.Precision as number | undefined;
+        metadata.minValue = raw.MinValue as number | undefined;
+        metadata.maxValue = raw.MaxValue as number | undefined;
+        return;
+      }
+      case "money": {
+        const raw = await this.client.get(
+          `${basePath}/Microsoft.Dynamics.CRM.MoneyAttributeMetadata?$select=Precision`
+        );
+        metadata.precision = raw.Precision as number | undefined;
+        return;
+      }
+      default:
+        return; // date / other, nothing extra to load
+    }
+  }
+
+  private async loadView(
+    entityLogicalName: string,
+    savedQueryId?: string
+  ): Promise<IViewDefinition> {
+    const select = "?$select=name,fetchxml,layoutxml,returnedtypecode,savedqueryid";
+    let raw: Record<string, unknown>;
+    if (savedQueryId) {
+      raw = await this.client.retrieveRecord("savedqueries", savedQueryId, select);
+    } else {
+      // Default public grid view for the entity (querytype 0).
+      const result = await this.client.retrieveMultiple(
+        "savedqueries",
+        `${select}&$filter=returnedtypecode eq '${entityLogicalName}' and querytype eq 0 and isdefault eq true&$top=1`
+      );
+      if (result.entities.length === 0) {
+        throw new Error(`No default grid view found for entity '${entityLogicalName}'`);
+      }
+      raw = result.entities[0];
+    }
+    const layoutXml = (raw.layoutxml as string) ?? "";
+    return {
+      id: normalizeGuid((raw.savedqueryid as string) ?? savedQueryId ?? ""),
+      name: (raw.name as string) ?? "",
+      entityLogicalName: (raw.returnedtypecode as string) ?? entityLogicalName,
+      fetchXml: (raw.fetchxml as string) ?? "",
+      layoutXml,
+      columns: parseLayoutColumns(layoutXml),
+    };
+  }
+}
+
+// ------------------------------------------------------------- normalizers
+
+type RawLabel = unknown;
+type RawOption = { Value?: number; Label?: RawLabel; Color?: string };
+
+function localizedLabel(label: RawLabel): string | undefined {
+  const userLabel = (label as { UserLocalizedLabel?: { Label?: string } } | undefined)
+    ?.UserLocalizedLabel?.Label;
+  return userLabel ?? undefined;
+}
+
+function readOption(raw: RawOption): IOptionItem {
+  return {
+    value: raw.Value ?? 0,
+    label: localizedLabel(raw.Label) ?? String(raw.Value ?? ""),
+    color: raw.Color ?? undefined,
+  };
+}
+
+function readOptions(rawOptionSet: unknown): IOptionItem[] {
+  const options = (rawOptionSet as { Options?: RawOption[] } | undefined)?.Options ?? [];
+  return options.map(readOption);
+}
+
+/** Maps Dataverse AttributeTypeName values to the kit's AttributeKind. */
+function kindFromTypeName(typeName: string): AttributeKind {
+  switch (typeName) {
+    case "StringType":
+      return "text";
+    case "MemoType":
+      return "memo";
+    case "PicklistType":
+    case "StateType":
+    case "StatusType":
+      return "optionset";
+    case "MultiSelectPicklistType":
+      return "multioptionset";
+    case "LookupType":
+    case "CustomerType":
+    case "OwnerType":
+      return "lookup";
+    case "DateTimeType":
+      return "datetime";
+    case "IntegerType":
+    case "BigIntType":
+      return "integer";
+    case "DecimalType":
+      return "decimal";
+    case "DoubleType":
+      return "double";
+    case "MoneyType":
+      return "money";
+    case "BooleanType":
+      return "boolean";
+    default:
+      return "other";
+  }
+}
+
+function castTypeForOptionSet(typeName: string): string {
+  switch (typeName) {
+    case "StateType":
+      return "Microsoft.Dynamics.CRM.StateAttributeMetadata";
+    case "StatusType":
+      return "Microsoft.Dynamics.CRM.StatusAttributeMetadata";
+    default:
+      return "Microsoft.Dynamics.CRM.PicklistAttributeMetadata";
+  }
+}
+
+/**
+ * Pulls ordered column names/widths out of a savedquery layoutxml. Regex-based
+ * so it runs identically in browsers, jsdom, and PCF sandboxes.
+ */
+export function parseLayoutColumns(layoutXml: string): Array<{ name: string; width: number }> {
+  const columns: Array<{ name: string; width: number }> = [];
+  const cellPattern = /<cell\b[^>]*>/g;
+  for (const cell of layoutXml.match(cellPattern) ?? []) {
+    const name = /name="([^"]+)"/.exec(cell)?.[1];
+    if (!name || name === "0") {
+      continue;
+    }
+    const width = Number(/width="(\d+)"/.exec(cell)?.[1] ?? 100);
+    columns.push({ name, width });
+  }
+  return columns;
+}

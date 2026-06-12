@@ -34,6 +34,33 @@ export {
 } from "./utils/webResourceParams";
 export * as LibraryUtils from "./utils/LibraryUtils";
 
+// Host abstraction
+export type {
+  IViewModelContext,
+  IWebApi,
+  INavigation,
+  IContextUtils,
+  IFormAccess,
+  IUserInfo,
+  IMetadataApi,
+  IAttributeMetadata,
+  IEntityMetadata,
+  IViewDefinition,
+  AttributeKind,
+} from "./context/IViewModelContext";
+export { WebResourceContext } from "./context/WebResourceContext";
+export { WebResourceContextV8, CdsWebApi, type IXrmV8Like } from "./context/WebResourceContextV8";
+export { PCFContext, type IPcfContextLike } from "./context/PCFContext";
+export {
+  createWebResourceContext,
+  createContextFromXrm,
+  findXrm,
+} from "./context/createWebResourceContext";
+export { XrmPageFormAccess, type IXrmPageLike } from "./context/XrmFormAccess";
+
+// Metadata
+export { MetadataService, parseLayoutColumns } from "./metadata/MetadataService";
+
 // Data access
 export {
   CdsClient,
