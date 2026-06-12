@@ -66,6 +66,50 @@ export {
 // Metadata
 export { MetadataService, parseLayoutColumns } from "./metadata/MetadataService";
 
+// Theme (single D365-aligned Fluent v9 theme module)
+export { d365Theme } from "./theme/d365Theme";
+
+// Presentational controls (CRM-agnostic, values in / events out)
+export type { ICommonFieldProps } from "./controls/presentational/fieldProps";
+export { FieldShell } from "./controls/presentational/FieldShell";
+export { TextField, type ITextFieldProps } from "./controls/presentational/TextField";
+export {
+  MultilineTextField,
+  type IMultilineTextFieldProps,
+} from "./controls/presentational/MultilineTextField";
+export { OptionSetField, type IOptionSetFieldProps } from "./controls/presentational/OptionSetField";
+export {
+  MultiSelectOptionSetField,
+  type IMultiSelectOptionSetFieldProps,
+} from "./controls/presentational/MultiSelectOptionSetField";
+export { BooleanField, type IBooleanFieldProps } from "./controls/presentational/BooleanField";
+export { NumberField, type INumberFieldProps } from "./controls/presentational/NumberField";
+export { CurrencyField, type ICurrencyFieldProps } from "./controls/presentational/CurrencyField";
+export { DateTimeField, type IDateTimeFieldProps } from "./controls/presentational/DateTimeField";
+export { LookupField, type ILookupFieldProps } from "./controls/presentational/LookupField";
+export {
+  MultiLookupField,
+  type IMultiLookupFieldProps,
+} from "./controls/presentational/MultiLookupField";
+export {
+  DataGrid,
+  type IDataGridProps,
+  type IGridColumn,
+  type IGridRow,
+} from "./controls/presentational/DataGrid";
+export {
+  SelectionTree,
+  type ISelectionTreeProps,
+  type ITreeNode,
+} from "./controls/presentational/SelectionTree";
+export {
+  PersonaList,
+  type IPersonaListProps,
+  type IPersonaItem,
+} from "./controls/presentational/PersonaList";
+export { SearchBar, type ISearchBarProps } from "./controls/presentational/SearchBar";
+export { WaitingMessage, type IWaitingMessageProps } from "./controls/presentational/WaitingMessage";
+
 // Data access
 export {
   CdsClient,
