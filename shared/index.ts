@@ -33,3 +33,11 @@ export {
   type IWebResourceParams,
 } from "./utils/webResourceParams";
 export * as LibraryUtils from "./utils/LibraryUtils";
+
+// Data access
+export {
+  CdsClient,
+  CdsClientError,
+  type ICdsClientOptions,
+  type IRetrieveMultipleResult,
+} from "./data/CdsClient";
