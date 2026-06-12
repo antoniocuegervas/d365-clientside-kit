@@ -124,6 +124,18 @@ export { SmartDatePicker, type ISmartDatePickerProps } from "./controls/smart/Sm
 export { SmartLookup, type ISmartLookupProps } from "./controls/smart/SmartLookup";
 export { SmartViewGrid, type ISmartViewGridProps } from "./controls/smart/SmartViewGrid";
 
+// Components (composites)
+export { RecordReady, type IRecordReadyProps } from "./components/RecordReady";
+
+// Queries (reusable FetchXML fragments)
+export {
+  buildFetchXml,
+  condition,
+  containsCondition,
+  escapeXml,
+  type IFetchXmlOptions,
+} from "./queries/fetchXml";
+
 // Data access
 export {
   CdsClient,

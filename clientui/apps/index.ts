@@ -7,4 +7,13 @@
 import "./template/app";
 import "./samples-hub/app";
 
-// --- Samples (registered in Phase 9) ------------------------------------
+// --- Samples: everyday tier (start here) --------------------------------
+import "./sample-company-search/app";
+
+// --- Samples: composition tier ------------------------------------------
+import "./sample-opportunity-search/app";
+import "./sample-territory-cascade/app";
+
+// --- Samples: exotic-data tier (limitation bypass) ------------------------
+import "./sample-merged-grid/app";
+import "./sample-activities-grid/app";
