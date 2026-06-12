@@ -57,6 +57,11 @@ export {
   findXrm,
 } from "./context/createWebResourceContext";
 export { XrmPageFormAccess, type IXrmPageLike } from "./context/XrmFormAccess";
+export {
+  ViewModelContextProvider,
+  ViewModelReactContext,
+  SmartComponent,
+} from "./context/ViewModelContextProvider";
 
 // Metadata
 export { MetadataService, parseLayoutColumns } from "./metadata/MetadataService";
