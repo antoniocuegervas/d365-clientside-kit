@@ -58,3 +58,40 @@ On modern hosts the unified shell opens as a centered dialog at 80% unless an
 explicit pixel size is passed; legacy maps to Xrm.Utility.openWebResource.
 Dialogs are the dominant ribbon-launch UX; full-page navigation remains
 available via a custom call on the raw Xrm if a project needs it.
+
+## D-009 — ClientHook context is created lazily, not at module load
+
+The spec describes hook context "created at module load" with the
+documented constraint that CRM loads libraries before Xrm events fire. We keep
+the same operational contract but instantiate on first use: requiring the UMD
+bundle never throws in test harnesses or eager loaders, and the failure mode
+(no Xrm when a handler actually runs) surfaces at the call that needs it.
+
+## D-010 — No separate composite-components tier in v1
+
+section 2.2 lists a Components area (contact cards, input forms, persona lists…).
+v1 ships the building blocks (PersonaList, SearchBar, DataGrid, RecordReady)
+and lets the sample apps demonstrate composition; promoting recurring sample
+patterns into shared/components/ is the intended growth path. Avoids freezing
+composite APIs before real usage shapes them.
+
+## D-011 — Rich text editor deferred (per spec section 5.4/section 14)
+
+No maintained Fluent v9-compatible rich text editor was adopted. The field
+type is documented as deferred in the component catalog; revisit when a
+candidate integrates cleanly and can be CRM-verified.
+
+## D-012 — Azure Pipelines as the CI definition
+
+section 2 allows ci/ or a root azure-pipelines.yml. D365 delivery teams
+overwhelmingly run Azure DevOps, so the pipeline lives at the conventional
+root path. The steps are plain npm scripts (`npm run verify` decomposed), so
+porting to GitHub Actions is mechanical if a project needs it.
+
+## D-013 — Currency symbol is a prop, not metadata-resolved, in v1
+
+Resolving the true transaction-currency symbol requires the record's
+transactioncurrencyid plus a currency lookup — host-record coupling the v1
+smart tier doesn't have. SmartNumberField/CurrencyField default to "$" with a
+`currencySymbol` override. Revisit alongside a formatting service if symbol
+correctness becomes a real requirement.

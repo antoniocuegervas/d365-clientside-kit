@@ -1,0 +1,67 @@
+# CI for the D365 client-side UI kit.
+# Steps mirror `npm run verify` locally; PCF builds run when shared/ changed
+# (or on manual runs), since PCFs consume shared/ as source.
+
+trigger:
+  branches:
+    include: [main]
+
+pr:
+  branches:
+    include: [main]
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  PUBLISHER_PREFIX: new_
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: "22.x" # LTS line; the kit targets modern evergreen output
+    displayName: Use Node 22
+
+  - script: npm ci
+    displayName: Install main kit dependencies
+
+  - script: npm run lint
+    displayName: Lint (incl. presentational restricted-imports rule)
+
+  - script: npm run typecheck
+    displayName: Typecheck (single TS version, strict)
+
+  - script: npm run build
+    displayName: Build clientui + clienthooks bundles
+
+  - script: npm run test
+    displayName: Unit tests
+
+  - script: npm run smoke
+    displayName: Smoke tests, modern + legacy host mocks against built bundles
+
+  - script: npm run build-storybook
+    displayName: Storybook build (fixture data only)
+
+  - script: |
+      set -e
+      if [ "$(Build.Reason)" = "Manual" ]; then
+        CHANGED=1
+      else
+        git fetch origin main --depth=50 || true
+        CHANGED=$(git diff --name-only origin/main...HEAD -- shared/ pcfs/ | wc -l)
+      fi
+      if [ "$CHANGED" -gt 0 ]; then
+        echo "shared/ or pcfs/ changed, building all sample PCFs (conditional gate)"
+        for pcf in pcfs/*/; do
+          echo "=== $pcf"
+          (cd "$pcf" && npm ci && npm run build)
+        done
+      else
+        echo "No shared/ or pcfs/ changes, skipping PCF builds"
+      fi
+    displayName: Conditional PCF builds when shared/ changes
+
+  - publish: dist
+    artifact: webresources
+    displayName: Publish webresource artifacts
