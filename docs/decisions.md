@@ -95,3 +95,82 @@ transactioncurrencyid plus a currency lookup — host-record coupling the v1
 smart tier doesn't have. SmartNumberField/CurrencyField default to "$" with a
 `currencySymbol` override. Revisit alongside a formatting service if symbol
 correctness becomes a real requirement.
+
+**Superseded by D-016** — the next phase will resolve the symbol per record.
+
+---
+
+# Phase 2 decisions — capability review review
+
+The following were settled during a capability review of the kit. These
+entries capture the binding choices and their rationale; the gap IDs
+(G-xx / OD-x) are internal labels for that review.
+
+## D-014 — Host context adopts "option B": an Xrm-mirrored kit interface
+
+Reverses the v1 narrow-interface choice (recorded as F-02 "diverge"). Three
+shapes were weighed: (A) raw `Xrm.WebApi | ComponentFramework.WebApi`
+passthrough as in the predecessor — maximal familiarity but cast-based,
+drift-prone test mocks and a full `Xrm.Navigation` emulation burden on V8;
+(C) the current minimal kit-invented interface — smallest mock and V8 adapter
+but unfamiliar to CRM devs; (B) a kit-*owned* interface whose method names and
+signatures *mirror* `Xrm.WebApi`/`Xrm.Navigation`. B was chosen: call sites
+read like the Xrm docs (the zero-training familiarity that is the whole point),
+while the fake context stays cast-free and
+compiler-checked (testability preserved). V8 fidelity becomes a per-method
+dial; return shapes lean Xrm-faithful (callers extract with LibraryUtils
+helpers they already know). The normalized MetadataService (D-007) and
+execute-over-cds-client are kept regardless of shape. Implementation = G-17,
+scheduled first because the other context-touching gaps (G-02/G-06/G-08) should
+be added in B-shape once rather than built against C and reshaped. Revisit only
+if the mirrored signatures prove a poor fit in practice.
+
+## D-015 — Smart option set keeps internal options + `filterOptions` (not host-owned `values`)
+
+The legacy `OptionSetComponent` exposed a host-owned `values` observable that
+the control wrote the option list into (the spec section 4.2 exemplar). The rebuild's
+`SmartOptionSet` keeps options internal and offers a `filterOptions`
+interceptor instead. Kept the rebuild's shape: it leaves the source observable
+pristine and derives per-control views via `filterOptions`, which resolves the
+legacy "full list + manipulated list = two observables" pain rather than
+reproducing it. No opt-in host-owned `options` prop is added to the smart tier;
+section 4.2 host-owned-values parity remains available one tier down (the
+presentational `OptionSetField` already accepts an options Observable) for the
+rare caller that needs it. Note the data-semantics trap for anyone porting
+legacy ViewModels: blank/no-selection is `null` here, was `-1` in legacy.
+
+## D-016 — Currency symbol will be resolved per record (supersedes D-013)
+
+D-013's hardcoded `$` default was an original-kit miss the owner wants fixed.
+The next phase resolves the symbol from the record's `transactioncurrencyid`
+→ `transactioncurrency.currencysymbol` (cached per currency; org base currency
+or an explicit prop as fallback), supplied to CurrencyField/SmartNumberField
+via the existing `currencySymbol` prop. Implementation = G-06b, built in the
+same pass as the locale work (G-06) since both touch the numeric controls.
+Symbol *position/spacing* (locale-dependent) stays out until it surfaces.
+
+## D-017 — Testing posture: Storybook stays the presentational contract; per-control unit tests deferred
+
+Confirms the v1 posture (OD-4). Presentational controls are covered by
+Storybook stories (fixture data) plus the contract/smoke suites; per-control
+RTL unit tests are deliberately deferred until after real in-CRM testing,
+because controls may change significantly once exercised in a live org.
+Backfilling them earlier is low-value churn. Add RTL only where a control has
+genuine logic (e.g. NumberField parsing) before then.
+
+## D-018 — Publisher prefix `new_` confirmed, stays configurable
+
+`new_` is the default; it remains driven by `PUBLISHER_PREFIX` so a project or
+org can change it without a code edit. No hardcoding.
+
+## D-019 — Next-phase scope and ordering recorded in the capability review
+
+The Phase-2 build plan (waves, priorities, and per-gap behavioral specs) was
+recorded during the capability review, not duplicated here. Key
+sequencing decisions: G-17 (context → option B) leads; G-06 (locale/user-settings
+on the context) is the keystone built second because date/number/view-name
+localization all depend on it; lookups ship as one piece (G-02 inline+dialog
+folded with G-03 view-driven search + G-10 icons, per OD-3). Items explicitly
+parked with revisit triggers: rich text (D-011/G-12), localized sample content
+(G-14). Production-specific legacy code (a third-party integration, a contact-list, the ten
+production PCFs, hooks) stays excluded per spec section 14.
