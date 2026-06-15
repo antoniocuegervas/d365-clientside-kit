@@ -52,7 +52,7 @@ export class WebResourceContextV8 implements IViewModelContext {
   readonly utils: IContextUtils;
   readonly formAccess?: IFormAccess;
 
-  constructor(xrm: IXrmV8Like) {
+  constructor(xrm: IXrmV8Like, formPage?: IXrmPageLike) {
     const pageContext = xrm.Page.context;
     this.clientUrl = pageContext.getClientUrl();
     this.user = {
@@ -69,8 +69,11 @@ export class WebResourceContextV8 implements IViewModelContext {
       alert: (message: string) => void this.navigation.openAlertDialog(message),
     };
 
-    if (XrmPageFormAccess.hasForm(xrm.Page)) {
-      this.formAccess = new XrmPageFormAccess(xrm.Page);
+    // Form access binds to the deepest ancestor form when the factory found
+    // one (G-09); otherwise this host's own Page.
+    const page = formPage ?? xrm.Page;
+    if (XrmPageFormAccess.hasForm(page)) {
+      this.formAccess = new XrmPageFormAccess(page);
     }
   }
 }

@@ -33,6 +33,45 @@ describe("createWebResourceContext factory", () => {
     const fakeWindow = { Xrm: undefined, parent: null } as unknown as Window;
     expect(() => createWebResourceContext(fakeWindow)).toThrow(/Xrm is not available/);
   });
+
+  it("walks past multiple ancestor frames to find Xrm (G-09 deep nesting)", () => {
+    const { xrm } = createModernXrmMock();
+    // self -> dialog frame -> form frame (carries Xrm) -> top
+    const top = { Xrm: xrm } as unknown as Window;
+    (top as unknown as { parent: Window }).parent = top; // top is its own parent
+    const dialogFrame = { Xrm: undefined, parent: top } as unknown as Window;
+    const self = { Xrm: undefined, parent: dialogFrame } as unknown as Window;
+    expect(findXrm(self)).toBe(xrm);
+    expect(createWebResourceContext(self)).toBeInstanceOf(WebResourceContext);
+  });
+
+  it("prefers a modern Xrm over a legacy one found deeper in the walk", () => {
+    const modern = createModernXrmMock().xrm;
+    const legacy = createV8XrmMock().xrm;
+    // self carries the legacy Xrm; an ancestor carries the modern one.
+    const top = { Xrm: modern } as unknown as Window;
+    (top as unknown as { parent: Window }).parent = top;
+    const self = { Xrm: legacy, parent: top } as unknown as Window;
+    expect(findXrm(self)).toBe(modern);
+  });
+
+  it("binds formAccess to the deepest ancestor form (G-09)", () => {
+    // The hosting form is two frames up; the standalone Xrm in between has none.
+    const formHost = createModernXrmMock({
+      formRecord: {
+        id: "ddd00000-0000-0000-0000-000000000009",
+        entityName: "opportunity",
+        attributes: { name: "Deep Deal" },
+      },
+    }).xrm;
+    const top = { Xrm: formHost } as unknown as Window;
+    (top as unknown as { parent: Window }).parent = top;
+    const self = { Xrm: undefined, parent: top } as unknown as Window;
+    const context = createWebResourceContext(self);
+    expect(context.formAccess).toBeDefined();
+    expect(context.formAccess!.getEntityName()).toBe("opportunity");
+    expect(context.formAccess!.getAttributeValue("name")).toBe("Deep Deal");
+  });
 });
 
 describe("WebResourceContext (modern)", () => {

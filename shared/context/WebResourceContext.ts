@@ -28,7 +28,7 @@ export class WebResourceContext implements IViewModelContext {
   readonly utils: IContextUtils;
   readonly formAccess?: IFormAccess;
 
-  constructor(xrm: Xrm.XrmStatic) {
+  constructor(xrm: Xrm.XrmStatic, formPage?: IXrmPageLike) {
     const globalContext = xrm.Utility.getGlobalContext();
     this.clientUrl = globalContext.getClientUrl();
     this.user = {
@@ -45,8 +45,9 @@ export class WebResourceContext implements IViewModelContext {
     };
 
     // Webresources hosted on a form can reach the record through Xrm.Page
-    // (deprecated but functional in UCI). Exposed only when a form is there.
-    const page = (xrm as unknown as { Page?: IXrmPageLike }).Page;
+    // (deprecated but functional in UCI). `formPage` is the deepest ancestor
+    // form resolved by the factory (G-09); fall back to this Xrm's own Page.
+    const page = formPage ?? (xrm as unknown as { Page?: IXrmPageLike }).Page;
     if (XrmPageFormAccess.hasForm(page)) {
       this.formAccess = new XrmPageFormAccess(page);
     }
