@@ -269,6 +269,59 @@ describe("MetadataService", () => {
       expect(url).toContain("isdefault eq true");
     });
   });
+
+  describe("getViewByName (G-05)", () => {
+    const layoutXml =
+      '<grid><row id="accountid"><cell name="name" width="300" /></row></grid>';
+
+    it("resolves a view by name with the active-state filter", async () => {
+      server.respondWith((request) =>
+        request.url.includes("savedqueries?")
+          ? {
+              status: 200,
+              responseText: JSON.stringify({
+                value: [
+                  {
+                    savedqueryid: "33330000-0000-0000-0000-000000000003",
+                    name: "Hot Accounts",
+                    returnedtypecode: "account",
+                    fetchxml: "<fetch/>",
+                    layoutxml: layoutXml,
+                  },
+                ],
+              }),
+            }
+          : undefined
+      );
+      const view = await service.getViewByName("account", "Hot Accounts");
+      expect(view.id).toBe("33330000-0000-0000-0000-000000000003");
+      expect(view.columns).toEqual([{ name: "name", width: 300 }]);
+      const url = decodeURIComponent(server.lastRequest.url);
+      expect(url).toContain("name eq 'Hot Accounts'");
+      expect(url).toContain("returnedtypecode eq 'account'");
+      expect(url).toContain("statecode eq 0");
+    });
+
+    it("throws when no active view matches the name", async () => {
+      server.respondAlways({ status: 200, responseText: JSON.stringify({ value: [] }) });
+      await expect(service.getViewByName("account", "Nope")).rejects.toThrow(
+        /No active view named 'Nope'/
+      );
+    });
+
+    it("throws when the name is ambiguous", async () => {
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({
+          value: [
+            { savedqueryid: "1", name: "Dup", returnedtypecode: "account", layoutxml: "" },
+            { savedqueryid: "2", name: "Dup", returnedtypecode: "account", layoutxml: "" },
+          ],
+        }),
+      });
+      await expect(service.getViewByName("account", "Dup")).rejects.toThrow(/Ambiguous view name/);
+    });
+  });
 });
 
 describe("parseLayoutColumns", () => {

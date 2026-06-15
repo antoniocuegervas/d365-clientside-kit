@@ -135,6 +135,10 @@ export {
   escapeXml,
   type IFetchXmlOptions,
 } from "./queries/fetchXml";
+export {
+  getConfigurationParameter,
+  type IConfigurationParameterOptions,
+} from "./queries/configuration";
 
 // Data access
 export {

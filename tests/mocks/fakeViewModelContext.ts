@@ -127,6 +127,20 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
           ...overrides,
         };
       },
+      getViewByName: async (entity, viewName) => {
+        record("getViewByName", entity, viewName);
+        await maybeDelay();
+        const overrides = options.views?.[`name:${entity}:${viewName}`] ?? {};
+        return {
+          id: "00000000-0000-0000-0000-0000000000dd",
+          name: viewName,
+          entityLogicalName: entity,
+          fetchXml: `<fetch><entity name='${entity}'/></fetch>`,
+          layoutXml: "",
+          columns: [],
+          ...overrides,
+        };
+      },
     },
     navigation: {
       openForm: async (...args) => {

@@ -158,4 +158,11 @@ export interface IMetadataApi {
   ): Promise<IAttributeMetadata>;
   /** Loads a saved view by id, or the entity's default grid view when omitted. */
   getView(entityLogicalName: string, savedQueryId?: string): Promise<IViewDefinition>;
+  /**
+   * Resolves a saved (system) view by its display name for an entity (G-05).
+   * Throws a readable error when no active view matches or the name is
+   * ambiguous. The near-universal "open this named view in a webresource"
+   * pattern that avoids hardcoding savedquery ids.
+   */
+  getViewByName(entityLogicalName: string, viewName: string): Promise<IViewDefinition>;
 }

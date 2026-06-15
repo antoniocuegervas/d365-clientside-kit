@@ -8,6 +8,7 @@ import type {
 } from "../context/IViewModelContext";
 import type { IOptionItem } from "../utils/EntityModel";
 import { normalizeGuid } from "../utils/EntityModel";
+import { escapeODataString } from "../utils/odata";
 
 /**
  * MetadataService, cached, context-mediated Dataverse metadata.
@@ -54,6 +55,16 @@ export class MetadataService implements IMetadataApi {
     let cached = this.viewCache.get(key);
     if (!cached) {
       cached = this.loadView(entityLogicalName, savedQueryId);
+      this.viewCache.set(key, cached);
+    }
+    return cached;
+  }
+
+  getViewByName(entityLogicalName: string, viewName: string): Promise<IViewDefinition> {
+    const key = `name:${entityLogicalName}:${viewName}`;
+    let cached = this.viewCache.get(key);
+    if (!cached) {
+      cached = this.loadViewByName(entityLogicalName, viewName);
       this.viewCache.set(key, cached);
     }
     return cached;
@@ -231,16 +242,50 @@ export class MetadataService implements IMetadataApi {
       }
       raw = result.entities[0];
     }
-    const layoutXml = (raw.layoutxml as string) ?? "";
-    return {
-      id: normalizeGuid((raw.savedqueryid as string) ?? savedQueryId ?? ""),
-      name: (raw.name as string) ?? "",
-      entityLogicalName: (raw.returnedtypecode as string) ?? entityLogicalName,
-      fetchXml: (raw.fetchxml as string) ?? "",
-      layoutXml,
-      columns: parseLayoutColumns(layoutXml),
-    };
+    return toViewDefinition(raw, entityLogicalName, savedQueryId);
   }
+
+  /**
+   * Resolves a system view by display name (G-05). Proven query shape: filter
+   * savedqueries on name + returnedtypecode + active state; expect exactly one.
+   */
+  private async loadViewByName(
+    entityLogicalName: string,
+    viewName: string
+  ): Promise<IViewDefinition> {
+    const select = "$select=name,fetchxml,layoutxml,returnedtypecode,savedqueryid";
+    const filter =
+      `$filter=name eq '${escapeODataString(viewName)}' and ` +
+      `returnedtypecode eq '${entityLogicalName}' and statecode eq 0`;
+    const result = await this.client.retrieveMultiple("savedqueries", `?${select}&${filter}`);
+    if (result.entities.length === 0) {
+      throw new Error(`No active view named '${viewName}' found for entity '${entityLogicalName}'`);
+    }
+    if (result.entities.length > 1) {
+      throw new Error(
+        `Ambiguous view name '${viewName}' for entity '${entityLogicalName}' ` +
+          `(${result.entities.length} matches)`
+      );
+    }
+    return toViewDefinition(result.entities[0], entityLogicalName);
+  }
+}
+
+/** Normalizes a raw savedquery record into the kit's IViewDefinition. */
+function toViewDefinition(
+  raw: Record<string, unknown>,
+  fallbackEntity: string,
+  fallbackId?: string
+): IViewDefinition {
+  const layoutXml = (raw.layoutxml as string) ?? "";
+  return {
+    id: normalizeGuid((raw.savedqueryid as string) ?? fallbackId ?? ""),
+    name: (raw.name as string) ?? "",
+    entityLogicalName: (raw.returnedtypecode as string) ?? fallbackEntity,
+    fetchXml: (raw.fetchxml as string) ?? "",
+    layoutXml,
+    columns: parseLayoutColumns(layoutXml),
+  };
 }
 
 // ------------------------------------------------------------- normalizers
