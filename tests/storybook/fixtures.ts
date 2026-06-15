@@ -18,6 +18,26 @@ export const industryOptions: IOptionItem[] = [
   { value: 7, label: "Consumer Services" },
 ];
 
+export const ratingOptions: IOptionItem[] = [
+  { value: 1, label: "Hot" },
+  { value: 2, label: "Warm" },
+  { value: 3, label: "Cold" },
+];
+
+export const contactMethodOptions: IOptionItem[] = [
+  { value: 1, label: "Any" },
+  { value: 2, label: "Email" },
+  { value: 3, label: "Phone" },
+  { value: 4, label: "Fax" },
+  { value: 5, label: "Mail" },
+];
+
+export const territoryRefs: IEntityReference[] = [
+  { id: "71700000-0000-0000-0000-000000000001", logicalName: "territory", name: "EMEA" },
+  { id: "71700000-0000-0000-0000-000000000002", logicalName: "territory", name: "Americas" },
+  { id: "71700000-0000-0000-0000-000000000003", logicalName: "territory", name: "APAC" },
+];
+
 export const accountRefs: IEntityReference[] = [
   { id: "a1a00000-0000-0000-0000-000000000001", logicalName: "account", name: "Contoso Ltd" },
   { id: "a1a00000-0000-0000-0000-000000000002", logicalName: "account", name: "Fabrikam Inc" },
