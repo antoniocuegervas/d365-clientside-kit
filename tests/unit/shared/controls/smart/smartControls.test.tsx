@@ -253,15 +253,27 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(selected).toEqual(["a1a00000-0000-0000-0000-000000000001"]);
   });
 
+  it("runs the saved view by id via ?savedQuery= (T-01)", async () => {
+    const { context, calls } = createFakeViewModelContext(viewSetup);
+    renderWith(context, <SmartViewGrid entity="account" />);
+    await screen.findByText("Contoso Ltd");
+    const query = calls.find((c) => c.api === "retrieveMultipleRecords");
+    expect(query).toBeDefined();
+    expect(query!.args[0]).toBe("account");
+    expect(String(query!.args[1])).toContain("?savedQuery=");
+  });
+
   it("re-runs the query when the refresh event fires (code-level refresh)", async () => {
     const { context, calls } = createFakeViewModelContext(viewSetup);
     const refresh = new ObservableEvent<void>();
     renderWith(context, <SmartViewGrid entity="account" refresh={refresh} />);
     await screen.findByText("Contoso Ltd");
-    const fetchesBefore = calls.filter((c) => c.api === "fetch").length;
+    const queriesBefore = calls.filter((c) => c.api === "retrieveMultipleRecords").length;
     React.act(() => refresh.publish());
     await waitFor(() => {
-      expect(calls.filter((c) => c.api === "fetch").length).toBe(fetchesBefore + 1);
+      expect(calls.filter((c) => c.api === "retrieveMultipleRecords").length).toBe(
+        queriesBefore + 1
+      );
     });
   });
 });

@@ -92,6 +92,19 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     );
   }
 
+  /**
+   * Query options for the view's data (T-01). The grid runs the saved view by
+   * id via `?savedQuery={id}`, which executes the view's own columns/joins/
+   * filters server-side; quick find, declarative filters, and server `$orderby`
+   * (G-01) layer on top as additional OData options. Layout still comes from
+   * the view's layoutxml (resolved into `view.columns`), `savedQuery=` governs
+   * data, not presentation. The `?fetchXml=` path is reserved for the future
+   * `overrideFetchXml` mode where the host supplies the query.
+   */
+  private buildQueryOptions(view: IViewDefinition): string {
+    return `?savedQuery=${view.id}`;
+  }
+
   private async loadRows(): Promise<void> {
     const view = this.view;
     if (!view) {
@@ -99,7 +112,10 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     }
     this.loading.value = true;
     try {
-      const result = await this.vmContext.webAPI.fetch(view.entityLogicalName, view.fetchXml);
+      const result = await this.vmContext.webAPI.retrieveMultipleRecords(
+        view.entityLogicalName,
+        this.buildQueryOptions(view)
+      );
       if (this.isDisposed) {
         return;
       }
