@@ -29,6 +29,7 @@ import {
   type ISmartViewGridFilter,
   type ISortSpec,
 } from "./viewGridQuery";
+import { addRootFilter, setFetchPaging, setRootOrder, type IFetchCondition } from "./fetchXmlPaging";
 
 export type { ISmartViewGridFilter, ISortSpec } from "./viewGridQuery";
 
@@ -61,11 +62,34 @@ export interface ISmartViewGridProps {
    */
   columnOverrides?: Record<string, IDynamicColumnSpec>;
   /**
-   * Page size (G-01). When set, the grid pages server-side (`$top` + nextLink)
-   * and shows a Pagination control. Visited pages are cached so "previous" is
-   * instant. Omit for the whole result set in one query.
+   * Page size (G-01). When set, the grid pages server-side and shows a
+   * Pagination control. Omit for the whole result set in one query.
    */
   pageSize?: number;
+  /**
+   * Paging mode (N-04). `"simple"` (default) is forward-cookie next/prev over
+   * `@odata.nextLink`, visited pages cached so "previous" is instant.
+   * `"rich"` enables jump-to-any-page, first/last, and a total count via
+   * FetchXML `page`/`count` (the only server-side random-page mechanism in
+   * Dataverse). Requires `pageSize`.
+   */
+  pagination?: "simple" | "rich";
+  /**
+   * Raised on every page change (N-04). For the `overrideFetchXml` + rich case
+   * the grid is controlled: it raises this and the host re-supplies that page's
+   * FetchXML (host owns the `page`/`count` injection).
+   */
+  onPageChange?: (pageNumber: number) => void;
+  /**
+   * Host-supplied total page count (N-04), for the `overrideFetchXml` + rich
+   * case where the grid can't compute it. Null when unknown (degrades to
+   * next/prev). Ignored for the saved-view path (the grid computes it).
+   */
+  pageCount?: Observable<number | null>;
+  /** Host-supplied total record count (N-04), for the "X–Y of N" label in override mode. */
+  totalRecordCount?: Observable<number | null>;
+  /** Host-owned current page (N-04), the grid writes its page changes here. */
+  currentPage?: Observable<number>;
   /**
    * Override mode (G-01): when this holds a FetchXML string, the host supplies
    * the query while the view still supplies the layout, the canonical
@@ -109,6 +133,9 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   private readonly loading = new Observable<boolean>(true);
   private readonly page = new Observable<number>(1);
   private readonly hasNextPage = new Observable<boolean>(false);
+  /** Rich-mode total page count / record count (null = unknown). */
+  private readonly pageCountObs = new Observable<number | null>(null);
+  private readonly totalCountObs = new Observable<number | null>(null);
   /** Cache of visited pages (1-based) and the nextLink that follows each. */
   private readonly pageRows = new Map<number, IGridRow[]>();
   private readonly pageNextLink = new Map<number, string | undefined>();
@@ -140,7 +167,25 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     this.track(this.props.overrideFetchXml?.subscribe(reload));
     // Quick find fires per keystroke, debounce the re-query.
     this.track(this.props.quickFind?.subscribe(() => this.scheduleQuickFindReload()));
+    // Rich override mode: mirror host-supplied totals into the grid's observables.
+    if (this.props.pageCount) {
+      this.pageCountObs.value = this.props.pageCount.value;
+      this.track(this.props.pageCount.subscribe((value) => (this.pageCountObs.value = value)));
+    }
+    if (this.props.totalRecordCount) {
+      this.totalCountObs.value = this.props.totalRecordCount.value;
+      this.track(this.props.totalRecordCount.subscribe((value) => (this.totalCountObs.value = value)));
+    }
     void this.initialize();
+  }
+
+  private richMode(): boolean {
+    return this.props.pagination === "rich" && !!this.props.pageSize;
+  }
+
+  /** Rich paging the grid drives itself (saved view, no host override). */
+  private isRichSavedView(): boolean {
+    return this.richMode() && !this.props.overrideFetchXml;
   }
 
   override componentWillUnmount(): void {
@@ -350,6 +395,12 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     if (!view) {
       return;
     }
+    // Rich saved-view paging is page-driven via FetchXML (N-04), load page 1
+    // and request the total once.
+    if (this.isRichSavedView()) {
+      await this.loadRichPage(1, true);
+      return;
+    }
     this.loading.value = true;
     try {
       const override = this.props.overrideFetchXml?.value;
@@ -363,9 +414,11 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         return;
       }
       const rows = this.mapRows(view, result.entities);
-      this.pageRows.clear();
-      this.pageNextLink.clear();
-      if (this.props.pageSize) {
+      // Simple forward-cookie paging cache (not rich, rich is page-driven and
+      // host-controlled in the override case).
+      if (this.props.pageSize && !this.richMode()) {
+        this.pageRows.clear();
+        this.pageNextLink.clear();
         this.pageRows.set(1, rows);
         this.pageNextLink.set(1, result.nextLink);
         this.page.value = 1;
@@ -376,6 +429,109 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       if (!this.isDisposed) {
         this.loading.value = false;
       }
+    }
+  }
+
+  /** Composes the rich-mode FetchXML: view query + filters/quick-find/sort (N-04). */
+  private buildRichFetchXml(view: IViewDefinition): string {
+    let fetch = view.fetchXml;
+    // Declarative filters → one AND filter (root attributes only).
+    const filters: IFetchCondition[] = (this.props.filters?.value ?? [])
+      .filter((filter) => filter.value !== null && filter.value !== undefined)
+      .map((filter) => ({
+        attribute: filter.attribute,
+        operator: filter.operator ?? "eq",
+        value: filter.value as string | number | boolean,
+      }));
+    if (filters.length > 0) {
+      fetch = addRootFilter(fetch, filters, "and");
+    }
+    // Quick find → one OR filter of `like` conditions across the search fields.
+    const text = this.props.quickFind?.value?.trim();
+    if (text) {
+      const conditions: IFetchCondition[] = this.effectiveQuickFindFields().map((field) => ({
+        attribute: field,
+        operator: "like",
+        value: `%${text}%`,
+      }));
+      if (conditions.length > 0) {
+        fetch = addRootFilter(fetch, conditions, "or");
+      }
+    }
+    // Server sort.
+    const orderBy = this.props.orderBy?.value;
+    if (orderBy) {
+      fetch = setRootOrder(fetch, orderBy.attribute, !!orderBy.descending);
+    }
+    return fetch;
+  }
+
+  /** Fetches a specific page via FetchXML `page`/`count` (rich saved-view path). */
+  private async loadRichPage(target: number, requestTotal: boolean): Promise<void> {
+    const view = this.view;
+    if (!view || target < 1) {
+      return;
+    }
+    this.loading.value = true;
+    try {
+      const paged = setFetchPaging(this.buildRichFetchXml(view), {
+        page: target,
+        count: this.props.pageSize!,
+        returnTotalRecordCount: requestTotal,
+      });
+      const result = await this.vmContext.webAPI.fetchPage(view.entityLogicalName, paged);
+      if (this.isDisposed) {
+        return;
+      }
+      this.rows.value = this.mapRows(view, result.entities);
+      this.page.value = target;
+      this.syncCurrentPage(target);
+      if (requestTotal) {
+        if (typeof result.totalRecordCount === "number" && !result.totalRecordCountLimitExceeded) {
+          this.totalCountObs.value = result.totalRecordCount;
+          this.pageCountObs.value = Math.max(
+            1,
+            Math.ceil(result.totalRecordCount / this.props.pageSize!)
+          );
+        } else {
+          // Unknown/over-cap total, degrade to next/prev via moreRecords.
+          this.totalCountObs.value = null;
+          this.pageCountObs.value = null;
+        }
+      }
+      this.hasNextPage.value =
+        result.moreRecords ??
+        (typeof this.pageCountObs.value === "number" ? target < this.pageCountObs.value : false);
+    } finally {
+      if (!this.isDisposed) {
+        this.loading.value = false;
+      }
+    }
+  }
+
+  /** Jump to a page (rich): saved-view fetches it; override mode hands off to the host. */
+  private readonly goToPage = async (target: number): Promise<void> => {
+    if (!this.view || target < 1) {
+      return;
+    }
+    const pageCount = this.pageCountObs.value;
+    if (typeof pageCount === "number" && target > pageCount) {
+      return;
+    }
+    if (this.isRichSavedView()) {
+      await this.loadRichPage(target, false);
+    } else {
+      // Override + rich: the grid is controlled, track the page and let the
+      // host re-supply the rows via overrideFetchXml.
+      this.page.value = target;
+      this.syncCurrentPage(target);
+    }
+    this.props.onPageChange?.(target);
+  };
+
+  private syncCurrentPage(page: number): void {
+    if (this.props.currentPage && this.props.currentPage.value !== page) {
+      this.props.currentPage.value = page;
     }
   }
 
@@ -493,13 +649,29 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
           sortState={sort ? { columnKey: sort.attribute, descending: !!sort.descending } : null}
         />
         {this.props.pageSize ? (
-          <Pagination
-            page={this.page}
-            hasNextPage={this.hasNextPage}
-            onPrevious={this.goPrevious}
-            onNext={() => void this.goNext()}
-            disabled={this.loading}
-          />
+          this.richMode() ? (
+            <Pagination
+              page={this.page}
+              pageCount={this.pageCountObs}
+              totalRecordCount={this.totalCountObs}
+              pageSize={this.props.pageSize}
+              hasNextPage={this.hasNextPage}
+              onFirst={() => void this.goToPage(1)}
+              onPrevious={() => void this.goToPage(this.page.value - 1)}
+              onNext={() => void this.goToPage(this.page.value + 1)}
+              onLast={() => void this.goToPage(this.pageCountObs.value ?? this.page.value)}
+              onGoToPage={(pageNumber) => void this.goToPage(pageNumber)}
+              disabled={this.loading}
+            />
+          ) : (
+            <Pagination
+              page={this.page}
+              hasNextPage={this.hasNextPage}
+              onPrevious={this.goPrevious}
+              onNext={() => void this.goNext()}
+              disabled={this.loading}
+            />
+          )
         ) : null}
       </>
     );

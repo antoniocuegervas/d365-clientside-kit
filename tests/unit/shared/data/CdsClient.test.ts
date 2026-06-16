@@ -95,6 +95,38 @@ describe("CdsClient", () => {
       expect(result.entities).toHaveLength(2);
       expect(result.nextLink).toContain("$skiptoken=x");
     });
+
+    it("surfaces FetchXML paging annotations (total, more-records, cookie), N-04", async () => {
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({
+          value: [{ name: "A" }],
+          "@Microsoft.Dynamics.CRM.totalrecordcount": 42,
+          "@Microsoft.Dynamics.CRM.totalrecordcountlimitexceeded": false,
+          "@Microsoft.Dynamics.CRM.morerecords": true,
+          "@Microsoft.Dynamics.CRM.fetchxmlpagingcookie": "<cookie/>",
+        }),
+      });
+      const result = await makeClient().fetch("accounts", "<fetch><entity name='account'/></fetch>");
+      expect(result.totalRecordCount).toBe(42);
+      expect(result.totalRecordCountLimitExceeded).toBeFalsy();
+      expect(result.moreRecords).toBe(true);
+      expect(result.pagingCookie).toBe("<cookie/>");
+    });
+
+    it("flags an over-cap total and ignores the -1 sentinel, N-04", async () => {
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({
+          value: [],
+          "@Microsoft.Dynamics.CRM.totalrecordcount": -1,
+          "@Microsoft.Dynamics.CRM.totalrecordcountlimitexceeded": true,
+        }),
+      });
+      const result = await makeClient().retrieveMultiple("accounts");
+      expect(result.totalRecordCount).toBeUndefined();
+      expect(result.totalRecordCountLimitExceeded).toBe(true);
+    });
   });
 
   describe("FetchXML", () => {

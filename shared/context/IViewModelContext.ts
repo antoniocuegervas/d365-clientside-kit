@@ -112,6 +112,13 @@ export interface IWebApi {
   /** Convenience for the kit's dominant query path: plain FetchXML in. */
   fetch(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult>;
   /**
+   * FetchXML query that surfaces the paging annotations (N-04), total record
+   * count, more-records, paging cookie. Rides cds-client on every host (Xrm.WebApi
+   * drops these annotations), so rich server-side `page`/`count` paging works
+   * uniformly. Use for jump-to-page / total-count; `fetch` stays the plain path.
+   */
+  fetchPage(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult>;
+  /**
    * Follows an `@odata.nextLink` (a full collection URL) for server-side paging
    * (G-01). Dataverse paging is forward-cookie based; rides cds-client on every
    * host so an absolute nextLink can be re-issued (Xrm.WebApi can't take one).

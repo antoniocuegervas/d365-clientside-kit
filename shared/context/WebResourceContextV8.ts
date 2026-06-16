@@ -146,6 +146,11 @@ export class CdsWebApi implements IWebApi {
     return this.client.fetch(entitySetName(entityLogicalName), fetchXml);
   }
 
+  fetchPage(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {
+    // Already cds-backed; the parsed annotations carry the paging info (N-04).
+    return this.client.fetch(entitySetName(entityLogicalName), fetchXml);
+  }
+
   retrieveMultipleByUrl(url: string): Promise<IRetrieveMultipleResult> {
     return this.client.retrieveMultipleByUrl(url);
   }

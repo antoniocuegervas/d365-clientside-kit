@@ -191,6 +191,31 @@ describe("WebResourceContext (modern)", () => {
     expect((call!.args[0] as { entityTypes?: string[] }).entityTypes).toEqual(["account"]);
   });
 
+  it("fetchPage rides cds-client so paging annotations survive (N-04)", async () => {
+    const server = new FakeXhrServer();
+    server.install();
+    try {
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({
+          value: [{ name: "A" }],
+          "@Microsoft.Dynamics.CRM.totalrecordcount": 7,
+        }),
+      });
+      const { xrm } = createModernXrmMock({ clientUrl: "https://org.crm.dynamics.com" });
+      const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+      const result = await context.webAPI.fetchPage(
+        "account",
+        "<fetch page='2' count='25'><entity name='account'/></fetch>"
+      );
+      expect(result.totalRecordCount).toBe(7);
+      // It went to the Web API collection (cds-client), not Xrm.WebApi.
+      expect(server.lastRequest.url).toContain("/api/data/v9.2/accounts?fetchXml=");
+    } finally {
+      server.uninstall();
+    }
+  });
+
   it("delegates openErrorDialog / openFile / navigateTo / openWebResource natively (N-02)", async () => {
     const { xrm, calls } = createModernXrmMock();
     const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);

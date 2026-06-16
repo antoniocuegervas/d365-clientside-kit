@@ -185,6 +185,11 @@ class PcfWebApi implements IWebApi {
     );
   }
 
+  fetchPage(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {
+    // Rides cds-client so the FetchXML paging annotations survive (N-04).
+    return this.client.fetch(entitySetName(entityLogicalName), fetchXml);
+  }
+
   retrieveMultipleByUrl(url: string): Promise<IRetrieveMultipleResult> {
     return this.client.retrieveMultipleByUrl(url);
   }

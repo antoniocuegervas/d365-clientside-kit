@@ -33,6 +33,17 @@ export interface IRetrieveMultipleResult {
   entities: Array<Record<string, unknown>>;
   /** Present when the server paged the result. Pass to retrieveMultipleByUrl. */
   nextLink?: string;
+  /**
+   * Total matching rows for FetchXML `returntotalrecordcount='true'` requests
+   * (N-04). Capped (default 5,000), see {@link totalRecordCountLimitExceeded}.
+   */
+  totalRecordCount?: number;
+  /** True when the real total exceeds the count cap, so the total is unreliable. */
+  totalRecordCountLimitExceeded?: boolean;
+  /** FetchXML `morerecords` flag, another page exists after this one (N-04). */
+  moreRecords?: boolean;
+  /** FetchXML `pagingcookie` for efficient sequential paging (N-04 follow-on). */
+  pagingCookie?: string;
 }
 
 export class CdsClientError extends Error {
@@ -257,8 +268,33 @@ function parseCollection(json: string): IRetrieveMultipleResult {
   const payload = JSON.parse(json) as {
     value?: Array<Record<string, unknown>>;
     "@odata.nextLink"?: string;
+    "@odata.count"?: number;
+    "@Microsoft.Dynamics.CRM.totalrecordcount"?: number;
+    "@Microsoft.Dynamics.CRM.totalrecordcountlimitexceeded"?: boolean;
+    "@Microsoft.Dynamics.CRM.morerecords"?: boolean;
+    "@Microsoft.Dynamics.CRM.fetchxmlpagingcookie"?: string;
   };
-  return { entities: payload.value ?? [], nextLink: payload["@odata.nextLink"] };
+  const result: IRetrieveMultipleResult = {
+    entities: payload.value ?? [],
+    nextLink: payload["@odata.nextLink"],
+  };
+  // FetchXML paging annotations (N-04), total via returntotalrecordcount, or
+  // OData $count; more-records + cookie for sequential paging.
+  const total =
+    payload["@Microsoft.Dynamics.CRM.totalrecordcount"] ?? payload["@odata.count"];
+  if (typeof total === "number" && total >= 0) {
+    result.totalRecordCount = total;
+  }
+  if (payload["@Microsoft.Dynamics.CRM.totalrecordcountlimitexceeded"]) {
+    result.totalRecordCountLimitExceeded = true;
+  }
+  if (payload["@Microsoft.Dynamics.CRM.morerecords"] !== undefined) {
+    result.moreRecords = !!payload["@Microsoft.Dynamics.CRM.morerecords"];
+  }
+  if (payload["@Microsoft.Dynamics.CRM.fetchxmlpagingcookie"]) {
+    result.pagingCookie = payload["@Microsoft.Dynamics.CRM.fetchxmlpagingcookie"];
+  }
+  return result;
 }
 
 function extractErrorMessage(xhr: XMLHttpRequest): string {

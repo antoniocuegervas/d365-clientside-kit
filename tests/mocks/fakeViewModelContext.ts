@@ -109,6 +109,11 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
         await maybeDelay();
         return nextQueryResult(entity);
       },
+      fetchPage: async (entity, fetchXml) => {
+        record("fetchPage", entity, fetchXml);
+        await maybeDelay();
+        return nextQueryResult(entity);
+      },
       retrieveMultipleByUrl: async (url) => {
         record("retrieveMultipleByUrl", url);
         await maybeDelay();

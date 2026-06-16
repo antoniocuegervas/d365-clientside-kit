@@ -69,11 +69,13 @@ no inline box, no attribute binding): `value`, `entityTypes`, `label`, `filters`
 `SmartLookup mode="dialog"` for attribute-bound lookups.
 
 ### SmartViewGrid
-Auto: layout/columns from the savedquery's layoutxml, headers from attribute
-display names, formatted cell values, type-aware lookup cells (clickable links
-that openForm the target), row keys from the primary id. Data runs via
-`?savedQuery={id}` (T-01) so quick find / filters / server sort layer on as
-OData options.
+Auto: layout/columns from the savedquery's `layoutjson` (preferred) or
+`layoutxml`, headers + types resolved against each column's owning entity
+(related entity for link-entity/aliased columns — N-01), formatted cell values,
+type-aware lookup cells (clickable links that openForm the target), row keys
+from the primary id. Data runs via `?savedQuery={id}` (T-01) so quick find /
+filters / server sort layer on as OData options. Activity views (`activitypointer`)
+open the real activity type on row invoke (N-08).
 
 | Prop | Purpose |
 |---|---|
@@ -84,7 +86,11 @@ OData options.
 | `quickFindFields` | Fields quick find searches (default: primary name) |
 | `filters` (Observable) | Declarative eq/ne filters, re-queried server-side |
 | `orderBy` (Observable) + `serverSort` | Server-side `$orderby`; header clicks update it |
-| `pageSize` | Server-side paging (`$top` + nextLink) with a Pagination control |
+| `pageSize` | Server-side paging with a Pagination control |
+| `pagination` | `"simple"` (default, forward-cookie next/prev) or `"rich"` (jump-to-page combobox + first/last + "X–Y of N" via FetchXML `page`/`count`) — N-04. Requires `pageSize` |
+| `onPageChange(n)` | Raised on every page change; the controlled hook for `overrideFetchXml` + rich (host re-supplies the page) — N-04 |
+| `pageCount` / `totalRecordCount` (Observable) | Host-supplied totals for the `overrideFetchXml` + rich case (the grid computes them on the saved-view path) — N-04 |
+| `currentPage` (Observable) | Host-owned current page; the grid writes its page changes here — N-04 |
 | `overrideFetchXml` (Observable) | Host supplies the query; view supplies the layout |
 | `refresh` (ObservableEvent) | Publish to re-run the query |
 | `onRecordSelected(id, row)` / `selectedRecordId` | Single-select click + highlight |

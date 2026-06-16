@@ -167,6 +167,13 @@ export {
   composeOrderBy,
   type IViewQueryParams,
 } from "./controls/smart/viewGridQuery";
+export {
+  setFetchPaging,
+  addRootFilter,
+  setRootOrder,
+  type IFetchPagingOptions,
+  type IFetchCondition,
+} from "./controls/smart/fetchXmlPaging";
 
 // Components (composites)
 export { RecordReady, type IRecordReadyProps } from "./components/RecordReady";

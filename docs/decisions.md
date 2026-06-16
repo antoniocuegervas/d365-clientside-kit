@@ -327,3 +327,32 @@ with a load error. Hosts that need different behavior still override via
 `onItemInvoked`. The merged `sample-activities-grid` keeps its own ViewModel
 invoke (it already knows each row's source entity), so this default isn't wired
 there.
+
+## D-027 — Rich pagination keeps server paging and adds a FetchXML page/count jump path (N-04, extends D-022)
+
+D-022 established the grid's simple paging: forward `@odata.nextLink` cookie,
+visited pages cached, no `$skip` (Dataverse doesn't support it). N-04 adds a
+**rich** mode without abandoning that. The constraint is platform-level: OData
+has no offset jump, so jump-to-any-page can only ride **FetchXML** `page`/`count`
+(the documented server-side random-page mechanism, capped at 50k rows). So
+`pagination="rich"`:
+
+- runs the saved view's FetchXML with `page`/`count` injected (`setFetchPaging`),
+  requesting `returntotalrecordcount='true'` once to compute `pageCount`;
+- composes quick-find / declarative filters / server sort **into** the FetchXML
+  (`addRootFilter` "and"/"or" + `setRootOrder`), because rich mode is off the
+  `?savedQuery=` path where the simple-mode OData options apply — same
+  root-attribute-only boundary as D-022 (dotted columns dropped);
+- reads the paging annotations through a new cds-backed `IWebApi.fetchPage`
+  (Xrm.WebApi silently drops `@…totalrecordcount`/`…morerecords`/cookie, so —
+  like `retrieveMultipleByUrl` in D-022 — this rides cds-client on every host);
+- degrades to next/prev when the total is unknown or over the count cap
+  (the `Pagination` control renders simple chrome whenever `pageCount` is null).
+
+`overrideFetchXml` + rich stays **host-owned**: the grid does not mutate host
+FetchXML. It's a controlled component there — raises `onPageChange(n)`, reads
+host-supplied `pageCount`/`totalRecordCount`/`currentPage`, and the host
+re-supplies the page. The pull-based **FetchXML-paging binding helper** (own the
+`page`/`count` injection + twice-encoded paging-cookie threading for a host's
+base FetchXML) remains an unbuilt follow-on — build it when the first
+override-mode app needs rich paging. `$skip` stays intentionally unused.

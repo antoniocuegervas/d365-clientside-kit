@@ -41,3 +41,44 @@ export const Interactive: Story = {
   name: "Interactive (4 pages)",
   render: () => <Pagination {...make(1, true)} />,
 };
+
+/** Rich mode (N-04): jump-to-page combobox, first/last, and an "X–Y of N" label. */
+const makeRich = (initialPage: number, pageCount: number, pageSize: number, total: number) => {
+  const page = new Observable(initialPage);
+  const go = (n: number) => {
+    page.value = Math.min(Math.max(1, n), pageCount);
+  };
+  return {
+    page,
+    pageCount: new Observable<number | null>(pageCount),
+    totalRecordCount: new Observable<number | null>(total),
+    pageSize,
+    onFirst: () => go(1),
+    onLast: () => go(pageCount),
+    onPrevious: () => go(page.value - 1),
+    onNext: () => go(page.value + 1),
+    onGoToPage: go,
+  };
+};
+
+export const Rich: Story = {
+  name: "Rich (jump / first-last / total)",
+  render: () => <Pagination {...makeRich(2, 5, 25, 118)} />,
+};
+
+export const RichUnknownTotal: Story = {
+  name: "Rich, unknown total (degrades to next/prev)",
+  render: () => {
+    const page = new Observable(1);
+    return (
+      <Pagination
+        page={page}
+        pageCount={new Observable<number | null>(null)}
+        hasNextPage={new Observable(true)}
+        onGoToPage={(n) => (page.value = n)}
+        onNext={() => (page.value += 1)}
+        onPrevious={() => (page.value = Math.max(1, page.value - 1))}
+      />
+    );
+  },
+};

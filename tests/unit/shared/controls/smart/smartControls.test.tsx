@@ -450,6 +450,100 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(calls.filter((c) => c.api === "retrieveMultipleByUrl").length).toBe(1);
   });
 
+  it("rich pagination jumps server-side via FetchXML page/count with a total (N-04)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      ...viewSetup,
+      queryResults: {
+        account: [
+          {
+            entities: [
+              { accountid: "p1", name: "Contoso Ltd", telephone1: "1" },
+              { accountid: "p2", name: "Fabrikam Inc", telephone1: "2" },
+            ],
+            totalRecordCount: 4,
+          },
+          {
+            entities: [
+              { accountid: "p3", name: "Adventure Works", telephone1: "3" },
+              { accountid: "p4", name: "Northwind Traders", telephone1: "4" },
+            ],
+          },
+        ],
+      },
+    });
+    renderWith(context, <SmartViewGrid entity="account" pageSize={2} pagination="rich" />);
+    expect(await screen.findByText("Contoso Ltd")).toBeTruthy();
+    // Rich rendering: first/last buttons + an "X–Y of N" range label.
+    expect(screen.getByLabelText("First page")).toBeTruthy();
+    expect(screen.getByLabelText("Last page")).toBeTruthy();
+    expect(screen.getByText(/of 4/)).toBeTruthy();
+    // The data path is FetchXML page/count (fetchPage), not nextLink.
+    const firstFetch = calls.find((c) => c.api === "fetchPage")!;
+    expect(String(firstFetch.args[1])).toContain('page="1" count="2"');
+    expect(String(firstFetch.args[1])).toContain('returntotalrecordcount="true"');
+
+    await userEvent.click(screen.getByLabelText("Next page"));
+    expect(await screen.findByText("Adventure Works")).toBeTruthy();
+    const pagedFetch = calls.filter((c) => c.api === "fetchPage").at(-1)!;
+    expect(String(pagedFetch.args[1])).toContain('page="2" count="2"');
+  });
+
+  it("rich pagination degrades to next/prev when the total is over the cap (N-04)", async () => {
+    const { context } = createFakeViewModelContext({
+      ...viewSetup,
+      queryResults: {
+        account: [
+          {
+            entities: [
+              { accountid: "p1", name: "Contoso Ltd", telephone1: "1" },
+              { accountid: "p2", name: "Fabrikam Inc", telephone1: "2" },
+            ],
+            totalRecordCount: 5000,
+            totalRecordCountLimitExceeded: true,
+            moreRecords: true,
+          },
+        ],
+      },
+    });
+    renderWith(context, <SmartViewGrid entity="account" pageSize={2} pagination="rich" />);
+    await screen.findByText("Contoso Ltd");
+    // No rich chrome when the count is unknown, falls back to next/prev.
+    expect(screen.queryByLabelText("First page")).toBeNull();
+    expect((screen.getByLabelText("Next page") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("rich + overrideFetchXml is controlled: raises onPageChange, host owns the data (N-04)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      ...viewSetup,
+      queryResults: {
+        account: [
+          { entities: [{ accountid: "p1", name: "Contoso Ltd", telephone1: "1" }] },
+        ],
+      },
+    });
+    const override = new Observable<string | null>("<fetch><entity name='account'/></fetch>");
+    const pageCount = new Observable<number | null>(3);
+    const pages: number[] = [];
+    renderWith(
+      context,
+      <SmartViewGrid
+        entity="account"
+        pageSize={2}
+        pagination="rich"
+        overrideFetchXml={override}
+        pageCount={pageCount}
+        onPageChange={(n) => pages.push(n)}
+      />
+    );
+    await screen.findByText("Contoso Ltd");
+    // Host-supplied pageCount → rich chrome present.
+    expect(screen.getByLabelText("Last page")).toBeTruthy();
+    await userEvent.click(screen.getByLabelText("Next page"));
+    expect(pages).toEqual([2]);
+    // The grid does NOT page itself in override mode, no fetchPage call.
+    expect(calls.find((c) => c.api === "fetchPage")).toBeUndefined();
+  });
+
   it("raises onRecordSelected with the record id on row click", async () => {
     const { context } = createFakeViewModelContext(viewSetup);
     const selected: string[] = [];
