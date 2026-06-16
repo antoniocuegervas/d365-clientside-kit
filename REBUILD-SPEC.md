@@ -120,7 +120,7 @@ In normal D365 development, when the standard doesn't allow **exactly** what is 
 
 - Not a SparkleXrm port, fork, or API-compatible drop-in replacement
 - Not a generic React component library divorced from D365
-- Not a copy of a typical project's production apps, entity-specific hooks, or hardcoded GUIDs
+- Not a copy of any production app's entity-specific hooks or hardcoded GUIDs
 - Not a hooks-first or "modern React SPA" framework — routing, global state managers, and composition patterns aimed at full-time frontend engineers are out of scope
 - Not an opportunity to carry over refactor clutter, one-off migration scripts, or sample files superseded by Storybook
 
@@ -289,7 +289,7 @@ Conceptual areas (organize folders to reflect these boundaries clearly):
 | **Queries** | Reusable FetchXML / query fragments (OOTB entities only in samples) |
 
 
-**Naming:** Drop historical `-` prefixes. Use neutral, descriptive names (`control-optionset`, `component-search-results`). Export surface should be discoverable from a single barrel entry point.
+**Naming:** Use neutral, descriptive names (`control-optionset`, `component-search-results`). Export surface should be discoverable from a single barrel entry point.
 
 ### 2.3 `clientui/` — webresource shell and apps
 
@@ -326,7 +326,7 @@ clienthooks/
 └── common/ # Cross-entity helpers usable by multiple hooks
 ```
 
-**v1 delivers the framework plus OOTB examples only** — e.g. a sample `Account` or `Opportunity` form hook demonstrating field manipulation via `LibraryUtils`, a ribbon command opening the unified webresource shell, and a grid hook demonstrating editable-grid field lock. **Do not port -specific forms** (`WIHForm`, `FeeShareForm`, hardcoded workflow GUIDs, etc.).
+**v1 delivers the framework plus OOTB examples only** — e.g. a sample `Account` or `Opportunity` form hook demonstrating field manipulation via `LibraryUtils`, a ribbon command opening the unified webresource shell, and a grid hook demonstrating editable-grid field lock. **Do not include production-specific forms** (entity-specific form scripts, hardcoded workflow GUIDs, etc.).
 
 ### 2.5 `pcfs/` — independent PCF projects
 
@@ -877,7 +877,7 @@ The ViewModel handles merge logic and cross-field rules; the View stays readable
 | Per-PCF `out/controls` | Dataverse solution import |
 
 
-Use a configurable publisher prefix (e.g. `new_`) in paths — not hardcoded to.
+Use a configurable publisher prefix (e.g. `new_`) in paths — not hardcoded to a specific publisher.
 
 ### 11.3 Deployment
 
@@ -940,15 +940,11 @@ Human-facing only in `docs/`:
 
 ## 14. Explicit Exclusions (Clutter and Scope)
 
-Do **not** bring forward from a typical project:
+Out of scope for v1:
 
-- production webresource apps (`company-search`, `property-search`, `fsx-bulk-create`, contact cards, etc.)
-- production client hooks (`Opportunity.ts` 400-line form, `WIHRibbon` workflow GUIDs, domain logic, etc.)
-- `-` naming prefix
-- legacy harness files and other pre-Storybook harness files
-- one-off tooling and one-off refactor tooling
-- internal handoff notes handoff files
-- Duplicate `Context.ts` documentation across three locations
+- Production-specific webresource apps (bespoke search screens, bulk-create flows, etc.)
+- Production-specific client hooks (large entity form scripts, hardcoded workflow GUIDs, etc.)
+- Historical naming prefixes
 - Committed `dist/` artifacts (generate in CI/CD unless team explicitly needs committed builds for SPKL-less deploy)
 - Rich text editor in main barrel until CRM-verified (optional deferred control)
 - Per-PCF `node_modules` duplication is acceptable v1; workspace hoisting is a future optimization
@@ -1023,7 +1019,7 @@ After each phase and before declaring completion: lint, typecheck, kit build (bo
 8. **Presentational sources import nothing** from Context, Metadata, `cds-client`, or `LibraryUtils` — enforced by the restricted-imports lint rule, not just review
 9. `cds-client` unit tests prove correct URLs, headers, FetchXML handling, and batch payloads against mocked XHR for a configurable org URL + API version
 10. `CrmClientSide` global exposes the documented example hooks on standard entities (verified in smoke/unit tests)
-11. No -specific entity logic, GUIDs, or branding anywhere
+11. No project-specific entity logic, GUIDs, or branding anywhere
 12. `docs/` contains the section 13 set plus `decisions.md`
 
 ### 17.2 Human acceptance (after sandbox deployment — out of scope for the automated build)

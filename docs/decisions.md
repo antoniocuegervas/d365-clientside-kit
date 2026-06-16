@@ -172,8 +172,8 @@ on the context) is the keystone built second because date/number/view-name
 localization all depend on it; lookups ship as one piece (G-02 inline+dialog
 folded with G-03 view-driven search + G-10 icons, per OD-3). Items explicitly
 parked with revisit triggers: rich text (D-011/G-12), localized sample content
-(G-14). Production-specific legacy code (a third-party integration, a contact-list, the ten
-production PCFs, hooks) stays excluded per spec section 14.
+(G-14). Production-specific code (bespoke integrations, production-only PCFs and
+form hooks) stays excluded per spec section 14.
 
 ## D-020 — Option B realized by completing the surface, not renaming it (G-17)
 
@@ -418,3 +418,22 @@ Form-level helpers pass the level union (`"ERROR"|"WARNING"|"INFO"`) straight
 through and return the platform's boolean. `AccountForm.onSave` is wired as the
 reference template (warn on a blank recommended field, clear when filled) so
 hooks stop hand-rolling raw `control.setNotification`.
+
+## D-031 — AdvancedTooltip teaching-bubble variant deferred; KitTooltip covers the section 10.2 pattern (N-09)
+
+A later capability review surfaced one pattern worth supporting that the
+rebuild had not yet recorded: a
+**teaching-bubble** tooltip component (Fluent `TeachingBubble`
+with header/body/**image**/**primary CTA**, plus a metadata smart wrapper) — an
+inline help/onboarding affordance. The rebuild's `pcfs/KitTooltip` already
+satisfies the spec's section 10.2 "smart tooltip (*or similar*)" sample, but renders a
+**metadata-description Popover** (the bound attribute's authored description),
+which is a deliberately different and arguably more broadly useful UX. The
+teaching-bubble/image/CTA control is therefore **deferred, pull-based**: it has
+no current consumer, and building it now would be accretion against the
+"presentational controls earn their place when an app needs them" posture (cf.
+D-010 for composites). When a consumer appears it lands as a presentational
+`TeachingTooltip` (header/body/image/CTA) with an optional smart wrapper, mirroring
+the other controls' tier split. Recorded (N-09) so the omission is a logged choice
+rather than a silent gap. Everything else in that cross-check was already
+implemented or already recorded (G-04/G-11/G-12/N-06).
