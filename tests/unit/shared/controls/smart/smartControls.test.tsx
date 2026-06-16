@@ -363,6 +363,66 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(selected).toEqual(["a1a00000-0000-0000-0000-000000000001"]);
   });
 
+  it("opens the record's form on row invoke (double-click) by default (G-01)", async () => {
+    const { context, calls } = createFakeViewModelContext(viewSetup);
+    renderWith(context, <SmartViewGrid entity="account" />);
+    await userEvent.dblClick(await screen.findByText("Contoso Ltd"));
+    const open = calls.find((c) => c.api === "openForm");
+    expect(open?.args).toEqual(["account", "a1a00000-0000-0000-0000-000000000001"]);
+  });
+
+  it("multi-select tracks selected record ids (G-01)", async () => {
+    const { context } = createFakeViewModelContext(viewSetup);
+    const selectedRecordIds = new Observable<string[]>([]);
+    renderWith(
+      context,
+      <SmartViewGrid entity="account" multiSelect selectedRecordIds={selectedRecordIds} />
+    );
+    await screen.findByText("Contoso Ltd");
+    await userEvent.click(screen.getByLabelText("Select row a1a00000-0000-0000-0000-000000000001"));
+    expect(selectedRecordIds.value).toEqual(["a1a00000-0000-0000-0000-000000000001"]);
+  });
+
+  it("renders lookup columns as clickable links that openForm the target (G-01)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "account.name": { displayName: "Account Name", kind: "text" },
+        "account.primarycontactid": { displayName: "Primary Contact", kind: "lookup", targets: ["contact"] },
+      },
+      views: {
+        "default:account": {
+          entityLogicalName: "account",
+          columns: [
+            { name: "name", width: 200 },
+            { name: "primarycontactid", width: 200 },
+          ],
+        },
+      },
+      queryResults: {
+        account: [
+          {
+            entities: [
+              {
+                accountid: "a1",
+                name: "Contoso Ltd",
+                "_primarycontactid_value": "c1c00000-0000-0000-0000-000000000001",
+                "_primarycontactid_value@OData.Community.Display.V1.FormattedValue": "Yvonne McKay",
+                "_primarycontactid_value@Microsoft.Dynamics.CRM.lookuplogicalname": "contact",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    renderWith(context, <SmartViewGrid entity="account" />);
+    const link = await screen.findByText("Yvonne McKay");
+    await userEvent.click(link);
+    expect(calls.find((c) => c.api === "openForm")?.args).toEqual([
+      "contact",
+      "c1c00000-0000-0000-0000-000000000001",
+    ]);
+  });
+
   it("runs the saved view by id via ?savedQuery= (T-01)", async () => {
     const { context, calls } = createFakeViewModelContext(viewSetup);
     renderWith(context, <SmartViewGrid entity="account" />);

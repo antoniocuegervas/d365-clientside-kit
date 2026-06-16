@@ -31,6 +31,8 @@ export {
   odataBind,
   formattedValue,
   formatODataValue,
+  lookupCell,
+  type ILookupCell,
 } from "./utils/odata";
 export { newGuid, newBatchBoundary } from "./utils/correlation";
 export {

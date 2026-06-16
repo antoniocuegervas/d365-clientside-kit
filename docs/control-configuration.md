@@ -60,18 +60,31 @@ Extra props:
 | `searchDebounceMs` | Default 250; 0 for tests |
 
 ### SmartViewGrid
-Auto: view FetchXML + columns from the savedquery's layoutxml, column headers
-from attribute display names, formatted cell values, row keys from the
-primary id.
+Auto: layout/columns from the savedquery's layoutxml, headers from attribute
+display names, formatted cell values, type-aware lookup cells (clickable links
+that openForm the target), row keys from the primary id. Data runs via
+`?savedQuery={id}` (T-01) so quick find / filters / server sort layer on as
+OData options.
 
 | Prop | Purpose |
 |---|---|
 | `entity` (✔) | Table logical name |
-| `viewId` | Saved view id; omitted = the entity's default grid view |
-| `refresh` (ObservableEvent) | Publish to re-run the query — code-level refresh |
-| `onRecordSelected(id, row)` | Row click |
-| `selectedRecordId` (Observable) | Host-owned selection highlight |
+| `viewId` | Saved view id; omitted = default grid view |
+| `viewName` | Saved view by display name (resolved via getViewByName) |
+| `quickFind` (Observable&lt;string&gt;) | Contains-search text, debounced; ANDed into the query |
+| `quickFindFields` | Fields quick find searches (default: primary name) |
+| `filters` (Observable) | Declarative eq/ne filters, re-queried server-side |
+| `orderBy` (Observable) + `serverSort` | Server-side `$orderby`; header clicks update it |
+| `pageSize` | Server-side paging (`$top` + nextLink) with a Pagination control |
+| `overrideFetchXml` (Observable) | Host supplies the query; view supplies the layout |
+| `refresh` (ObservableEvent) | Publish to re-run the query |
+| `onRecordSelected(id, row)` / `selectedRecordId` | Single-select click + highlight |
+| `onItemInvoked(id, row)` | Invoke (double-click/Enter); defaults to openForm |
+| `multiSelect` + `selectedRecordIds` + `onSelectedRecords` | Multi-select checkboxes |
 | `emptyMessage` | Empty-state text |
+
+Note: link-entity (aliased / dotted) columns can't be filtered or sorted
+through the savedQuery layer — those clauses are dropped (a platform boundary).
 
 ## What you should never hand-configure for standard fields
 

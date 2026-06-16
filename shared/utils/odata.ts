@@ -53,3 +53,34 @@ export function formattedValue(
     | string
     | undefined;
 }
+
+/** A lookup cell extracted from a Web API record: id, display name, and target entity. */
+export interface ILookupCell {
+  id: string;
+  name: string;
+  /** Target entity logical name from the lookuplogicalname annotation. */
+  target: string;
+}
+
+/**
+ * Extracts a lookup value from a Web API record using the `_attr_value` triplet
+ * (id + FormattedValue name + lookuplogicalname target). Returns null when the
+ * lookup is empty (G-01 type-aware lookup cells).
+ */
+export function lookupCell(
+  record: Record<string, unknown>,
+  attributeLogicalName: string
+): ILookupCell | null {
+  const idKey = `_${attributeLogicalName}_value`;
+  const id = record[idKey];
+  if (id === null || id === undefined || id === "") {
+    return null;
+  }
+  const name = record[`${idKey}@OData.Community.Display.V1.FormattedValue`];
+  const target = record[`${idKey}@Microsoft.Dynamics.CRM.lookuplogicalname`];
+  return {
+    id: String(id),
+    name: name !== undefined ? String(name) : "",
+    target: target !== undefined ? String(target) : "",
+  };
+}

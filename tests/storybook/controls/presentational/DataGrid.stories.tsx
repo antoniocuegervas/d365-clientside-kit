@@ -53,6 +53,40 @@ export const AsyncRows: Story = {
   },
 };
 
+export const MultiSelect: Story = {
+  name: "Multi-select + invoke (double-click)",
+  render: () => {
+    const selectedKeys = new Observable<string[]>([]);
+    return (
+      <DataGrid
+        columns={accountColumns}
+        rows={accountRows}
+        multiSelect
+        selectedKeys={selectedKeys}
+        onItemInvoked={(row: IGridRow) => window.alert(`Open ${String(row.name)}`)}
+      />
+    );
+  },
+};
+
+export const ServerSort: Story = {
+  name: "Server-sort mode (controlled indicator)",
+  render: () => {
+    const sortState = new Observable<{ columnKey: string; descending: boolean } | null>({
+      columnKey: "name",
+      descending: false,
+    });
+    return (
+      <DataGrid
+        columns={accountColumns}
+        rows={accountRows}
+        sortState={sortState}
+        onColumnSort={(columnKey, descending) => (sortState.value = { columnKey, descending })}
+      />
+    );
+  },
+};
+
 export const CustomCellRender: Story = {
   render: () => (
     <DataGrid

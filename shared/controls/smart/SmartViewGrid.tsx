@@ -1,9 +1,14 @@
 import * as React from "react";
+import { Link } from "@fluentui/react-components";
 import { SmartComponent } from "../../context/ViewModelContextProvider";
-import type { IEntityMetadata, IViewDefinition } from "../../context/IViewModelContext";
+import type {
+  AttributeKind,
+  IEntityMetadata,
+  IViewDefinition,
+} from "../../context/IViewModelContext";
 import { Observable, type Unsubscribe } from "../../reactivity/Observable";
 import type { ObservableEvent } from "../../reactivity/ObservableEvent";
-import { formattedValue } from "../../utils/odata";
+import { formattedValue, lookupCell, type ILookupCell } from "../../utils/odata";
 import { DataGrid, type IGridColumn, type IGridRow } from "../presentational/DataGrid";
 import { Pagination } from "../presentational/Pagination";
 import {
@@ -52,6 +57,17 @@ export interface ISmartViewGridProps {
   onRecordSelected?: (recordId: string, row: IGridRow) => void;
   /** Host-owned selected record id for row highlight. */
   selectedRecordId?: Observable<string | null>;
+  /**
+   * Row invoke (double-click / Enter), distinct from select (G-01). Defaults
+   * to opening the record's form; pass to override.
+   */
+  onItemInvoked?: (recordId: string, row: IGridRow) => void;
+  /** Enable multi-select checkboxes (G-01). */
+  multiSelect?: boolean;
+  /** Host-owned set of selected record ids for multi-select. */
+  selectedRecordIds?: Observable<string[]>;
+  /** Raised when the multi-select set changes. */
+  onSelectedRecords?: (recordIds: string[]) => void;
   emptyMessage?: string;
 }
 
@@ -78,6 +94,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   private readonly pageRows = new Map<number, IGridRow[]>();
   private readonly pageNextLink = new Map<number, string | undefined>();
   private readonly subscriptions: Unsubscribe[] = [];
+  private readonly columnKinds = new Map<string, AttributeKind>();
   private quickFindTimer: ReturnType<typeof setTimeout> | undefined;
   private view: IViewDefinition | undefined;
   private entityMeta: IEntityMetadata | undefined;
@@ -157,22 +174,58 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     }
   }
 
-  /** Column headers come from attribute display names; aliased/linked columns fall back to the raw name. */
+  /**
+   * Column headers come from attribute display names; aliased/linked columns
+   * fall back to the raw name. Attribute kinds are captured so cells render
+   * type-aware (G-01), lookup columns become clickable links that openForm.
+   */
   private async resolveColumns(view: IViewDefinition): Promise<IGridColumn[]> {
     return Promise.all(
       view.columns.map(async (column) => {
         let header = column.name;
+        let kind: AttributeKind | undefined;
         try {
           const attribute = await this.vmContext.metadata.getAttributeMetadata(
             view.entityLogicalName,
             column.name
           );
           header = attribute.displayName;
+          kind = attribute.kind;
+          this.columnKinds.set(column.name, kind);
         } catch {
-          // linked-entity or aliased column, keep the raw name
+          // linked-entity or aliased column, keep the raw name, no kind
         }
-        return { key: column.name, name: header, width: column.width } satisfies IGridColumn;
+        const base: IGridColumn = { key: column.name, name: header, width: column.width };
+        if (kind === "lookup") {
+          // Lookups can't be sorted/filtered through the savedQuery layer here.
+          base.sortable = false;
+          base.onRender = (row) => this.renderLookupCell(row[column.name]);
+        }
+        return base;
       })
+    );
+  }
+
+  /** Renders a lookup cell as a link that opens the referenced record's form. */
+  private renderLookupCell(value: unknown): React.ReactNode {
+    if (!value || typeof value === "string") {
+      return (value as string) ?? "";
+    }
+    const cell = value as ILookupCell;
+    if (!cell.id || !cell.target) {
+      return cell.name ?? "";
+    }
+    return (
+      <Link
+        href="#"
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          void this.vmContext.navigation.openForm(cell.target, cell.id);
+        }}
+      >
+        {cell.name || "(open)"}
+      </Link>
     );
   }
 
@@ -199,7 +252,11 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     return records.map((record, index) => {
       const row: IGridRow = { key: String(record[idAttribute] ?? index) };
       for (const column of view.columns) {
-        row[column.name] = formattedValue(record, column.name) ?? record[column.name] ?? "";
+        if (this.columnKinds.get(column.name) === "lookup") {
+          row[column.name] = lookupCell(record, column.name) ?? "";
+        } else {
+          row[column.name] = formattedValue(record, column.name) ?? record[column.name] ?? "";
+        }
       }
       return row;
     });
@@ -297,6 +354,17 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     }
   };
 
+  /** Invoke (double-click / Enter): override prop, else open the record's form. */
+  private readonly handleItemInvoked = (row: IGridRow): void => {
+    if (this.props.onItemInvoked) {
+      this.props.onItemInvoked(row.key, row);
+      return;
+    }
+    if (this.view) {
+      void this.vmContext.navigation.openForm(this.view.entityLogicalName, row.key);
+    }
+  };
+
   override render(): React.ReactNode {
     if (this.state.loadError) {
       return <div role="alert">Could not load view: {this.state.loadError}</div>;
@@ -315,6 +383,10 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
               : undefined
           }
           selectedKey={this.props.selectedRecordId}
+          onItemInvoked={this.handleItemInvoked}
+          multiSelect={this.props.multiSelect}
+          selectedKeys={this.props.selectedRecordIds}
+          onSelectionChange={this.props.onSelectedRecords}
           onColumnSort={this.props.serverSort ? this.handleColumnSort : undefined}
           sortState={sort ? { columnKey: sort.attribute, descending: !!sort.descending } : null}
         />

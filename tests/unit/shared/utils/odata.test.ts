@@ -2,7 +2,9 @@ import { EntityReference } from "../../../../shared/utils/EntityModel";
 import {
   entitySetName,
   escapeODataString,
+  formatODataValue,
   formattedValue,
+  lookupCell,
   odataBind,
 } from "../../../../shared/utils/odata";
 
@@ -52,5 +54,35 @@ describe("formattedValue", () => {
     };
     expect(formattedValue(record, "revenue")).toBe("$1,000.00");
     expect(formattedValue(record, "name")).toBeUndefined();
+  });
+});
+
+describe("formatODataValue", () => {
+  it("quotes/escapes strings, formats booleans, leaves numbers raw", () => {
+    expect(formatODataValue("O'Brien")).toBe("'O''Brien'");
+    expect(formatODataValue(true)).toBe("true");
+    expect(formatODataValue(false)).toBe("false");
+    expect(formatODataValue(42)).toBe("42");
+  });
+});
+
+describe("lookupCell", () => {
+  const record = {
+    "_primarycontactid_value": "c1c00000-0000-0000-0000-000000000001",
+    "_primarycontactid_value@OData.Community.Display.V1.FormattedValue": "Yvonne McKay",
+    "_primarycontactid_value@Microsoft.Dynamics.CRM.lookuplogicalname": "contact",
+  };
+
+  it("extracts id, name, and target from the _attr_value triplet", () => {
+    expect(lookupCell(record, "primarycontactid")).toEqual({
+      id: "c1c00000-0000-0000-0000-000000000001",
+      name: "Yvonne McKay",
+      target: "contact",
+    });
+  });
+
+  it("returns null when the lookup is empty", () => {
+    expect(lookupCell({ _primarycontactid_value: null }, "primarycontactid")).toBeNull();
+    expect(lookupCell({}, "primarycontactid")).toBeNull();
   });
 });

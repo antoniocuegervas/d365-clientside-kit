@@ -1,5 +1,6 @@
 import * as React from "react";
 import {
+  Checkbox,
   Skeleton,
   SkeletonItem,
   Table,
@@ -47,8 +48,19 @@ export interface IDataGridProps {
   loading?: OrObservable<boolean>;
   emptyMessage?: string;
   onRowClick?: (row: IGridRow) => void;
+  /**
+   * Row invoke (double-click / Enter), distinct from select. The smart grid
+   * defaults this to "open the record" (G-01).
+   */
+  onItemInvoked?: (row: IGridRow) => void;
   /** Host-owned selected row key for highlight; optional. */
   selectedKey?: Observable<string | null>;
+  /** Enable multi-select checkboxes (G-01). */
+  multiSelect?: boolean;
+  /** Host-owned set of selected row keys for multi-select. */
+  selectedKeys?: Observable<string[]>;
+  /** Raised when the multi-select set changes. */
+  onSelectionChange?: (keys: string[]) => void;
   /** Rows shown while loading. Default 5. */
   skeletonRows?: number;
   /**
@@ -75,6 +87,7 @@ const useStyles = makeStyles({
   },
   row: { cursor: "default" },
   clickableRow: { cursor: "pointer" },
+  selectionCell: { width: "36px" },
   selectedRow: { backgroundColor: tokens.colorNeutralBackground1Selected },
   empty: {
     padding: tokens.spacingVerticalXXL,
@@ -87,8 +100,36 @@ export class DataGrid extends ObserverComponent<IDataGridProps, IDataGridState> 
   constructor(props: IDataGridProps) {
     super(props);
     this.state = { sortColumn: null, sortAscending: true };
-    this.observe(props.columns, props.rows, props.loading, props.selectedKey, props.sortState);
+    this.observe(
+      props.columns,
+      props.rows,
+      props.loading,
+      props.selectedKey,
+      props.selectedKeys,
+      props.sortState
+    );
   }
+
+  private readonly toggleRow = (key: string): void => {
+    const current = this.props.selectedKeys?.value ?? [];
+    const next = current.includes(key)
+      ? current.filter((k) => k !== key)
+      : [...current, key];
+    if (this.props.selectedKeys) {
+      this.props.selectedKeys.value = next;
+    }
+    this.props.onSelectionChange?.(next);
+  };
+
+  private readonly toggleAll = (keys: string[]): void => {
+    const current = this.props.selectedKeys?.value ?? [];
+    const allSelected = keys.length > 0 && keys.every((k) => current.includes(k));
+    const next = allSelected ? [] : keys;
+    if (this.props.selectedKeys) {
+      this.props.selectedKeys.value = next;
+    }
+    this.props.onSelectionChange?.(next);
+  };
 
   private readonly handleSort = (column: IGridColumn): void => {
     if (column.sortable === false) {
@@ -128,6 +169,8 @@ export class DataGrid extends ObserverComponent<IDataGridProps, IDataGridState> 
         state={this.state}
         sortedRows={this.sortedRows()}
         onSort={this.handleSort}
+        onToggleRow={this.toggleRow}
+        onToggleAll={this.toggleAll}
       />
     );
   }
@@ -138,12 +181,20 @@ const Body: React.FC<
     state: IDataGridState;
     sortedRows: IGridRow[];
     onSort: (column: IGridColumn) => void;
+    onToggleRow: (key: string) => void;
+    onToggleAll: (keys: string[]) => void;
   }
 > = (props) => {
   const styles = useStyles();
   const columns = valueOf(props.columns);
   const loading = valueOf(props.loading ?? false);
   const selectedKey = props.selectedKey?.value ?? null;
+  const multiSelect = !!props.multiSelect;
+  const selectedKeys = props.selectedKeys?.value ?? [];
+  const selectedKeySet = new Set(selectedKeys);
+  const allKeys = props.sortedRows.map((row) => row.key);
+  const allSelected = allKeys.length > 0 && allKeys.every((k) => selectedKeySet.has(k));
+  const someSelected = !allSelected && allKeys.some((k) => selectedKeySet.has(k));
   const serverSort = props.onColumnSort ? valueOf(props.sortState ?? null) : null;
   const sortDirectionFor = (key: string): "ascending" | "descending" | undefined => {
     if (props.onColumnSort) {
@@ -176,6 +227,15 @@ const Body: React.FC<
     <Table size="small" aria-label="Data grid">
       <TableHeader>
         <TableRow>
+          {multiSelect ? (
+            <TableHeaderCell className={styles.selectionCell}>
+              <Checkbox
+                aria-label="Select all rows"
+                checked={allSelected ? true : someSelected ? "mixed" : false}
+                onChange={() => props.onToggleAll(allKeys)}
+              />
+            </TableHeaderCell>
+          ) : null}
           {columns.map((column) => (
             <TableHeaderCell
               key={column.key}
@@ -192,30 +252,56 @@ const Body: React.FC<
       <TableBody>
         {props.sortedRows.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={Math.max(columns.length, 1)}>
+            <TableCell colSpan={Math.max(columns.length + (multiSelect ? 1 : 0), 1)}>
               <div className={styles.empty}>{props.emptyMessage ?? "No data available"}</div>
             </TableCell>
           </TableRow>
         ) : (
-          props.sortedRows.map((row) => (
-            <TableRow
-              key={row.key}
-              className={
-                row.key === selectedKey
-                  ? styles.selectedRow
-                  : props.onRowClick
-                    ? styles.clickableRow
-                    : styles.row
-              }
-              onClick={props.onRowClick ? () => props.onRowClick!(row) : undefined}
-            >
-              {columns.map((column) => (
-                <TableCell key={column.key}>
-                  {column.onRender ? column.onRender(row) : formatCell(row[column.key])}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))
+          props.sortedRows.map((row) => {
+            const interactive = !!(props.onRowClick || props.onItemInvoked);
+            return (
+              <TableRow
+                key={row.key}
+                className={
+                  row.key === selectedKey
+                    ? styles.selectedRow
+                    : interactive
+                      ? styles.clickableRow
+                      : styles.row
+                }
+                tabIndex={props.onItemInvoked ? 0 : undefined}
+                onClick={props.onRowClick ? () => props.onRowClick!(row) : undefined}
+                onDoubleClick={props.onItemInvoked ? () => props.onItemInvoked!(row) : undefined}
+                onKeyDown={
+                  props.onItemInvoked
+                    ? (event) => {
+                        if (event.key === "Enter") {
+                          props.onItemInvoked!(row);
+                        }
+                      }
+                    : undefined
+                }
+              >
+                {multiSelect ? (
+                  <TableCell
+                    className={styles.selectionCell}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <Checkbox
+                      aria-label={`Select row ${row.key}`}
+                      checked={selectedKeySet.has(row.key)}
+                      onChange={() => props.onToggleRow(row.key)}
+                    />
+                  </TableCell>
+                ) : null}
+                {columns.map((column) => (
+                  <TableCell key={column.key}>
+                    {column.onRender ? column.onRender(row) : formatCell(row[column.key])}
+                  </TableCell>
+                ))}
+              </TableRow>
+            );
+          })
         )}
       </TableBody>
     </Table>
