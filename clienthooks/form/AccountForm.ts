@@ -30,4 +30,27 @@ export class AccountForm extends ClientHook {
     // Nudge for a phone number without hard-blocking the save.
     LibraryUtils.setFieldsRequired(formContext, ["telephone1"], "recommended");
   };
+
+  /**
+   * OnSave example demonstrating the N-07 notification helpers, register
+   * on the Account form's OnSave (pass execution context). Surfaces a field-level
+   * warning when a recommended field is blank, without blocking the save.
+   *
+   *   Function: CrmClientSide.Account.Form.onSave
+   */
+  readonly onSave = (executionContext: Xrm.Events.EventContext): void => {
+    const formContext = AccountForm.formContextOf(executionContext);
+    const NOTIFY_ID = "account-phone-recommended";
+    const phone = formContext.getAttribute("telephone1")?.getValue();
+    if (phone) {
+      LibraryUtils.clearFieldNotification(formContext, "telephone1", NOTIFY_ID);
+    } else {
+      LibraryUtils.setFieldNotification(
+        formContext,
+        "telephone1",
+        "A main phone is recommended for new accounts.",
+        NOTIFY_ID
+      );
+    }
+  };
 }

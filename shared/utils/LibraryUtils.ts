@@ -113,6 +113,64 @@ export function unlockAllFields(
   setAllFieldsDisabled(formContext, false, options);
 }
 
+/** Controls that support set/clearNotification (standard field controls do). */
+function isNotifiable(control: Xrm.Controls.Control): control is Xrm.Controls.StandardControl {
+  return typeof (control as Xrm.Controls.StandardControl).setNotification === "function";
+}
+
+/**
+ * Sets a field-level notification (the warning icon + tooltip beside a field)
+ * on every control bound to the attribute (N-07). `uniqueId` identifies the
+ * notification so it can be cleared later. No-op when the field isn't on the form.
+ */
+export function setFieldNotification(
+  formContext: FormContextLike,
+  attributeName: string,
+  message: string,
+  uniqueId: string
+): void {
+  forEachAttributeControl(formContext, [attributeName], (control) => {
+    if (isNotifiable(control)) {
+      control.setNotification(message, uniqueId);
+    }
+  });
+}
+
+/** Clears the field-level notification with `uniqueId` from the attribute's controls (N-07). */
+export function clearFieldNotification(
+  formContext: FormContextLike,
+  attributeName: string,
+  uniqueId: string
+): void {
+  forEachAttributeControl(formContext, [attributeName], (control) => {
+    if (isNotifiable(control)) {
+      control.clearNotification(uniqueId);
+    }
+  });
+}
+
+/** Form-level notification severity (N-07). */
+export type FormNotificationLevel = "ERROR" | "WARNING" | "INFO";
+
+/**
+ * Shows a form-level notification banner at the top of the form (N-07).
+ * `uniqueId` identifies it for later clearing. Returns whether the platform
+ * accepted it.
+ */
+export function setFormNotification(
+  formContext: FormContextLike,
+  message: string,
+  level: FormNotificationLevel,
+  uniqueId: string
+): boolean {
+  return formContext.ui?.setFormNotification?.(message, level, uniqueId) ?? false;
+}
+
+/** Clears the form-level notification with `uniqueId` (N-07). */
+export function clearFormNotification(formContext: FormContextLike, uniqueId: string): boolean {
+  return formContext.ui?.clearFormNotification?.(uniqueId) ?? false;
+}
+
 /** Form type as a readable union instead of the raw XrmEnum integer. */
 export type FormType =
   | "undefined"

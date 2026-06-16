@@ -404,3 +404,17 @@ setAttributeValue` duck-types an `IEntityReference` (object with string `id` +
 straight to a form attribute and get the braces/array right; non-reference values
 pass through untouched. The braced-GUID detail is the easy thing to get wrong by
 hand, which is exactly why it's absorbed here.
+
+## D-030 — Notification helpers join LibraryUtils, form-or-grid safe (N-07)
+
+`setFieldNotification`/`clearFieldNotification` and `setFormNotification`/
+`clearFormNotification` land in `LibraryUtils` alongside the existing
+form/grid manipulation helpers — same posture: they take the event's
+`formContext`, depend on no `IViewModelContext`, and stay usable from any host. Field-level helpers reuse `forEachAttributeControl`, so they run over
+every control bound to the attribute and no-op when the field isn't on the form
+(matching the lock/show-hide helpers and G-15's form-or-grid detection); they
+guard on `setNotification` presence so non-standard controls are skipped.
+Form-level helpers pass the level union (`"ERROR"|"WARNING"|"INFO"`) straight
+through and return the platform's boolean. `AccountForm.onSave` is wired as the
+reference template (warn on a blank recommended field, clear when filled) so
+hooks stop hand-rolling raw `control.setNotification`.

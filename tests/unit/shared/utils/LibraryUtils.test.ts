@@ -7,12 +7,19 @@ import * as LibraryUtils from "../../../../shared/utils/LibraryUtils";
 interface FakeControl {
   setDisabled: jest.Mock;
   setVisible: jest.Mock;
+  setNotification: jest.Mock;
+  clearNotification: jest.Mock;
 }
 
 function makeFakeForm(attributeNames: string[], formType = 2) {
   const controls = new Map<string, FakeControl>();
   const attributes = attributeNames.map((name) => {
-    const control: FakeControl = { setDisabled: jest.fn(), setVisible: jest.fn() };
+    const control: FakeControl = {
+      setDisabled: jest.fn(),
+      setVisible: jest.fn(),
+      setNotification: jest.fn(),
+      clearNotification: jest.fn(),
+    };
     controls.set(name, control);
     return {
       getName: () => name,
@@ -21,12 +28,14 @@ function makeFakeForm(attributeNames: string[], formType = 2) {
     };
   });
   const byName = new Map(attributes.map((a) => [a.getName(), a]));
+  const setFormNotification = jest.fn(() => true);
+  const clearFormNotification = jest.fn(() => true);
   const formContext = {
     getAttribute: (name: string) => byName.get(name) ?? null,
     data: { entity: { attributes: { forEach: (cb: (a: unknown) => void) => attributes.forEach(cb) } } },
-    ui: { getFormType: () => formType },
+    ui: { getFormType: () => formType, setFormNotification, clearFormNotification },
   } as unknown as Xrm.FormContext;
-  return { formContext, controls, attributes: byName };
+  return { formContext, controls, attributes: byName, setFormNotification, clearFormNotification };
 }
 
 describe("LibraryUtils field manipulation", () => {
@@ -64,6 +73,34 @@ describe("LibraryUtils field manipulation", () => {
     const { formContext, controls } = makeFakeForm(["name"]);
     LibraryUtils.unlockAllFields(formContext);
     expect(controls.get("name")!.setDisabled).toHaveBeenCalledWith(false);
+  });
+
+  it("set/clearFieldNotification target the attribute's controls (N-07)", () => {
+    const { formContext, controls } = makeFakeForm(["telephone1", "name"]);
+    LibraryUtils.setFieldNotification(formContext, "telephone1", "Required", "phone-required");
+    expect(controls.get("telephone1")!.setNotification).toHaveBeenCalledWith(
+      "Required",
+      "phone-required"
+    );
+    expect(controls.get("name")!.setNotification).not.toHaveBeenCalled();
+
+    LibraryUtils.clearFieldNotification(formContext, "telephone1", "phone-required");
+    expect(controls.get("telephone1")!.clearNotification).toHaveBeenCalledWith("phone-required");
+  });
+
+  it("setFieldNotification is a no-op for a field absent from the form (N-07)", () => {
+    const { formContext } = makeFakeForm(["name"]);
+    expect(() =>
+      LibraryUtils.setFieldNotification(formContext, "not_on_form", "x", "id")
+    ).not.toThrow();
+  });
+
+  it("set/clearFormNotification delegate to the form ui (N-07)", () => {
+    const { formContext, setFormNotification, clearFormNotification } = makeFakeForm([]);
+    expect(LibraryUtils.setFormNotification(formContext, "Heads up", "WARNING", "warn-1")).toBe(true);
+    expect(setFormNotification).toHaveBeenCalledWith("Heads up", "WARNING", "warn-1");
+    expect(LibraryUtils.clearFormNotification(formContext, "warn-1")).toBe(true);
+    expect(clearFormNotification).toHaveBeenCalledWith("warn-1");
   });
 
   it("getFormType maps the raw integers", () => {
