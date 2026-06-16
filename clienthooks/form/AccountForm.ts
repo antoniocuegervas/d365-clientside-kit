@@ -32,25 +32,47 @@ export class AccountForm extends ClientHook {
   };
 
   /**
-   * OnSave example demonstrating the N-07 notification helpers, register
-   * on the Account form's OnSave (pass execution context). Surfaces a field-level
-   * warning when a recommended field is blank, without blocking the save.
+   * OnSave example demonstrating the notification helpers, register on
+   * the Account form's OnSave (pass execution context). Surfaces field-level
+   * nudges when recommended fields are blank, without blocking the save.
    *
    *   Function: CrmClientSide.Account.Form.onSave
    */
   readonly onSave = (executionContext: Xrm.Events.EventContext): void => {
     const formContext = AccountForm.formContextOf(executionContext);
-    const NOTIFY_ID = "account-phone-recommended";
+
+    // N-07: plain field notification (warning icon + tooltip).
+    const PHONE_ID = "account-phone-recommended";
     const phone = formContext.getAttribute("telephone1")?.getValue();
     if (phone) {
-      LibraryUtils.clearFieldNotification(formContext, "telephone1", NOTIFY_ID);
+      LibraryUtils.clearFieldNotification(formContext, "telephone1", PHONE_ID);
     } else {
       LibraryUtils.setFieldNotification(
         formContext,
         "telephone1",
         "A main phone is recommended for new accounts.",
-        NOTIFY_ID
+        PHONE_ID
       );
+    }
+
+    // N-12: rich, actionable notification, a recommendation with a clickable
+    // "fix it" action. Cleared with the same N-07 helper (no separate remover).
+    const SITE_ID = "account-website-recommended";
+    const website = formContext.getAttribute("websiteurl")?.getValue();
+    if (website) {
+      LibraryUtils.clearFieldNotification(formContext, "websiteurl", SITE_ID);
+    } else {
+      LibraryUtils.addFieldNotification(formContext, "websiteurl", {
+        messages: ["No website captured for this account."],
+        notificationLevel: "RECOMMENDATION",
+        uniqueId: SITE_ID,
+        actions: [
+          {
+            message: "Start one (https://)",
+            actions: [() => formContext.getAttribute("websiteurl")?.setValue("https://")],
+          },
+        ],
+      });
     }
   };
 }

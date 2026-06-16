@@ -391,6 +391,11 @@ factor, RTL, etc. reach presentational controls as resolved props). This list is
 deliberately closed: future members need a new named consumer and their own
 D-entry, not accretion.
 
+> **Refined by D-034.** "The platform has it" *is* sufficient for the
+> **commonly-used** host-mirror surface (familiarity is the consumer); the
+> named-consumer bar above now applies to the **obscure tail** and to
+> kit-invented controls. Legacy usage was only ever a signal, not the criterion.
+
 ## D-029 — Lookup round-trip lives in EntityModel; setAttributeValue auto-converts a reference (N-05)
 
 `toLookupValue`/`fromLookupValue` (and `EntityReference.toLookupValue`,
@@ -437,3 +442,85 @@ D-010 for composites). When a consumer appears it lands as a presentational
 the other controls' tier split. Recorded (N-09) so the omission is a logged choice
 rather than a silent gap. Everything else in that cross-check was already
 implemented or already recorded (G-04/G-11/G-12/N-06).
+
+---
+
+# Round-3 decisions — capability review, third pass
+
+An independent re-derivation (not assuming rounds 1–2 were complete) confirmed
+the review is implemented or recorded except two small, previously
+unrecorded capabilities in already-shipped controls. These entries capture
+only the binding choices.
+
+## D-032 — `SmartViewGrid` view source stays mount-time; reactive switching deferred (N-10)
+
+Every other data-shaping input on `SmartViewGrid` is an Observable the grid
+re-queries on (`quickFind`/`filters`/`orderBy`/`overrideFetchXml`/`refresh` +
+the N-04 paging observables), but `viewId`/`viewName` are plain string props read
+once in `load` — switching the active saved view at runtime needs a remount
+(React `key` change), where the legacy `ReadOnlyViewGrid` took
+`viewName: Observable<string>` and switched live. **Decision: deferred,
+pull-based.** No sample needs a live view switcher, the `key`-remount workaround
+is idiomatic React and loses no correctness, and building it now is accretion
+against the earn-their-place posture (D-010/D-028). When the first app needs an
+in-place view dropdown, accept `viewId`/`viewName` as `string | Observable<string>`
+(or re-run `load` from a `componentDidUpdate` on view-key change) — re-resolve
+columns (N-01 owning-entity path) and re-query through the existing guarded
+`load`, resetting to page 1. Pure reactivity plumbing over the current load
+path; no new query/metadata mechanics. Recorded (N-10) so the inconsistency with
+the kit's own Observable model is a logged choice, not a silent gap.
+
+## D-033 — Date min/max bounds deferred, pull-based (N-11)
+
+`DateTimeField`/`SmartDatePicker` thread localization (G-06) but expose no
+`minDate`/`maxDate`, where the legacy datepicker did (presentational settings +
+smart Observables). The wrapped Fluent v9 compat `DatePicker` supports the props
+natively, so this is pure plumbing. **Decision: deferred, pull-based.** No
+current consumer; bounded date entry (min = today, end ≥ start cascade, fiscal
+window) is a real "99% native" scenario but earns its place when an app needs it.
+When built: add `minDate?: Date | null`/`maxDate?: Date | null` to
+`IDateTimeFieldProps` (plain props — presentational purity unchanged) passed
+straight to the compat picker, and an optional pass-through on `SmartDatePicker`.
+Date attributes carry no metadata bounds (unlike numeric min/max, which
+`SmartNumberField` resolves), so these are always caller intent — for a cascade
+the host drives them from a ViewModel. Recorded (N-11) so the omission is logged.
+
+## D-034 — Standard-surface criterion: mirror the commonly-used platform surface; common usage is a signal, not the bar (refines D-028)
+
+The kit rebuilds the **idea** — a publishable, low-friction successor where any
+PL-400-certified developer reaches for the platform member they already know and
+finds it — **not** a replica of any specific app. So "is this method commonly
+used" is only a *signal* (it flags what tends to be load-bearing on real
+projects); it is **not** the criterion for whether a member exists. This corrects
+how D-028's scope-discipline note had been read: for the host-mirror surface,
+faithful coverage of the commonly-used platform API *is* the product (option B,
+D-014; the explicit theme of N-02/N-03), so "the platform has it and a CRM dev
+reaches for it" is sufficient justification there.
+
+The bar therefore splits by layer:
+
+- **Host-mirror / standard surface** — the context (`webAPI`/`navigation`/
+  `utils`/`client`/`device`/`user`) and the `LibraryUtils` form/control wrappers.
+  Bar: **is this part of the commonly-used Xrm surface a PL-400 dev reaches
+  for?** If yes, build it; **familiarity itself is the named consumer**, no
+  in-kit caller required. Guardrails (so this is not "mirror all of `Xrm.*`"):
+  (a) *commonly-used*, not exhaustive — the obscure tail
+  (`getLearningPathAttributeName`, niche page types, etc.) still needs a concrete
+  named consumer and its own D-entry; (b) V8/PCF degrade gracefully per the
+  per-method dial (D-025/D-028); (c) mirror members carry fake-context/smoke
+  contract coverage even without an app caller.
+- **Kit-invented tier** — net-new controls, composites, specialized UI, and
+  control feature-props. Bar **unchanged: D-010** — earn their place when a real
+  consumer needs them. (So N-09 teaching-bubble, G-04 relationship counter, and
+  the round-3 N-10 grid view-reactivity / N-11 date bounds stay deferred: a
+  control's internal reactivity model and a Fluent picker bound are kit design
+  choices, not a standard Xrm surface a dev reaches for.)
+
+Consequence: **N-12** (`addFieldNotification` over the platform's
+`control.addNotification`, the rich/actionable form-notification API a CRM dev
+knows) was **built** under this criterion — superseding the earlier "no consumer,
+don't build" read (`LibraryUtils.addFieldNotification`; `AccountForm.onSave`
+reference use; unit-tested). D-028's member list is no longer "closed";
+it is closed *against the obscure tail*, open to the commonly-used surface.
+Revisit only if the commonly-used line proves too fuzzy in practice — then tighten
+with examples rather than reverting to legacy-usage gating.

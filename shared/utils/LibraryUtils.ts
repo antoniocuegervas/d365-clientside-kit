@@ -136,7 +136,7 @@ export function setFieldNotification(
   });
 }
 
-/** Clears the field-level notification with `uniqueId` from the attribute's controls (N-07). */
+/** Clears the field-level notification with `uniqueId` from the attribute's controls (N-07/N-12). */
 export function clearFieldNotification(
   formContext: FormContextLike,
   attributeName: string,
@@ -145,6 +145,55 @@ export function clearFieldNotification(
   forEachAttributeControl(formContext, [attributeName], (control) => {
     if (isNotifiable(control)) {
       control.clearNotification(uniqueId);
+    }
+  });
+}
+
+/** Controls that support the rich addNotification API (standard field controls do). */
+function isRichNotifiable(control: Xrm.Controls.Control): control is Xrm.Controls.StandardControl {
+  return typeof (control as Xrm.Controls.StandardControl).addNotification === "function";
+}
+
+/** One clickable action inside a rich field notification (N-12). */
+export interface FieldNotificationAction {
+  /** Link text for the action. */
+  message: string;
+  /** Handlers invoked when the user clicks the action. */
+  actions: Array<() => void>;
+}
+
+/**
+ * Options for a rich field notification (N-12), mirroring the platform's
+ * `Xrm.Controls.AddControlNotificationOptions` with kit-owned types (option B).
+ */
+export interface FieldNotificationOptions {
+  /** Notification lines shown in the flyout. */
+  messages: string[];
+  /** Severity; the platform defaults to a recommendation when omitted. */
+  notificationLevel?: "ERROR" | "RECOMMENDATION";
+  /** Identifies the notification so it can be cleared via clearFieldNotification. */
+  uniqueId: string;
+  /** Optional clickable "fix this" affordances. */
+  actions?: FieldNotificationAction[];
+}
+
+/**
+ * Adds a rich, actionable field notification, severity, multiple lines, and
+ * clickable actions, on every control bound to the attribute (N-12). This is
+ * the platform's `control.addNotification`, a step up from the plain
+ * {@link setFieldNotification}. Clear it with {@link clearFieldNotification}
+ * (same `uniqueId`); there is no separate remover. No-op when the field isn't on
+ * the form or the control doesn't support rich notifications (e.g. some editable
+ * grid cells).
+ */
+export function addFieldNotification(
+  formContext: FormContextLike,
+  attributeName: string,
+  options: FieldNotificationOptions
+): void {
+  forEachAttributeControl(formContext, [attributeName], (control) => {
+    if (isRichNotifiable(control)) {
+      control.addNotification(options as Xrm.Controls.AddControlNotificationOptions);
     }
   });
 }

@@ -9,6 +9,7 @@ interface FakeControl {
   setVisible: jest.Mock;
   setNotification: jest.Mock;
   clearNotification: jest.Mock;
+  addNotification: jest.Mock;
 }
 
 function makeFakeForm(attributeNames: string[], formType = 2) {
@@ -19,6 +20,7 @@ function makeFakeForm(attributeNames: string[], formType = 2) {
       setVisible: jest.fn(),
       setNotification: jest.fn(),
       clearNotification: jest.fn(),
+      addNotification: jest.fn(),
     };
     controls.set(name, control);
     return {
@@ -92,6 +94,42 @@ describe("LibraryUtils field manipulation", () => {
     const { formContext } = makeFakeForm(["name"]);
     expect(() =>
       LibraryUtils.setFieldNotification(formContext, "not_on_form", "x", "id")
+    ).not.toThrow();
+  });
+
+  it("addFieldNotification passes rich options to the attribute's controls (N-12)", () => {
+    const { formContext, controls } = makeFakeForm(["websiteurl", "name"]);
+    const action = jest.fn();
+    const options = {
+      messages: ["No website captured."],
+      notificationLevel: "RECOMMENDATION" as const,
+      uniqueId: "site-rec",
+      actions: [{ message: "Start one", actions: [action] }],
+    };
+    LibraryUtils.addFieldNotification(formContext, "websiteurl", options);
+    expect(controls.get("websiteurl")!.addNotification).toHaveBeenCalledWith(options);
+    expect(controls.get("name")!.addNotification).not.toHaveBeenCalled();
+  });
+
+  it("addFieldNotification is cleared by clearFieldNotification, no separate remover (N-12)", () => {
+    const { formContext, controls } = makeFakeForm(["websiteurl"]);
+    LibraryUtils.addFieldNotification(formContext, "websiteurl", {
+      messages: ["x"],
+      uniqueId: "site-rec",
+    });
+    LibraryUtils.clearFieldNotification(formContext, "websiteurl", "site-rec");
+    expect(controls.get("websiteurl")!.clearNotification).toHaveBeenCalledWith("site-rec");
+  });
+
+  it("addFieldNotification skips controls without rich-notification support (N-12)", () => {
+    const { formContext, controls } = makeFakeForm(["websiteurl"]);
+    // Editable-grid-style control without addNotification.
+    (controls.get("websiteurl") as { addNotification?: unknown }).addNotification = undefined;
+    expect(() =>
+      LibraryUtils.addFieldNotification(formContext, "websiteurl", {
+        messages: ["x"],
+        uniqueId: "site-rec",
+      })
     ).not.toThrow();
   });
 
