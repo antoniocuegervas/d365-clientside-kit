@@ -11,6 +11,13 @@ import type { ObservableEvent } from "../../reactivity/ObservableEvent";
 import { formattedValue, lookupCell, type ILookupCell } from "../../utils/odata";
 import { DataGrid, type IGridColumn, type IGridRow } from "../presentational/DataGrid";
 import { Pagination } from "../presentational/Pagination";
+import { resolveDynamicSource, type IDynamicColumnSpec } from "./dynamicColumns";
+
+export type {
+  IDynamicColumnSpec,
+  IDynamicColumnSource,
+  IResolvedSource,
+} from "./dynamicColumns";
 import {
   buildSavedQueryOptions,
   type ISmartViewGridFilter,
@@ -41,6 +48,12 @@ export interface ISmartViewGridProps {
   orderBy?: Observable<ISortSpec | null>;
   /** Enable header-click server sorting (writes `orderBy`). */
   serverSort?: boolean;
+  /**
+   * Dynamic/polymorphic columns (G-16), keyed by layout column name (to replace
+   * that column's rendering) or a synthetic `calc_*` key (appended to the grid).
+   * Each resolves its cell from 2+ source fields with per-source formatting.
+   */
+  columnOverrides?: Record<string, IDynamicColumnSpec>;
   /**
    * Page size (G-01). When set, the grid pages server-side (`$top` + nextLink)
    * and shows a Pagination control. Visited pages are cached so "previous" is
@@ -180,8 +193,13 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
    * type-aware (G-01), lookup columns become clickable links that openForm.
    */
   private async resolveColumns(view: IViewDefinition): Promise<IGridColumn[]> {
-    return Promise.all(
+    const overrides = this.props.columnOverrides ?? {};
+    const layoutColumns = await Promise.all(
       view.columns.map(async (column) => {
+        const override = overrides[column.name];
+        if (override) {
+          return this.toDynamicColumn(column.name, override, column.width);
+        }
         let header = column.name;
         let kind: AttributeKind | undefined;
         try {
@@ -204,6 +222,45 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         return base;
       })
     );
+    // Synthetic calc_* override columns (not in the layout) are appended.
+    const layoutNames = new Set(view.columns.map((column) => column.name));
+    for (const [key, spec] of Object.entries(overrides)) {
+      if (!layoutNames.has(key)) {
+        layoutColumns.push(this.toDynamicColumn(key, spec));
+      }
+    }
+    return layoutColumns;
+  }
+
+  /** Builds a grid column for a dynamic/polymorphic spec (G-16). */
+  private toDynamicColumn(key: string, spec: IDynamicColumnSpec, width?: number): IGridColumn {
+    return {
+      key,
+      name: spec.header,
+      width,
+      sortable: !!spec.sort?.comparator,
+      comparator: spec.sort?.comparator,
+      onRender: (row) => row[key] as React.ReactNode,
+    };
+  }
+
+  /** Resolves a dynamic cell to a node by probing the spec's sources in order. */
+  private renderDynamicCell(
+    spec: IDynamicColumnSpec,
+    record: Record<string, unknown>,
+    row: IGridRow
+  ): React.ReactNode {
+    const resolved = resolveDynamicSource(record, spec);
+    if (!resolved) {
+      return "";
+    }
+    if (resolved.source.render) {
+      return resolved.source.render(row, resolved.value);
+    }
+    if (resolved.isLookup) {
+      return this.renderLookupCell(resolved.value);
+    }
+    return String(resolved.value);
   }
 
   /** Renders a lookup cell as a link that opens the referenced record's form. */
@@ -249,14 +306,22 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
 
   private mapRows(view: IViewDefinition, records: Array<Record<string, unknown>>): IGridRow[] {
     const idAttribute = this.entityMeta?.primaryIdAttribute ?? `${view.entityLogicalName}id`;
+    const overrides = this.props.columnOverrides ?? {};
     return records.map((record, index) => {
       const row: IGridRow = { key: String(record[idAttribute] ?? index) };
       for (const column of view.columns) {
+        if (overrides[column.name]) {
+          continue; // resolved below as a dynamic cell
+        }
         if (this.columnKinds.get(column.name) === "lookup") {
           row[column.name] = lookupCell(record, column.name) ?? "";
         } else {
           row[column.name] = formattedValue(record, column.name) ?? record[column.name] ?? "";
         }
+      }
+      // Dynamic/polymorphic columns (G-16): resolve a node per spec.
+      for (const [key, spec] of Object.entries(overrides)) {
+        row[key] = this.renderDynamicCell(spec, record, row);
       }
       return row;
     });

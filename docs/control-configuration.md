@@ -81,6 +81,7 @@ OData options.
 | `onRecordSelected(id, row)` / `selectedRecordId` | Single-select click + highlight |
 | `onItemInvoked(id, row)` | Invoke (double-click/Enter); defaults to openForm |
 | `multiSelect` + `selectedRecordIds` + `onSelectedRecords` | Multi-select checkboxes |
+| `columnOverrides` | Dynamic/polymorphic columns (G-16): one column resolved from 2+ source fields, each with its own formatting; keyed by layout column or a synthetic `calc_*` key |
 | `emptyMessage` | Empty-state text |
 
 Note: link-entity (aliased / dotted) columns can't be filtered or sorted

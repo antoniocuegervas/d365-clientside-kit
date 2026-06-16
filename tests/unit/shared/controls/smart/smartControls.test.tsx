@@ -496,6 +496,60 @@ describe("SmartViewGrid (read-only view grid)", () => {
     ]);
   });
 
+  it("dynamic column resolves from the first non-empty source field (G-16)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: { "opportunity.name": { displayName: "Topic", kind: "text" } },
+      views: {
+        "default:opportunity": {
+          entityLogicalName: "opportunity",
+          columns: [{ name: "name", width: 200 }],
+        },
+      },
+      queryResults: {
+        opportunity: [
+          {
+            entities: [
+              // row 1: lookup source populated → renders the lookup link
+              {
+                opportunityid: "o1",
+                name: "Deal A",
+                "_calc_reviewerid_value": "u1u00000-0000-0000-0000-000000000001",
+                "_calc_reviewerid_value@OData.Community.Display.V1.FormattedValue": "Reviewer One",
+                "_calc_reviewerid_value@Microsoft.Dynamics.CRM.lookuplogicalname": "systemuser",
+                new_reviewername: "Ignored Text",
+              },
+              // row 2: lookup empty → falls back to the free-text source
+              { opportunityid: "o2", name: "Deal B", new_reviewername: "Free Text Reviewer" },
+            ],
+          },
+        ],
+      },
+    });
+    renderWith(
+      context,
+      <SmartViewGrid
+        entity="opportunity"
+        columnOverrides={{
+          calc_reviewer: {
+            header: "Reviewer",
+            sources: [
+              { field: "calc_reviewerid", kind: "lookup" },
+              { field: "new_reviewername", kind: "text" },
+            ],
+          },
+        }}
+      />
+    );
+    expect(await screen.findByText("Reviewer")).toBeTruthy(); // synthetic header
+    const link = await screen.findByText("Reviewer One");
+    await userEvent.click(link);
+    expect(calls.find((c) => c.api === "openForm")?.args).toEqual([
+      "systemuser",
+      "u1u00000-0000-0000-0000-000000000001",
+    ]);
+    expect(await screen.findByText("Free Text Reviewer")).toBeTruthy();
+  });
+
   it("re-runs the query when the refresh event fires (code-level refresh)", async () => {
     const { context, calls } = createFakeViewModelContext(viewSetup);
     const refresh = new ObservableEvent<void>();

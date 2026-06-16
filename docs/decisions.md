@@ -225,3 +225,23 @@ currency symbol via `metadata.getCurrencySymbol(transactionCurrencyId)`
 (`transactioncurrency.currencysymbol`, cached per id). Priority: explicit
 `currencySymbol` prop › resolved `transactionCurrencyId` › `$` fallback. Symbol
 position/spacing stays out (deferred to G-07).
+
+## D-022 — Grid features layer on the savedQuery data path; dynamic columns extend the column model (G-01/G-16)
+
+The grid wave (G-01) is built on T-01's `?savedQuery={id}` data path so quick
+find, declarative filters, and server `$orderby` are pure query-string
+composition (`viewGridQuery.ts`) — no FetchXML parsing. Paging is forward
+nextLink-based (Dataverse has no `$skip`), so `IWebApi.retrieveMultipleByUrl`
+follows the cookie and the grid caches visited pages for instant "previous".
+Server sort is a controlled DataGrid mode (`onColumnSort` + `sortState`) so the
+host re-supplies sorted rows. `overrideFetchXml` is the one feature that keeps
+the `?fetchXml=` path (view supplies layout, host supplies query).
+
+Dynamic columns (G-16) **extend the column model rather than forking the grid**
+(`columnOverrides: Record<key, IDynamicColumnSpec>`): a column probes 2+ source
+fields in order and the first with a value renders, with per-source `render`,
+synthetic `calc_*` columns, and a per-column client `comparator`. This
+generalizes the legacy cross-sell fork into one opt-in, per-column feature;
+default rendering stays metadata-driven. Link-entity (dotted) columns can't be
+filtered/sorted through the savedQuery layer — a platform boundary, so those
+clauses are dropped rather than silently mis-querying.

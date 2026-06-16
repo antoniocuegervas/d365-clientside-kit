@@ -33,6 +33,12 @@ export interface IGridColumn {
   onRender?: (row: IGridRow) => React.ReactNode;
   /** Client-side sortability. Default true. */
   sortable?: boolean;
+  /**
+   * Custom client-side comparator for this column (e.g. dynamic columns whose
+   * value isn't a single comparable cell). Used in place of the default cell
+   * comparison when sorting on this column.
+   */
+  comparator?: (a: IGridRow, b: IGridRow) => number;
 }
 
 export interface IGridRow {
@@ -159,7 +165,11 @@ export class DataGrid extends ObserverComponent<IDataGridProps, IDataGridState> 
       return rows;
     }
     const direction = sortAscending ? 1 : -1;
-    return rows.sort((a, b) => direction * compareCells(a[sortColumn], b[sortColumn]));
+    const column = valueOf(this.props.columns).find((c) => c.key === sortColumn);
+    const compare = column?.comparator
+      ? column.comparator
+      : (a: IGridRow, b: IGridRow) => compareCells(a[sortColumn], b[sortColumn]);
+    return rows.sort((a, b) => direction * compare(a, b));
   }
 
   override render(): React.ReactNode {

@@ -140,6 +140,8 @@ export {
   type ISmartViewGridProps,
   type ISmartViewGridFilter,
   type ISortSpec,
+  type IDynamicColumnSpec,
+  type IDynamicColumnSource,
 } from "./controls/smart/SmartViewGrid";
 export {
   buildSavedQueryOptions,
