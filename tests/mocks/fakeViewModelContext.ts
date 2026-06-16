@@ -19,6 +19,8 @@ export interface IFakeContextOptions {
   views?: Record<string, Partial<IViewDefinition>>; // key: savedQueryId or "default:entity"
   /** Scripted results returned by retrieveMultipleRecords/fetch, FIFO per entity. */
   queryResults?: Record<string, Array<IRetrieveMultipleResult>>;
+  /** Scripted pages returned by retrieveMultipleByUrl (nextLink paging), FIFO. */
+  pageResults?: Array<IRetrieveMultipleResult>;
   /** Scripted responses returned by executeAction, keyed by action name. */
   actionResults?: Record<string, unknown>;
   /** Records the native lookup dialog resolves with. Default empty. */
@@ -52,6 +54,7 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
   const queryQueues = new Map<string, Array<IRetrieveMultipleResult>>(
     Object.entries(options.queryResults ?? {})
   );
+  const pageQueue = [...(options.pageResults ?? [])];
 
   const nextQueryResult = (entity: string): IRetrieveMultipleResult => {
     const queue = queryQueues.get(entity);
@@ -103,6 +106,11 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
         record("fetch", entity, fetchXml);
         await maybeDelay();
         return nextQueryResult(entity);
+      },
+      retrieveMultipleByUrl: async (url) => {
+        record("retrieveMultipleByUrl", url);
+        await maybeDelay();
+        return pageQueue.shift() ?? { entities: [] };
       },
       executeAction: async (actionName, parameters, boundTo) => {
         record("executeAction", actionName, parameters, boundTo);

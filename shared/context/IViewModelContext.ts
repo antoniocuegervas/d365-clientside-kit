@@ -112,6 +112,12 @@ export interface IWebApi {
   /** Convenience for the kit's dominant query path: plain FetchXML in. */
   fetch(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult>;
   /**
+   * Follows an `@odata.nextLink` (a full collection URL) for server-side paging
+   * (G-01). Dataverse paging is forward-cookie based; rides cds-client on every
+   * host so an absolute nextLink can be re-issued (Xrm.WebApi can't take one).
+   */
+  retrieveMultipleByUrl(url: string): Promise<IRetrieveMultipleResult>;
+  /**
    * Executes a custom action (G-08). Unbound by default; pass `boundTo` for an
    * action bound to a record. Rides cds-client on every host (D-014), so
    * production never touches `Xrm.WebApi.online.execute`'s request-object

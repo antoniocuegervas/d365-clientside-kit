@@ -5,6 +5,7 @@ import { Observable, type Unsubscribe } from "../../reactivity/Observable";
 import type { ObservableEvent } from "../../reactivity/ObservableEvent";
 import { formattedValue } from "../../utils/odata";
 import { DataGrid, type IGridColumn, type IGridRow } from "../presentational/DataGrid";
+import { Pagination } from "../presentational/Pagination";
 import {
   buildSavedQueryOptions,
   type ISmartViewGridFilter,
@@ -36,6 +37,12 @@ export interface ISmartViewGridProps {
   /** Enable header-click server sorting (writes `orderBy`). */
   serverSort?: boolean;
   /**
+   * Page size (G-01). When set, the grid pages server-side (`$top` + nextLink)
+   * and shows a Pagination control. Visited pages are cached so "previous" is
+   * instant. Omit for the whole result set in one query.
+   */
+  pageSize?: number;
+  /**
    * Override mode (G-01): when this holds a FetchXML string, the host supplies
    * the query while the view still supplies the layout, the canonical
    * "native look, custom data" path. Null/empty falls back to the saved query.
@@ -65,6 +72,11 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   private readonly columns = new Observable<IGridColumn[]>([]);
   private readonly rows = new Observable<IGridRow[]>([]);
   private readonly loading = new Observable<boolean>(true);
+  private readonly page = new Observable<number>(1);
+  private readonly hasNextPage = new Observable<boolean>(false);
+  /** Cache of visited pages (1-based) and the nextLink that follows each. */
+  private readonly pageRows = new Map<number, IGridRow[]>();
+  private readonly pageNextLink = new Map<number, string | undefined>();
   private readonly subscriptions: Unsubscribe[] = [];
   private quickFindTimer: ReturnType<typeof setTimeout> | undefined;
   private view: IViewDefinition | undefined;
@@ -73,7 +85,15 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   constructor(props: ISmartViewGridProps) {
     super(props);
     this.state = {};
-    this.observe(this.columns, this.rows, this.loading, props.selectedRecordId, props.orderBy);
+    this.observe(
+      this.columns,
+      this.rows,
+      this.loading,
+      this.page,
+      this.hasNextPage,
+      props.selectedRecordId,
+      props.orderBy
+    );
   }
 
   override componentDidMount(): void {
@@ -163,16 +183,29 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     return this.entityMeta ? [this.entityMeta.primaryNameAttribute] : [];
   }
 
-  /** Composes `?savedQuery=…` with quick find / filters / `$orderby` (T-01 + G-01). */
+  /** Composes `?savedQuery=…` with quick find / filters / `$orderby` / `$top` (T-01 + G-01). */
   private buildQueryOptions(view: IViewDefinition): string {
     return buildSavedQueryOptions(view.id, {
       quickFindText: this.props.quickFind?.value,
       quickFindFields: this.effectiveQuickFindFields(),
       filters: this.props.filters?.value,
       orderBy: this.props.orderBy?.value,
+      top: this.props.pageSize,
     });
   }
 
+  private mapRows(view: IViewDefinition, records: Array<Record<string, unknown>>): IGridRow[] {
+    const idAttribute = this.entityMeta?.primaryIdAttribute ?? `${view.entityLogicalName}id`;
+    return records.map((record, index) => {
+      const row: IGridRow = { key: String(record[idAttribute] ?? index) };
+      for (const column of view.columns) {
+        row[column.name] = formattedValue(record, column.name) ?? record[column.name] ?? "";
+      }
+      return row;
+    });
+  }
+
+  /** Loads the first page, resetting any paging cache (called on every query change). */
   private async loadRows(): Promise<void> {
     const view = this.view;
     if (!view) {
@@ -190,20 +223,66 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       if (this.isDisposed) {
         return;
       }
-      const idAttribute = this.entityMeta?.primaryIdAttribute ?? `${view.entityLogicalName}id`;
-      this.rows.value = result.entities.map((record, index) => {
-        const row: IGridRow = { key: String(record[idAttribute] ?? index) };
-        for (const column of view.columns) {
-          row[column.name] = formattedValue(record, column.name) ?? record[column.name] ?? "";
-        }
-        return row;
-      });
+      const rows = this.mapRows(view, result.entities);
+      this.pageRows.clear();
+      this.pageNextLink.clear();
+      if (this.props.pageSize) {
+        this.pageRows.set(1, rows);
+        this.pageNextLink.set(1, result.nextLink);
+        this.page.value = 1;
+        this.hasNextPage.value = !!result.nextLink;
+      }
+      this.rows.value = rows;
     } finally {
       if (!this.isDisposed) {
         this.loading.value = false;
       }
     }
   }
+
+  private applyPage(pageNumber: number): void {
+    this.rows.value = this.pageRows.get(pageNumber) ?? [];
+    this.page.value = pageNumber;
+    this.hasNextPage.value =
+      this.pageRows.has(pageNumber + 1) || !!this.pageNextLink.get(pageNumber);
+  }
+
+  private readonly goNext = async (): Promise<void> => {
+    const view = this.view;
+    if (!view) {
+      return;
+    }
+    const target = this.page.value + 1;
+    if (this.pageRows.has(target)) {
+      this.applyPage(target);
+      return;
+    }
+    const nextLink = this.pageNextLink.get(this.page.value);
+    if (!nextLink) {
+      return;
+    }
+    this.loading.value = true;
+    try {
+      const result = await this.vmContext.webAPI.retrieveMultipleByUrl(nextLink);
+      if (this.isDisposed) {
+        return;
+      }
+      this.pageRows.set(target, this.mapRows(view, result.entities));
+      this.pageNextLink.set(target, result.nextLink);
+      this.applyPage(target);
+    } finally {
+      if (!this.isDisposed) {
+        this.loading.value = false;
+      }
+    }
+  };
+
+  private readonly goPrevious = (): void => {
+    const target = this.page.value - 1;
+    if (target >= 1) {
+      this.applyPage(target);
+    }
+  };
 
   private readonly handleRowClick = (row: IGridRow): void => {
     if (this.props.selectedRecordId) {
@@ -224,20 +303,31 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     }
     const sort = this.props.orderBy?.value;
     return (
-      <DataGrid
-        columns={this.columns}
-        rows={this.rows}
-        loading={this.loading}
-        emptyMessage={this.props.emptyMessage}
-        onRowClick={
-          this.props.onRecordSelected || this.props.selectedRecordId
-            ? this.handleRowClick
-            : undefined
-        }
-        selectedKey={this.props.selectedRecordId}
-        onColumnSort={this.props.serverSort ? this.handleColumnSort : undefined}
-        sortState={sort ? { columnKey: sort.attribute, descending: !!sort.descending } : null}
-      />
+      <>
+        <DataGrid
+          columns={this.columns}
+          rows={this.rows}
+          loading={this.loading}
+          emptyMessage={this.props.emptyMessage}
+          onRowClick={
+            this.props.onRecordSelected || this.props.selectedRecordId
+              ? this.handleRowClick
+              : undefined
+          }
+          selectedKey={this.props.selectedRecordId}
+          onColumnSort={this.props.serverSort ? this.handleColumnSort : undefined}
+          sortState={sort ? { columnKey: sort.attribute, descending: !!sort.descending } : null}
+        />
+        {this.props.pageSize ? (
+          <Pagination
+            page={this.page}
+            hasNextPage={this.hasNextPage}
+            onPrevious={this.goPrevious}
+            onNext={() => void this.goNext()}
+            disabled={this.loading}
+          />
+        ) : null}
+      </>
     );
   }
 }

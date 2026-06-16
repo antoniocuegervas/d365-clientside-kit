@@ -142,6 +142,10 @@ class ModernWebApi implements IWebApi {
     );
   }
 
+  retrieveMultipleByUrl(url: string): Promise<IRetrieveMultipleResult> {
+    return this.client.retrieveMultipleByUrl(url);
+  }
+
   executeAction(
     actionName: string,
     parameters?: Record<string, unknown>,

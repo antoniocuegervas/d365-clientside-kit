@@ -118,6 +118,7 @@ export {
   type IPersonaItem,
 } from "./controls/presentational/PersonaList";
 export { SearchBar, type ISearchBarProps } from "./controls/presentational/SearchBar";
+export { Pagination, type IPaginationProps } from "./controls/presentational/Pagination";
 export { WaitingMessage, type IWaitingMessageProps } from "./controls/presentational/WaitingMessage";
 
 // Smart (metadata-aware) controls (declarative code blocks)

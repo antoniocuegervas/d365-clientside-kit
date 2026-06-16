@@ -314,6 +314,44 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(await screen.findByText("Fabrikam Inc")).toBeTruthy();
   });
 
+  it("pages server-side via nextLink and caches visited pages (G-01)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      ...viewSetup,
+      queryResults: {
+        account: [
+          {
+            entities: [
+              { accountid: "p1", name: "Contoso Ltd", telephone1: "1" },
+              { accountid: "p2", name: "Fabrikam Inc", telephone1: "2" },
+            ],
+            nextLink: "https://fake/next-page-2",
+          },
+        ],
+      },
+      pageResults: [
+        {
+          entities: [
+            { accountid: "p3", name: "Adventure Works", telephone1: "3" },
+            { accountid: "p4", name: "Northwind Traders", telephone1: "4" },
+          ],
+        },
+      ],
+    });
+    renderWith(context, <SmartViewGrid entity="account" pageSize={2} />);
+    expect(await screen.findByText("Contoso Ltd")).toBeTruthy();
+    expect(screen.getByLabelText("Current page").textContent).toContain("1");
+
+    await userEvent.click(screen.getByLabelText("Next page"));
+    expect(await screen.findByText("Adventure Works")).toBeTruthy();
+    expect(screen.getByLabelText("Current page").textContent).toContain("2");
+    expect(calls.filter((c) => c.api === "retrieveMultipleByUrl").length).toBe(1);
+
+    // Previous comes from cache, no extra query.
+    await userEvent.click(screen.getByLabelText("Previous page"));
+    expect(await screen.findByText("Contoso Ltd")).toBeTruthy();
+    expect(calls.filter((c) => c.api === "retrieveMultipleByUrl").length).toBe(1);
+  });
+
   it("raises onRecordSelected with the record id on row click", async () => {
     const { context } = createFakeViewModelContext(viewSetup);
     const selected: string[] = [];
