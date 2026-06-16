@@ -5,8 +5,17 @@ import { entitySetName } from "../utils/odata";
 import { buildClientUIDataParam } from "../utils/webResourceParams";
 import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
 import { normalizeDateFormatInfo, resolveFormatting } from "./formatting";
+import {
+  clientFromSource,
+  deviceFromSource,
+  utilsFromXrm,
+  type IXrmClientLike,
+  type IXrmDeviceLike,
+} from "./contextSurface";
 import type {
+  IClientContext,
   IContextUtils,
+  IDeviceContext,
   IErrorDialogOptions,
   IFileDetails,
   IFormattingInfo,
@@ -48,6 +57,8 @@ export interface IPcfContextLike {
     languageId?: number;
     dateFormattingInfo?: Record<string, unknown>;
     numberFormattingInfo?: Record<string, unknown>;
+    isRTL?: boolean;
+    getTimeZoneOffsetMinutes?(): number;
   };
   navigation: {
     openForm(options: { entityName: string; entityId?: string }): PromiseLike<unknown>;
@@ -63,6 +74,12 @@ export interface IPcfContextLike {
   page?: { getClientUrl?(): string };
   /** Optional native lookup dialog, when the PCF host surfaces one (G-02). */
   utils?: IXrmUtilityLookup;
+  /** Client/form-factor surface (N-03). */
+  client?: IXrmClientLike;
+  /** Device capture surface (N-03). */
+  device?: IXrmDeviceLike;
+  /** Control resources for localized strings (N-03). */
+  resources?: { getString?(id: string): string };
 }
 
 /**
@@ -78,8 +95,10 @@ export class PCFContext implements IViewModelContext {
   readonly metadata: IMetadataApi;
   readonly navigation: INavigation;
   readonly utils: IContextUtils;
+  readonly client: IClientContext;
+  readonly device: IDeviceContext;
 
-  private readonly client: CdsClient;
+  private readonly cdsClient: CdsClient;
   private readonly rawDateFormat: Record<string, unknown> | undefined;
   private readonly rawNumberFormat: Record<string, unknown> | undefined;
   private formattingPromise?: Promise<IFormattingInfo>;
@@ -91,26 +110,39 @@ export class PCFContext implements IViewModelContext {
       id: normalizeGuid(source.userSettings.userId),
       name: source.userSettings.userName,
       languageId: source.userSettings.languageId,
+      isRTL: source.userSettings.isRTL,
+      timeZoneOffsetMinutes: source.userSettings.getTimeZoneOffsetMinutes?.(),
     };
     this.rawDateFormat = source.userSettings.dateFormattingInfo;
     this.rawNumberFormat = source.userSettings.numberFormattingInfo;
     this.orgVersion = "9.2"; // PCF hosts are modern; the framework hides the build number
 
     const client = new CdsClient({ clientUrl: this.clientUrl });
-    this.client = client;
+    this.cdsClient = client;
     this.webAPI = new PcfWebApi(source.webAPI, client);
     this.metadata = new MetadataService(client);
     this.navigation = new PcfNavigation(source.navigation, source.utils);
+    // N-03 surface: client/device native to PCF; resource strings via the
+    // control's resources; the Xrm.Utility progress/status extras have no PCF
+    // equivalent and degrade (no-op / reject).
+    const resources = source.resources;
     this.utils = {
-      alert: (message: string) => void this.navigation.openAlertDialog(message),
+      ...utilsFromXrm(
+        (message: string) => void this.navigation.openAlertDialog(message),
+        undefined,
+        "PCF"
+      ),
+      getResourceString: (_webResourceName, key) => resources?.getString?.(key) ?? undefined,
     };
+    this.client = clientFromSource(source.client);
+    this.device = deviceFromSource(source.device, "PCF");
   }
 
   getFormatting(): Promise<IFormattingInfo> {
     // PCF carries both date and number formatting on userSettings; fall back to
     // the usersettings entity for any separators the host didn't supply. Cached.
     this.formattingPromise ??= resolveFormatting({
-      client: this.client,
+      client: this.cdsClient,
       userId: this.user.id,
       dateFormatInfo: normalizeDateFormatInfo(this.rawDateFormat),
       decimalSymbol: readNumberFormat(this.rawNumberFormat, "numberDecimalSeparator", "NumberDecimalSeparator"),

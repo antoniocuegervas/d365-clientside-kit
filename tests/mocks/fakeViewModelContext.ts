@@ -2,7 +2,9 @@ import type {
   IAttributeMetadata,
   ICurrencyInfo,
   IEntityMetadata,
+  IFileDetails,
   IFormattingInfo,
+  IGeoPosition,
   IViewDefinition,
   IViewModelContext,
 } from "../../shared/context/IViewModelContext";
@@ -29,6 +31,28 @@ export interface IFakeContextOptions {
   formatting?: IFormattingInfo;
   /** User UI language LCID surfaced on context.user.languageId. */
   languageId?: number;
+  /** RTL flag surfaced on context.user.isRTL (N-03). */
+  isRTL?: boolean;
+  /** Timezone offset surfaced on context.user.timeZoneOffsetMinutes (N-03). */
+  timeZoneOffsetMinutes?: number;
+  /** Localized strings returned by utils.getResourceString, keyed by key (N-03). */
+  resourceStrings?: Record<string, string>;
+  /** Result of utils.getAllowedStatusTransitions (N-03). */
+  allowedStatusTransitions?: unknown;
+  /** Form factor returned by client.getFormFactor (N-03). Default 1 (Desktop). */
+  formFactor?: number;
+  /** Client kind returned by client.getClient (N-03). */
+  clientKind?: string;
+  /** Offline flag returned by client.isOffline (N-03). */
+  isOffline?: boolean;
+  /** File returned by device capture methods (N-03). */
+  deviceFile?: IFileDetails | null;
+  /** Files returned by device.pickFile (N-03). */
+  pickedFiles?: IFileDetails[];
+  /** Barcode returned by device.getBarcodeValue (N-03). */
+  barcodeValue?: string | null;
+  /** Position returned by device.getCurrentPosition (N-03). */
+  geoPosition?: IGeoPosition | null;
   /** Currency info returned by getCurrencySymbol, keyed by currency id. */
   currencies?: Record<string, ICurrencyInfo>;
   /** Icon URLs returned by getEntityIconUrl, keyed by entity logical name. */
@@ -72,6 +96,8 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
       id: "00000000-0000-0000-0000-0000000000aa",
       name: "Fake User",
       languageId: options.languageId,
+      isRTL: options.isRTL,
+      timeZoneOffsetMinutes: options.timeZoneOffsetMinutes,
     },
     orgVersion: "9.2.0.0",
     isLegacy: false,
@@ -232,6 +258,59 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
     },
     utils: {
       alert: (message) => record("alert", message),
+      getResourceString: (webResourceName, key) => {
+        record("getResourceString", webResourceName, key);
+        return options.resourceStrings?.[key];
+      },
+      showProgressIndicator: (message) => record("showProgressIndicator", message),
+      closeProgressIndicator: () => record("closeProgressIndicator"),
+      getAllowedStatusTransitions: async (entityLogicalName, stateCode) => {
+        record("getAllowedStatusTransitions", entityLogicalName, stateCode);
+        await maybeDelay();
+        return options.allowedStatusTransitions ?? [];
+      },
+      refreshParentGrid: (lookupValue) => record("refreshParentGrid", lookupValue),
+    },
+    client: {
+      getFormFactor: () => {
+        record("getFormFactor");
+        return (options.formFactor ?? 1) as 0 | 1 | 2 | 3;
+      },
+      getClient: () => options.clientKind ?? "Web",
+      getClientState: () => "Online",
+      isOffline: () => options.isOffline ?? false,
+    },
+    device: {
+      captureImage: async (deviceOptions) => {
+        record("captureImage", deviceOptions);
+        await maybeDelay();
+        return options.deviceFile ?? null;
+      },
+      captureAudio: async () => {
+        record("captureAudio");
+        await maybeDelay();
+        return options.deviceFile ?? null;
+      },
+      captureVideo: async () => {
+        record("captureVideo");
+        await maybeDelay();
+        return options.deviceFile ?? null;
+      },
+      getBarcodeValue: async () => {
+        record("getBarcodeValue");
+        await maybeDelay();
+        return options.barcodeValue ?? null;
+      },
+      getCurrentPosition: async () => {
+        record("getCurrentPosition");
+        await maybeDelay();
+        return options.geoPosition ?? null;
+      },
+      pickFile: async (deviceOptions) => {
+        record("pickFile", deviceOptions);
+        await maybeDelay();
+        return options.pickedFiles ?? [];
+      },
     },
   };
 

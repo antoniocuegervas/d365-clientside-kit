@@ -32,6 +32,17 @@ export interface IViewModelContext {
   readonly metadata: IMetadataApi;
   readonly navigation: INavigation;
   readonly utils: IContextUtils;
+  /**
+   * Client/form-factor surface (N-03) mirroring `GlobalContext.client`, for
+   * responsive smart controls (e.g. grid → cards on phone). Smart tier only.
+   */
+  readonly client: IClientContext;
+  /**
+   * Device capture surface (N-03) mirroring `Xrm.Device`, mobile-capable smart
+   * controls. Presentational controls never see it. Hosts that lack a capability
+   * throw a clear "not supported" error.
+   */
+  readonly device: IDeviceContext;
 
   /** Form access when hosted on (or beside) a record form; undefined otherwise. */
   readonly formAccess?: IFormAccess;
@@ -51,6 +62,68 @@ export interface IUserInfo {
   name: string;
   /** User's UI language LCID (e.g. 1033), when the host exposes it (G-06). */
   languageId?: number;
+  /** Right-to-left UI direction (N-03), drives RTL layout where the host exposes it. */
+  isRTL?: boolean;
+  /** Minutes offset from UTC for the user's timezone (N-03), when the host exposes it. */
+  timeZoneOffsetMinutes?: number;
+}
+
+/** Client form factor, mirroring the platform `ClientFormFactor` enum (N-03). */
+export const ClientFormFactor = {
+  Unknown: 0,
+  Desktop: 1,
+  Tablet: 2,
+  Phone: 3,
+} as const;
+export type ClientFormFactor = (typeof ClientFormFactor)[keyof typeof ClientFormFactor];
+
+/** Client/form-factor surface mirroring `GlobalContext.client` (N-03). */
+export interface IClientContext {
+  /** Unknown=0, Desktop=1, Tablet=2, Phone=3, for responsive controls. */
+  getFormFactor(): ClientFormFactor;
+  /** Host kind, e.g. "Web" | "Outlook" | "Mobile". */
+  getClient(): string;
+  /** "Online" | "Offline" | "OfflineError". */
+  getClientState(): string;
+  isOffline(): boolean;
+}
+
+/** Image/file payloads captured by `device.*` reuse the navigation file shape (N-03). */
+export interface ICaptureImageOptions {
+  allowEdit?: boolean;
+  height?: number;
+  width?: number;
+  quality?: number;
+}
+
+export interface IPickFileOptions {
+  accept?: string;
+  allowMultipleFiles?: boolean;
+  maximumAllowedFileSize?: number;
+}
+
+/** Geolocation result for `device.getCurrentPosition` (N-03). */
+export interface IGeoPosition {
+  coords: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    altitude: number | null;
+    altitudeAccuracy: number | null;
+    heading: number | null;
+    speed: number | null;
+  };
+  timestamp: number;
+}
+
+/** Device capture surface mirroring `Xrm.Device` (N-03), all Promise-returning. */
+export interface IDeviceContext {
+  captureImage(options?: ICaptureImageOptions): Promise<IFileDetails | null>;
+  captureAudio(): Promise<IFileDetails | null>;
+  captureVideo(): Promise<IFileDetails | null>;
+  getBarcodeValue(): Promise<string | null>;
+  getCurrentPosition(): Promise<IGeoPosition | null>;
+  pickFile(options?: IPickFileOptions): Promise<IFileDetails[]>;
 }
 
 /** Localized date-formatting data, normalized to one shape across hosts (G-06). */
@@ -273,6 +346,25 @@ export interface INavigation {
 export interface IContextUtils {
   /** Fire-and-forget alert, same as openAlertDialog without awaiting. */
   alert(message: string): void;
+  /**
+   * Localized UI string from a RESX webresource (N-03), mirroring
+   * `Xrm.Utility.getResourceString`, the platform's string-localization
+   * mechanism (serves G-14). Returns undefined on hosts without resx access.
+   */
+  getResourceString(webResourceName: string, key: string): string | undefined;
+  /** Global busy overlay during long ViewModel operations (N-03). No-op where unsupported. */
+  showProgressIndicator(message: string): void;
+  closeProgressIndicator(): void;
+  /**
+   * Allowed status-reason transitions for a state (N-03), mirroring
+   * `Xrm.Utility.getAllowedStatusTransitions`. Rejects clearly where unsupported.
+   */
+  getAllowedStatusTransitions(entityLogicalName: string, stateCode: number): Promise<unknown>;
+  /**
+   * Refreshes the host grid after a ribbon action (N-03), mirroring
+   * `Xrm.Utility.refreshParentGrid`. No-op where unsupported.
+   */
+  refreshParentGrid(lookupValue: unknown): void;
 }
 
 /** Read/write access to the hosting record form, when present. */

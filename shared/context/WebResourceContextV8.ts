@@ -21,7 +21,17 @@ import type {
 } from "./IViewModelContext";
 import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
 import { resolveFormatting } from "./formatting";
-import type { IFormattingInfo } from "./IViewModelContext";
+import {
+  clientFromSource,
+  deviceFromSource,
+  utilsFromXrm,
+  type IXrmUtilityExtras,
+} from "./contextSurface";
+import type {
+  IClientContext,
+  IDeviceContext,
+  IFormattingInfo,
+} from "./IViewModelContext";
 import { XrmPageFormAccess, type IXrmPageLike } from "./XrmFormAccess";
 
 /**
@@ -61,9 +71,11 @@ export class WebResourceContextV8 implements IViewModelContext {
   readonly metadata: IMetadataApi;
   readonly navigation: INavigation;
   readonly utils: IContextUtils;
+  readonly client: IClientContext;
+  readonly device: IDeviceContext;
   readonly formAccess?: IFormAccess;
 
-  private readonly client: CdsClient;
+  private readonly cdsClient: CdsClient;
   private formattingPromise?: Promise<IFormattingInfo>;
 
   constructor(xrm: IXrmV8Like, formPage?: IXrmPageLike) {
@@ -77,13 +89,21 @@ export class WebResourceContextV8 implements IViewModelContext {
     this.orgVersion = pageContext.getVersion?.() ?? "8.2";
 
     const client = new CdsClient({ clientUrl: this.clientUrl, apiVersion: "8.2" });
-    this.client = client;
+    this.cdsClient = client;
     this.webAPI = new CdsWebApi(client);
     this.metadata = new MetadataService(client);
     this.navigation = new V8Navigation(xrm.Utility);
-    this.utils = {
-      alert: (message: string) => void this.navigation.openAlertDialog(message),
-    };
+    // N-03 surface, V8 fidelity is a per-method dial: utility extras degrade
+    // (undefined/no-op/reject) and device capture throws "not supported".
+    this.utils = utilsFromXrm(
+      (message: string) => void this.navigation.openAlertDialog(message),
+      xrm.Utility as unknown as IXrmUtilityExtras,
+      "CRM 8.x webresource"
+    );
+    this.client = clientFromSource(
+      (pageContext as unknown as { client?: Parameters<typeof clientFromSource>[0] }).client
+    );
+    this.device = deviceFromSource(undefined, "CRM 8.x webresource");
 
     // Form access binds to the deepest ancestor form when the factory found
     // one (G-09); otherwise this host's own Page.
@@ -96,7 +116,7 @@ export class WebResourceContextV8 implements IViewModelContext {
   getFormatting(): Promise<IFormattingInfo> {
     // 8.x doesn't reliably expose date-format names; decimal/separator come
     // from the usersettings entity. Cached.
-    this.formattingPromise ??= resolveFormatting({ client: this.client, userId: this.user.id });
+    this.formattingPromise ??= resolveFormatting({ client: this.cdsClient, userId: this.user.id });
     return this.formattingPromise;
   }
 }

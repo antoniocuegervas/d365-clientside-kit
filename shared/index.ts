@@ -65,11 +65,17 @@ export type {
   INavigationOptions,
   INavigationSize,
   IWindowOptions,
+  IClientContext,
+  IDeviceContext,
+  ICaptureImageOptions,
+  IPickFileOptions,
+  IGeoPosition,
   IFormattingInfo,
   IDateFormatInfo,
   ICurrencyInfo,
   AttributeKind,
 } from "./context/IViewModelContext";
+export { ClientFormFactor } from "./context/IViewModelContext";
 export { WebResourceContext } from "./context/WebResourceContext";
 export { WebResourceContextV8, CdsWebApi, type IXrmV8Like } from "./context/WebResourceContextV8";
 export { PCFContext, type IPcfContextLike } from "./context/PCFContext";

@@ -5,8 +5,18 @@ import { entitySetName } from "../utils/odata";
 import { buildClientUIDataParam } from "../utils/webResourceParams";
 import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
 import { normalizeDateFormatInfo, resolveFormatting } from "./formatting";
+import {
+  clientFromSource,
+  deviceFromSource,
+  utilsFromXrm,
+  type IXrmClientLike,
+  type IXrmDeviceLike,
+  type IXrmUtilityExtras,
+} from "./contextSurface";
 import type {
+  IClientContext,
   IContextUtils,
+  IDeviceContext,
   IErrorDialogOptions,
   IFileDetails,
   IFormAccess,
@@ -37,9 +47,11 @@ export class WebResourceContext implements IViewModelContext {
   readonly metadata: IMetadataApi;
   readonly navigation: INavigation;
   readonly utils: IContextUtils;
+  readonly client: IClientContext;
+  readonly device: IDeviceContext;
   readonly formAccess?: IFormAccess;
 
-  private readonly client: CdsClient;
+  private readonly cdsClient: CdsClient;
   private readonly rawDateFormat: Record<string, unknown> | undefined;
   private formattingPromise?: Promise<IFormattingInfo>;
 
@@ -49,11 +61,15 @@ export class WebResourceContext implements IViewModelContext {
     const userSettings = globalContext.userSettings as typeof globalContext.userSettings & {
       languageId?: number;
       dateFormattingInfo?: Record<string, unknown>;
+      isRTL?: boolean;
+      getTimeZoneOffsetMinutes?(): number;
     };
     this.user = {
       id: normalizeGuid(userSettings.userId),
       name: userSettings.userName,
       languageId: userSettings.languageId,
+      isRTL: userSettings.isRTL,
+      timeZoneOffsetMinutes: userSettings.getTimeZoneOffsetMinutes?.(),
     };
     this.rawDateFormat = userSettings.dateFormattingInfo;
     this.orgVersion = globalContext.getVersion();
@@ -61,16 +77,27 @@ export class WebResourceContext implements IViewModelContext {
     // One same-origin cds-client backs both metadata and execute*/executeWorkflow
     // (D-014) so custom actions never touch Xrm.WebApi.execute's request-object API.
     const client = new CdsClient({ clientUrl: this.clientUrl });
-    this.client = client;
+    this.cdsClient = client;
     this.webAPI = new ModernWebApi(xrm.WebApi, client);
     this.metadata = new MetadataService(client);
     this.navigation = new ModernNavigation(
       xrm.Navigation,
       (xrm as unknown as { Utility?: IXrmUtilityLookup }).Utility
     );
-    this.utils = {
-      alert: (message: string) => void this.navigation.openAlertDialog(message),
-    };
+    // Seamless platform mirror (N-03): client/device/utility extras off the
+    // global context. Smart tier only.
+    this.utils = utilsFromXrm(
+      (message: string) => void this.navigation.openAlertDialog(message),
+      xrm.Utility as unknown as IXrmUtilityExtras,
+      "modern webresource"
+    );
+    this.client = clientFromSource(
+      (globalContext as unknown as { client?: IXrmClientLike }).client
+    );
+    this.device = deviceFromSource(
+      (xrm as unknown as { Device?: IXrmDeviceLike }).Device,
+      "modern webresource"
+    );
 
     // Webresources hosted on a form can reach the record through Xrm.Page
     // (deprecated but functional in UCI). `formPage` is the deepest ancestor
@@ -85,7 +112,7 @@ export class WebResourceContext implements IViewModelContext {
     // Date format is sync from the global context; decimal/separator come from
     // the usersettings entity via cds-client (the webresource path). Cached.
     this.formattingPromise ??= resolveFormatting({
-      client: this.client,
+      client: this.cdsClient,
       userId: this.user.id,
       dateFormatInfo: normalizeDateFormatInfo(this.rawDateFormat),
     });

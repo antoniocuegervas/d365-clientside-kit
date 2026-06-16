@@ -30,6 +30,24 @@ interface ICommonMockOptions {
   languageId?: number;
   /** Raw host date-format object surfaced on userSettings.dateFormattingInfo (G-06). */
   dateFormattingInfo?: Record<string, unknown>;
+  /** RTL flag on userSettings (N-03). */
+  isRTL?: boolean;
+  /** Timezone offset returned by userSettings.getTimeZoneOffsetMinutes (N-03). */
+  timeZoneOffsetMinutes?: number;
+  /** Form factor returned by client.getFormFactor (N-03). Default 1 (Desktop). */
+  formFactor?: number;
+  /** Client kind returned by client.getClient (N-03). */
+  clientKind?: string;
+  /** Offline flag returned by client.isOffline (N-03). */
+  isOffline?: boolean;
+  /** Localized strings returned by Utility.getResourceString (N-03). */
+  resourceStrings?: Record<string, string>;
+  /** Result of Utility.getAllowedStatusTransitions (N-03). */
+  allowedStatusTransitions?: unknown;
+  /** Barcode returned by Device.getBarcodeValue (N-03). */
+  barcodeValue?: string;
+  /** File returned by Device.captureImage (N-03). */
+  deviceFile?: unknown;
 }
 
 export interface IModernXrmMockOptions extends ICommonMockOptions {
@@ -122,11 +140,43 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
           userName: options.userName ?? "Mock User",
           languageId: options.languageId,
           dateFormattingInfo: options.dateFormattingInfo,
+          isRTL: options.isRTL,
+          getTimeZoneOffsetMinutes: () => options.timeZoneOffsetMinutes ?? 0,
+        },
+        // N-03 client/form-factor surface.
+        client: {
+          getFormFactor: () => options.formFactor ?? 1,
+          getClient: () => options.clientKind ?? "Web",
+          getClientState: () => "Online",
+          isOffline: () => options.isOffline ?? false,
         },
       }),
       lookupObjects: async (lookupOptions: unknown) => {
         record("Utility.lookupObjects", lookupOptions);
         return options.lookupResult ?? [];
+      },
+      // N-03 utility extras.
+      getResourceString: (webResourceName: string, key: string) => {
+        record("Utility.getResourceString", webResourceName, key);
+        return options.resourceStrings?.[key] ?? "";
+      },
+      showProgressIndicator: (message: string) => record("Utility.showProgressIndicator", message),
+      closeProgressIndicator: () => record("Utility.closeProgressIndicator"),
+      getAllowedStatusTransitions: async (entity: string, stateCode: number) => {
+        record("Utility.getAllowedStatusTransitions", entity, stateCode);
+        return options.allowedStatusTransitions ?? [];
+      },
+      refreshParentGrid: (lookupValue: unknown) => record("Utility.refreshParentGrid", lookupValue),
+    },
+    // N-03 device capture surface.
+    Device: {
+      getBarcodeValue: async () => {
+        record("Device.getBarcodeValue");
+        return options.barcodeValue ?? "";
+      },
+      captureImage: async (deviceOptions: unknown) => {
+        record("Device.captureImage", deviceOptions);
+        return options.deviceFile ?? null;
       },
     },
     Navigation: {

@@ -356,3 +356,37 @@ re-supplies the page. The pull-based **FetchXML-paging binding helper** (own the
 `page`/`count` injection + twice-encoded paging-cookie threading for a host's
 base FetchXML) remains an unbuilt follow-on — build it when the first
 override-mode app needs rich paging. `$skip` stays intentionally unused.
+
+## D-028 — The platform-mirror surface is added member-by-named-consumer, not wholesale (N-03)
+
+Option B (D-014) committed to mirroring `Xrm` names; N-03 finishes that surface
+so a PL-400 dev reaches for the member they know. The additions and the named
+consumer that justifies each (per the gap doc's scope-discipline note — the bar
+for any member is a concrete consumer, recorded here, not "the platform has it"):
+
+- `client.getFormFactor` / `getClient` / `getClientState` / `isOffline` —
+  responsive smart controls (grid → cards on phone).
+- `device.captureImage` / `captureAudio` / `captureVideo` / `getBarcodeValue` /
+  `getCurrentPosition` / `pickFile` — mobile-capable smart controls.
+- `utils.getResourceString` — localized UI strings from a RESX webresource
+  (serves G-14, currently impossible).
+- `utils.showProgressIndicator` / `closeProgressIndicator` — busy overlay during
+  long ViewModel operations.
+- `utils.getAllowedStatusTransitions` — status-reason workflow gating.
+- `utils.refreshParentGrid` — refresh the host grid after a ribbon action.
+- `user.isRTL` / `user.timeZoneOffsetMinutes` — RTL layout; correct local↔UTC
+  datetime handling. (Kept on `user`, where `languageId` already lives, rather
+  than a parallel `userSettings` object — consistent with the kit's existing
+  collapse.)
+
+Mechanics: a single structural `contextSurface.ts` builds `client`/`device`/the
+`utils` extras for both modern and PCF (identical method names on
+`globalContext.client`/`Xrm.Device` vs `context.client`/`context.device`). V8 and
+hosts missing a capability degrade rather than crash a ViewModel — string getters
+return undefined, void methods (`showProgressIndicator`/`refreshParentGrid`)
+no-op, and `device.*` + `getAllowedStatusTransitions` throw/reject a clear "not
+available in the <host>" so the gap is loud where it matters. The surface widens
+the smart tier only; the presentational-purity lint rule is untouched (form
+factor, RTL, etc. reach presentational controls as resolved props). This list is
+deliberately closed: future members need a new named consumer and their own
+D-entry, not accretion.

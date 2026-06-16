@@ -84,7 +84,10 @@ describe("WebResourceContext (modern)", () => {
     });
     const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
     expect(context.clientUrl).toBe("https://org.crm.dynamics.com");
-    expect(context.user).toEqual({ id: "aaaaaaaa-0000-0000-0000-000000000001", name: "Jane Dev" });
+    expect(context.user).toMatchObject({
+      id: "aaaaaaaa-0000-0000-0000-000000000001",
+      name: "Jane Dev",
+    });
     expect(context.orgVersion).toBe("9.2.30.10");
     expect(context.isLegacy).toBe(false);
   });
@@ -189,6 +192,36 @@ describe("WebResourceContext (modern)", () => {
     const call = calls.find((c) => c.api === "Utility.lookupObjects");
     expect(call).toBeDefined();
     expect((call!.args[0] as { entityTypes?: string[] }).entityTypes).toEqual(["account"]);
+  });
+
+  it("exposes the client/device/utility/userSettings mirror surface (N-03)", async () => {
+    const { xrm, calls } = createModernXrmMock({
+      formFactor: 3,
+      clientKind: "Mobile",
+      isOffline: true,
+      isRTL: true,
+      timeZoneOffsetMinutes: -300,
+      resourceStrings: { Greeting: "Hello" },
+      barcodeValue: "012345",
+    });
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+
+    expect(context.client.getFormFactor()).toBe(3); // Phone
+    expect(context.client.getClient()).toBe("Mobile");
+    expect(context.client.isOffline()).toBe(true);
+    expect(context.user.isRTL).toBe(true);
+    expect(context.user.timeZoneOffsetMinutes).toBe(-300);
+
+    expect(context.utils.getResourceString("new_strings", "Greeting")).toBe("Hello");
+    context.utils.showProgressIndicator("Working…");
+    expect(calls.find((c) => c.api === "Utility.showProgressIndicator")?.args[0]).toBe("Working…");
+    await context.utils.getAllowedStatusTransitions("incident", 0);
+    expect(calls.find((c) => c.api === "Utility.getAllowedStatusTransitions")?.args).toEqual([
+      "incident",
+      0,
+    ]);
+
+    await expect(context.device.getBarcodeValue()).resolves.toBe("012345");
   });
 
   it("fetchPage rides cds-client so paging annotations survive (N-04)", async () => {
@@ -407,6 +440,19 @@ describe("WebResourceContextV8 shim matrix", () => {
     ]);
   });
 
+  it("N-03 surface degrades on 8.x: device throws, status transitions reject, client defaults", async () => {
+    const { context } = makeContext();
+    expect(context.client.getFormFactor()).toBe(0); // Unknown (no 8.x client slice)
+    expect(context.client.getClient()).toBe("Web");
+    await expect(context.device.getBarcodeValue()).rejects.toThrow(/not available in the CRM 8.x/);
+    await expect(context.utils.getAllowedStatusTransitions("incident", 0)).rejects.toThrow(
+      /not available in the CRM 8.x/
+    );
+    // Void utility extras no-op rather than throw.
+    expect(() => context.utils.showProgressIndicator("x")).not.toThrow();
+    expect(context.utils.getResourceString("w", "k")).toBeUndefined();
+  });
+
   it("openErrorDialog routes message+details to the v8 alert (N-02)", async () => {
     const { context, calls } = makeContext();
     await context.navigation.openErrorDialog({ message: "Save failed", details: "stack trace" });
@@ -565,6 +611,25 @@ describe("PCFContext", () => {
         encodeURIComponent(JSON.stringify({ app: "template" })),
       ],
     });
+  });
+
+  it("maps client/device/resources from the PCF context; degrades the rest (N-03)", async () => {
+    const { source } = makeSource();
+    source.client = { getFormFactor: () => 2, getClient: () => "Web", isOffline: () => false };
+    source.device = { getBarcodeValue: () => Promise.resolve("999") };
+    source.resources = { getString: (id) => (id === "Title" ? "Localized" : "") };
+    const context = new PCFContext(source);
+
+    expect(context.client.getFormFactor()).toBe(2); // Tablet
+    await expect(context.device.getBarcodeValue()).resolves.toBe("999");
+    // captureImage isn't on this device source → clear not-supported error.
+    await expect(context.device.captureImage()).rejects.toThrow(/not available in the PCF host/);
+    expect(context.utils.getResourceString("ignored", "Title")).toBe("Localized");
+    // No PCF equivalent for progress/status, degrade.
+    expect(() => context.utils.showProgressIndicator("x")).not.toThrow();
+    await expect(context.utils.getAllowedStatusTransitions("incident", 0)).rejects.toThrow(
+      /not available in the PCF host/
+    );
   });
 
   it("delegates openErrorDialog / openFile / navigateTo natively (N-02)", async () => {
