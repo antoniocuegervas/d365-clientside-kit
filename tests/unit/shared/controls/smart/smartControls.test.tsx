@@ -704,6 +704,70 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(await screen.findByText("Free Text Reviewer")).toBeTruthy();
   });
 
+  it("activity invoke opens the real activity type, not activitypointer (N-08)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "activitypointer.subject": { displayName: "Subject", kind: "text" },
+        "activitypointer.activitytypecode": { displayName: "Activity Type", kind: "optionset" },
+      },
+      entities: { activitypointer: { primaryIdAttribute: "activityid" } },
+      views: {
+        "default:activitypointer": {
+          entityLogicalName: "activitypointer",
+          columns: [
+            { name: "subject", width: 200 },
+            { name: "activitytypecode", width: 120 },
+          ],
+        },
+      },
+      queryResults: {
+        activitypointer: [
+          {
+            entities: [
+              {
+                activityid: "ac100000-0000-0000-0000-000000000001",
+                subject: "Call the client",
+                activitytypecode: 4210,
+                "activitytypecode@OData.Community.Display.V1.FormattedValue": "phonecall",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    renderWith(context, <SmartViewGrid entity="activitypointer" />);
+    await userEvent.dblClick(await screen.findByText("Call the client"));
+    expect(calls.find((c) => c.api === "openForm")?.args).toEqual([
+      "phonecall",
+      "ac100000-0000-0000-0000-000000000001",
+    ]);
+  });
+
+  it("activity invoke errors readably when activitytypecode is absent (N-08)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: { "activitypointer.subject": { displayName: "Subject", kind: "text" } },
+      entities: { activitypointer: { primaryIdAttribute: "activityid" } },
+      views: {
+        "default:activitypointer": {
+          entityLogicalName: "activitypointer",
+          columns: [{ name: "subject", width: 200 }],
+        },
+      },
+      queryResults: {
+        activitypointer: [
+          { entities: [{ activityid: "ac1", subject: "Orphan activity" }] },
+        ],
+      },
+    });
+    renderWith(context, <SmartViewGrid entity="activitypointer" />);
+    await userEvent.dblClick(await screen.findByText("Orphan activity"));
+    expect(calls.find((c) => c.api === "openForm")).toBeUndefined();
+    const errorCall = calls.find((c) => c.api === "openErrorDialog");
+    expect((errorCall?.args[0] as { message?: string }).message).toMatch(
+      /Activity Type Code is required/
+    );
+  });
+
   it("re-runs the query when the refresh event fires (code-level refresh)", async () => {
     const { context, calls } = createFakeViewModelContext(viewSetup);
     const refresh = new ObservableEvent<void>();

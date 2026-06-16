@@ -311,3 +311,19 @@ dashboard/entitylist/custom, and `openFile` rejects with a clear message.
 thrown message as `details`) as the reference pattern apps should copy instead of
 hand-rolling error UX. Revisit V8 `navigateTo` coverage if an on-prem app needs a
 page type 8.x can't express.
+
+## D-026 — Activity-aware invoke resolves the real type from the `activitytypecode` column (N-08)
+
+`SmartViewGrid`'s default row invoke special-cases an `activitypointer` view:
+`activitypointer` is not an openable form, so the grid opens the real activity
+type instead. The real entity logical name is read from the per-row
+`activitytypecode` formatted value (e.g. "phonecall") and the id is the row key,
+which for an activity view is `activityid` (the entity's primary id attribute).
+This reads from the displayed column rather than re-fetching, so the view must
+carry `activitytypecode`; when it doesn't, the grid surfaces the readable error
+"Activity Type Code is required on the view to open the records." through
+`navigation.openErrorDialog` (the N-02 surface) rather than blanking the grid
+with a load error. Hosts that need different behavior still override via
+`onItemInvoked`. The merged `sample-activities-grid` keeps its own ViewModel
+invoke (it already knows each row's source entity), so this default isn't wired
+there.

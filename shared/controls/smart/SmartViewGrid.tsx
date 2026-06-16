@@ -436,15 +436,35 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     }
   };
 
-  /** Invoke (double-click / Enter): override prop, else open the record's form. */
+  /**
+   * Invoke (double-click / Enter): override prop, else open the record's form.
+   * Activity views are special-cased (N-08): `activitypointer` is not an
+   * openable form, so the real activity type is resolved per row from the
+   * `activitytypecode` formatted value (e.g. "phonecall") and the id from
+   * `activityid` (the row key). A readable error surfaces when the view doesn't
+   * carry `activitytypecode`.
+   */
   private readonly handleItemInvoked = (row: IGridRow): void => {
     if (this.props.onItemInvoked) {
       this.props.onItemInvoked(row.key, row);
       return;
     }
-    if (this.view) {
-      void this.vmContext.navigation.openForm(this.view.entityLogicalName, row.key);
+    const view = this.view;
+    if (!view) {
+      return;
     }
+    if (view.entityLogicalName === "activitypointer") {
+      const realType = row.activitytypecode;
+      if (typeof realType !== "string" || !realType) {
+        void this.vmContext.navigation.openErrorDialog({
+          message: "Activity Type Code is required on the view to open the records.",
+        });
+        return;
+      }
+      void this.vmContext.navigation.openForm(realType, row.key);
+      return;
+    }
+    void this.vmContext.navigation.openForm(view.entityLogicalName, row.key);
   };
 
   override render(): React.ReactNode {
