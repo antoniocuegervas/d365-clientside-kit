@@ -1,11 +1,13 @@
 import { EntityReference } from "../../../../shared/utils/EntityModel";
 import {
+  aliasedLookupCell,
   entitySetName,
   escapeODataString,
   formatODataValue,
   formattedValue,
   lookupCell,
   odataBind,
+  splitAliasedColumn,
 } from "../../../../shared/utils/odata";
 
 describe("entitySetName", () => {
@@ -84,5 +86,39 @@ describe("lookupCell", () => {
   it("returns null when the lookup is empty", () => {
     expect(lookupCell({ _primarycontactid_value: null }, "primarycontactid")).toBeNull();
     expect(lookupCell({}, "primarycontactid")).toBeNull();
+  });
+});
+
+describe("splitAliasedColumn (N-01)", () => {
+  it("splits an alias.attr column on the first dot", () => {
+    expect(splitAliasedColumn("pc.emailaddress1")).toEqual({
+      alias: "pc",
+      logicalName: "emailaddress1",
+    });
+  });
+
+  it("treats a dotless name as a root-entity column (no alias)", () => {
+    expect(splitAliasedColumn("name")).toEqual({ logicalName: "name" });
+  });
+});
+
+describe("aliasedLookupCell (N-01)", () => {
+  const record = {
+    "pc.parentcustomerid": "a1a00000-0000-0000-0000-000000000001",
+    "pc.parentcustomerid@OData.Community.Display.V1.FormattedValue": "Contoso Ltd",
+    "pc.parentcustomerid@Microsoft.Dynamics.CRM.lookuplogicalname": "account",
+  };
+
+  it("reads id/name/target from the alias-qualified keys", () => {
+    expect(aliasedLookupCell(record, "pc.parentcustomerid")).toEqual({
+      id: "a1a00000-0000-0000-0000-000000000001",
+      name: "Contoso Ltd",
+      target: "account",
+    });
+  });
+
+  it("returns null when the aliased lookup is empty", () => {
+    expect(aliasedLookupCell({ "pc.parentcustomerid": "" }, "pc.parentcustomerid")).toBeNull();
+    expect(aliasedLookupCell({}, "pc.parentcustomerid")).toBeNull();
   });
 });

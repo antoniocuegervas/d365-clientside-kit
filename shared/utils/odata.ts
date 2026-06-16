@@ -84,3 +84,39 @@ export function lookupCell(
     target: target !== undefined ? String(target) : "",
   };
 }
+
+/**
+ * Splits an aliased layout column name (`alias.attr`) into its parts (N-01).
+ * Link-entity columns surface as `alias.attribute`; root columns have no dot.
+ * Returns `{ logicalName }` (alias undefined) for a plain root-entity column.
+ */
+export function splitAliasedColumn(columnName: string): { alias?: string; logicalName: string } {
+  const dot = columnName.indexOf(".");
+  if (dot < 0) {
+    return { logicalName: columnName };
+  }
+  return { alias: columnName.slice(0, dot), logicalName: columnName.slice(dot + 1) };
+}
+
+/**
+ * Extracts a lookup value from an aliased link-entity column (N-01). Unlike a
+ * root lookup, the value rides the alias-qualified key (`alias.attr` and its
+ * `@…FormattedValue` / `@…lookuplogicalname` annotations) rather than the
+ * `_attr_value` triplet. Returns null when empty.
+ */
+export function aliasedLookupCell(
+  record: Record<string, unknown>,
+  columnName: string
+): ILookupCell | null {
+  const id = record[columnName];
+  if (id === null || id === undefined || id === "") {
+    return null;
+  }
+  const name = record[`${columnName}@OData.Community.Display.V1.FormattedValue`];
+  const target = record[`${columnName}@Microsoft.Dynamics.CRM.lookuplogicalname`];
+  return {
+    id: String(id),
+    name: name !== undefined ? String(name) : "",
+    target: target !== undefined ? String(target) : "",
+  };
+}

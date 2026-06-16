@@ -1,5 +1,9 @@
 import { CdsClient } from "../../../../shared/data/CdsClient";
-import { MetadataService, parseLayoutColumns } from "../../../../shared/metadata/MetadataService";
+import {
+  MetadataService,
+  parseLayoutColumns,
+  parseLayoutColumnsFromJson,
+} from "../../../../shared/metadata/MetadataService";
 import { FakeXhrServer } from "../../../mocks/FakeXhr";
 
 const API = "https://org.crm.dynamics.com/api/data/v9.2/";
@@ -243,6 +247,41 @@ describe("MetadataService", () => {
       ]);
     });
 
+    it("prefers layoutjson and carries related-entity columns (N-01)", async () => {
+      const layoutJson = JSON.stringify({
+        Rows: [
+          {
+            Cells: [
+              { Name: "name", Width: 300 },
+              { Name: "pc.emailaddress1", Width: 200, RelatedEntityName: "contact" },
+              { Name: "hiddencol", Width: 50, IsHidden: true },
+            ],
+          },
+        ],
+      });
+      server.respondWith((request) =>
+        request.url.includes("savedqueries(11110000-0000-0000-0000-000000000001)")
+          ? {
+              status: 200,
+              responseText: JSON.stringify({
+                savedqueryid: "11110000-0000-0000-0000-000000000001",
+                name: "Active Accounts",
+                returnedtypecode: "account",
+                fetchxml: "<fetch><entity name='account'/></fetch>",
+                layoutxml: layoutXml,
+                layoutjson: layoutJson,
+              }),
+            }
+          : undefined
+      );
+      const view = await service.getView("account", "{11110000-0000-0000-0000-000000000001}");
+      expect(view.columns).toEqual([
+        { name: "name", width: 300 },
+        { name: "pc.emailaddress1", width: 200, relatedEntity: "contact" },
+      ]);
+      expect(view.layoutJson).toBe(layoutJson);
+    });
+
     it("falls back to the default grid view when no id is given", async () => {
       server.respondWith((request) =>
         request.url.includes("savedqueries?")
@@ -384,5 +423,48 @@ describe("parseLayoutColumns", () => {
 
   it("returns empty for blank layout", () => {
     expect(parseLayoutColumns("")).toEqual([]);
+  });
+
+  it("drops hidden cells and flags disablesorting (N-01)", () => {
+    const columns = parseLayoutColumns(
+      '<row><cell name="name" width="200"/>' +
+        '<cell name="secret" width="80" ishidden="1"/>' +
+        '<cell name="createdon" width="120" disablesorting="1"/></row>'
+    );
+    expect(columns).toEqual([
+      { name: "name", width: 200 },
+      { name: "createdon", width: 120, disableSorting: true },
+    ]);
+  });
+});
+
+describe("parseLayoutColumnsFromJson (N-01)", () => {
+  it("reads Rows[0].Cells in order with related-entity + width", () => {
+    const layoutJson = JSON.stringify({
+      Rows: [
+        {
+          Cells: [
+            { Name: "name", Width: 300 },
+            { Name: "pc.emailaddress1", Width: 200, RelatedEntityName: "contact" },
+            { Name: "createdon", Width: 120, DisableSorting: true },
+            { Name: "secret", Width: 50, IsHidden: true },
+            { Name: "0", Width: 0 },
+          ],
+        },
+      ],
+    });
+    expect(parseLayoutColumnsFromJson(layoutJson)).toEqual([
+      { name: "name", width: 300 },
+      { name: "pc.emailaddress1", width: 200, relatedEntity: "contact" },
+      { name: "createdon", width: 120, disableSorting: true },
+    ]);
+  });
+
+  it("defaults width and returns [] on malformed JSON", () => {
+    expect(parseLayoutColumnsFromJson('{"Rows":[{"Cells":[{"Name":"name"}]}]}')).toEqual([
+      { name: "name", width: 100 },
+    ]);
+    expect(parseLayoutColumnsFromJson("not json")).toEqual([]);
+    expect(parseLayoutColumnsFromJson("{}")).toEqual([]);
   });
 });

@@ -261,3 +261,32 @@ explicit. View-driven inline search (G-03) reuses the saved-view source via
 icons (G-10, `getEntityIconUrl`, cached) are opt-in (`showIcons`) since they
 cost an extra metadata read; the OOTB `svg_<otc>.svg` path is a tested
 assumption carried from production, not documented platform behavior.
+
+---
+
+# Round-2 decisions — capability review, second pass
+
+Settled while closing the `N-xx` series in the second review pass. Same
+convention: binding choices and their rationale only.
+
+## D-024 — The grid prefers `layoutjson` and resolves columns against each cell's owning entity (N-01)
+
+The saved view carries both `layoutxml` and `layoutjson`. The grid now prefers
+`layoutjson` (`MetadataService.parseLayoutColumnsFromJson`, falling back to the
+`layoutxml` regex when JSON is absent or yields no columns) because only
+`layoutjson` carries `Cell.RelatedEntityName` — the field that says which entity
+an aliased link-entity column belongs to. `IViewDefinition.columns` became
+`IViewColumn[]` (`{ name, width, relatedEntity?, disableSorting? }`); hidden
+cells are dropped at parse time on both paths so the column list is always
+renderable. `SmartViewGrid` resolves each header/`AttributeKind` against
+`column.relatedEntity ?? view.entityLogicalName` (splitting the `alias.attr`
+key for the metadata lookup, which `MetadataService` already caches per
+entity.attribute — the existing `Promise.all` gives the per-entity parallelism
+the spec asked for). Related-entity lookups read their value from the
+alias-qualified Web API keys (`alias.attr` + its `@…FormattedValue` /
+`@…lookuplogicalname` annotations) via the new `aliasedLookupCell`, not the
+root-only `_attr_value` triplet. Link-entity and `DisableSorting` columns are
+marked unsortable — they can't be sorted through the savedQuery layer (the T-01
+boundary). `CellType` and custom image-provider cells stay an unbuilt follow-on.
+Revisit if a view authored with only a meaningful `layoutxml` (no JSON) needs
+related-entity resolution — that path can't recover the owning entity today.

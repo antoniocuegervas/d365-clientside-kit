@@ -8,7 +8,13 @@ import type {
 } from "../../context/IViewModelContext";
 import { Observable, type Unsubscribe } from "../../reactivity/Observable";
 import type { ObservableEvent } from "../../reactivity/ObservableEvent";
-import { formattedValue, lookupCell, type ILookupCell } from "../../utils/odata";
+import {
+  aliasedLookupCell,
+  formattedValue,
+  lookupCell,
+  splitAliasedColumn,
+  type ILookupCell,
+} from "../../utils/odata";
 import { DataGrid, type IGridColumn, type IGridRow } from "../presentational/DataGrid";
 import { Pagination } from "../presentational/Pagination";
 import { resolveDynamicSource, type IDynamicColumnSpec } from "./dynamicColumns";
@@ -188,8 +194,9 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   }
 
   /**
-   * Column headers come from attribute display names; aliased/linked columns
-   * fall back to the raw name. Attribute kinds are captured so cells render
+   * Column headers come from attribute display names, resolved against each
+   * column's OWNING entity (`relatedEntity` for link-entity/aliased columns,
+   * else the view's root), N-01. Attribute kinds are captured so cells render
    * type-aware (G-01), lookup columns become clickable links that openForm.
    */
   private async resolveColumns(view: IViewDefinition): Promise<IGridColumn[]> {
@@ -200,23 +207,28 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         if (override) {
           return this.toDynamicColumn(column.name, override, column.width);
         }
+        const owningEntity = column.relatedEntity ?? view.entityLogicalName;
+        const { logicalName } = splitAliasedColumn(column.name);
         let header = column.name;
         let kind: AttributeKind | undefined;
         try {
           const attribute = await this.vmContext.metadata.getAttributeMetadata(
-            view.entityLogicalName,
-            column.name
+            owningEntity,
+            logicalName
           );
           header = attribute.displayName;
           kind = attribute.kind;
           this.columnKinds.set(column.name, kind);
         } catch {
-          // linked-entity or aliased column, keep the raw name, no kind
+          // metadata unavailable for this column, keep the raw name, no kind
         }
         const base: IGridColumn = { key: column.name, name: header, width: column.width };
-        if (kind === "lookup") {
-          // Lookups can't be sorted/filtered through the savedQuery layer here.
+        // Lookups, link-entity columns, and DisableSorting cells can't be
+        // sorted through the savedQuery layer (T-01 boundary).
+        if (kind === "lookup" || column.relatedEntity || column.disableSorting) {
           base.sortable = false;
+        }
+        if (kind === "lookup") {
           base.onRender = (row) => this.renderLookupCell(row[column.name]);
         }
         return base;
@@ -314,7 +326,12 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
           continue; // resolved below as a dynamic cell
         }
         if (this.columnKinds.get(column.name) === "lookup") {
-          row[column.name] = lookupCell(record, column.name) ?? "";
+          // Related-entity lookups ride alias-qualified keys, not the
+          // `_attr_value` triplet (N-01).
+          const cell = column.relatedEntity
+            ? aliasedLookupCell(record, column.name)
+            : lookupCell(record, column.name);
+          row[column.name] = cell ?? "";
         } else {
           row[column.name] = formattedValue(record, column.name) ?? record[column.name] ?? "";
         }

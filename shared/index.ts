@@ -32,6 +32,8 @@ export {
   formattedValue,
   formatODataValue,
   lookupCell,
+  aliasedLookupCell,
+  splitAliasedColumn,
   type ILookupCell,
 } from "./utils/odata";
 export { newGuid, newBatchBoundary } from "./utils/correlation";
@@ -54,6 +56,7 @@ export type {
   IAttributeMetadata,
   IEntityMetadata,
   IViewDefinition,
+  IViewColumn,
   ILookupOptions,
   IFormattingInfo,
   IDateFormatInfo,
@@ -76,7 +79,11 @@ export {
 } from "./context/ViewModelContextProvider";
 
 // Metadata
-export { MetadataService, parseLayoutColumns } from "./metadata/MetadataService";
+export {
+  MetadataService,
+  parseLayoutColumns,
+  parseLayoutColumnsFromJson,
+} from "./metadata/MetadataService";
 
 // Theme (single D365-aligned Fluent v9 theme module)
 export { d365Theme } from "./theme/d365Theme";

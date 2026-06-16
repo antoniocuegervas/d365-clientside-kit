@@ -521,6 +521,62 @@ describe("SmartViewGrid (read-only view grid)", () => {
     ]);
   });
 
+  it("resolves a link-entity column against its owning entity (N-01)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "account.name": { displayName: "Account Name", kind: "text" },
+        "contact.emailaddress1": { displayName: "Email", kind: "text" },
+        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+      },
+      views: {
+        "default:account": {
+          entityLogicalName: "account",
+          columns: [
+            { name: "name", width: 200 },
+            { name: "pc.emailaddress1", width: 200, relatedEntity: "contact" },
+            { name: "pc.parentcustomerid", width: 200, relatedEntity: "contact" },
+          ],
+        },
+      },
+      queryResults: {
+        account: [
+          {
+            entities: [
+              {
+                accountid: "a1",
+                name: "Contoso Ltd",
+                "pc.emailaddress1": "yvonne@contoso.com",
+                "pc.parentcustomerid": "a9a00000-0000-0000-0000-000000000009",
+                "pc.parentcustomerid@OData.Community.Display.V1.FormattedValue": "Parent Co",
+                "pc.parentcustomerid@Microsoft.Dynamics.CRM.lookuplogicalname": "account",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    renderWith(context, <SmartViewGrid entity="account" />);
+    // Header resolves against the related (contact) entity, not the root.
+    expect(await screen.findByText("Email")).toBeTruthy();
+    expect(await screen.findByText("yvonne@contoso.com")).toBeTruthy();
+    // The aliased lookup renders as a link off the alias-qualified key.
+    const link = await screen.findByText("Parent Co");
+    await userEvent.click(link);
+    expect(calls.find((c) => c.api === "openForm")?.args).toEqual([
+      "account",
+      "a9a00000-0000-0000-0000-000000000009",
+    ]);
+    // Metadata was fetched against the contact entity for the related column.
+    expect(
+      calls.some(
+        (c) =>
+          c.api === "getAttributeMetadata" &&
+          c.args[0] === "contact" &&
+          c.args[1] === "emailaddress1"
+      )
+    ).toBe(true);
+  });
+
   it("runs the saved view by id via ?savedQuery= (T-01)", async () => {
     const { context, calls } = createFakeViewModelContext(viewSetup);
     renderWith(context, <SmartViewGrid entity="account" />);

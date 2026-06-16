@@ -238,6 +238,26 @@ export interface IEntityMetadata {
   primaryNameAttribute: string;
 }
 
+/**
+ * One resolved grid column from a saved view's layout (N-01). For a
+ * link-entity/aliased column, `name` is the aliased `alias.attr` key and
+ * `relatedEntity` names the column's OWNING entity (so headers/types resolve
+ * against the related entity, not the view's root).
+ */
+export interface IViewColumn {
+  /** Column key, the (possibly aliased `alias.attr`) attribute logical name. */
+  name: string;
+  /** Pixel width. */
+  width: number;
+  /**
+   * Owning entity for a related-entity (link-entity/aliased) column, from the
+   * layoutjson `Cell.RelatedEntityName`. Undefined for root-entity columns.
+   */
+  relatedEntity?: string;
+  /** True when the cell opts out of sorting (`DisableSorting`). */
+  disableSorting?: boolean;
+}
+
 /** A saved view (savedquery) definition resolved for grid rendering. */
 export interface IViewDefinition {
   id: string;
@@ -245,8 +265,13 @@ export interface IViewDefinition {
   entityLogicalName: string;
   fetchXml: string;
   layoutXml: string;
-  /** Column attribute names + widths parsed from layoutXml, in order. */
-  columns: Array<{ name: string; width: number }>;
+  /** Raw `layoutjson` when the view carries it (N-01); the preferred layout source. */
+  layoutJson?: string;
+  /**
+   * Columns in cell order. Preferred from `layoutjson` (carries related-entity
+   * info cleanly) and falling back to `layoutxml`. Hidden cells are dropped.
+   */
+  columns: IViewColumn[];
 }
 
 export interface IMetadataApi {
