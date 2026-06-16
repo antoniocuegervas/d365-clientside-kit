@@ -4,9 +4,11 @@ import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { entitySetName } from "../utils/odata";
 import { buildClientUIDataParam } from "../utils/webResourceParams";
 import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
+import { normalizeDateFormatInfo, resolveFormatting } from "./formatting";
 import type {
   IContextUtils,
   IFormAccess,
+  IFormattingInfo,
   ILookupOptions,
   IMetadataApi,
   INavigation,
@@ -31,18 +33,29 @@ export class WebResourceContext implements IViewModelContext {
   readonly utils: IContextUtils;
   readonly formAccess?: IFormAccess;
 
+  private readonly client: CdsClient;
+  private readonly rawDateFormat: Record<string, unknown> | undefined;
+  private formattingPromise?: Promise<IFormattingInfo>;
+
   constructor(xrm: Xrm.XrmStatic, formPage?: IXrmPageLike) {
     const globalContext = xrm.Utility.getGlobalContext();
     this.clientUrl = globalContext.getClientUrl();
-    this.user = {
-      id: normalizeGuid(globalContext.userSettings.userId),
-      name: globalContext.userSettings.userName,
+    const userSettings = globalContext.userSettings as typeof globalContext.userSettings & {
+      languageId?: number;
+      dateFormattingInfo?: Record<string, unknown>;
     };
+    this.user = {
+      id: normalizeGuid(userSettings.userId),
+      name: userSettings.userName,
+      languageId: userSettings.languageId,
+    };
+    this.rawDateFormat = userSettings.dateFormattingInfo;
     this.orgVersion = globalContext.getVersion();
 
     // One same-origin cds-client backs both metadata and execute*/executeWorkflow
     // (D-014) so custom actions never touch Xrm.WebApi.execute's request-object API.
     const client = new CdsClient({ clientUrl: this.clientUrl });
+    this.client = client;
     this.webAPI = new ModernWebApi(xrm.WebApi, client);
     this.metadata = new MetadataService(client);
     this.navigation = new ModernNavigation(
@@ -60,6 +73,17 @@ export class WebResourceContext implements IViewModelContext {
     if (XrmPageFormAccess.hasForm(page)) {
       this.formAccess = new XrmPageFormAccess(page);
     }
+  }
+
+  getFormatting(): Promise<IFormattingInfo> {
+    // Date format is sync from the global context; decimal/separator come from
+    // the usersettings entity via cds-client (the webresource path). Cached.
+    this.formattingPromise ??= resolveFormatting({
+      client: this.client,
+      userId: this.user.id,
+      dateFormatInfo: normalizeDateFormatInfo(this.rawDateFormat),
+    });
+    return this.formattingPromise;
   }
 }
 

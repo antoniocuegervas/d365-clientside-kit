@@ -191,6 +191,44 @@ describe("WebResourceContext (modern)", () => {
     expect((call!.args[0] as { entityTypes?: string[] }).entityTypes).toEqual(["account"]);
   });
 
+  it("surfaces languageId and resolves formatting from userSettings + the usersettings entity (G-06)", async () => {
+    const server = new FakeXhrServer();
+    server.install();
+    try {
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({ value: [{ decimalsymbol: ",", numberseparator: "." }] }),
+      });
+      const { xrm } = createModernXrmMock({
+        clientUrl: "https://org.crm.dynamics.com",
+        languageId: 1043,
+        dateFormattingInfo: {
+          MonthNames: ["januari", "februari", "maart", "", "", "", "", "", "", "", "", "", ""],
+          DayNames: ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"],
+          FirstDayOfWeek: 1,
+          ShortDatePattern: "d-M-yyyy",
+        },
+      });
+      const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+      expect(context.user.languageId).toBe(1043);
+      const formatting = await context.getFormatting();
+      expect(formatting.decimalSymbol).toBe(",");
+      expect(formatting.numberSeparator).toBe(".");
+      expect(formatting.dateFormatInfo?.firstDayOfWeek).toBe(1);
+      expect(formatting.dateFormatInfo?.monthNames[0]).toBe("januari");
+      expect(formatting.dateFormatInfo?.shortDatePattern).toBe("d-M-yyyy");
+      // Cached, a second call does not re-query.
+      const requestCount = server.requests.length;
+      await context.getFormatting();
+      expect(server.requests.length).toBe(requestCount);
+      expect(decodeURIComponent(server.lastRequest.url)).toContain(
+        "$select=decimalsymbol,numberseparator"
+      );
+    } finally {
+      server.uninstall();
+    }
+  });
+
   it("exposes formAccess when hosted on a record form", () => {
     const { xrm } = createModernXrmMock({
       formRecord: {

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { makeStyles, tokens } from "@fluentui/react-components";
-import { DatePicker } from "@fluentui/react-datepicker-compat";
+import { DatePicker, type DatePickerProps } from "@fluentui/react-datepicker-compat";
 import { TimePicker, formatDateToTimeString } from "@fluentui/react-timepicker-compat";
 import { ObserverComponent } from "../../reactivity/ObserverComponent";
 import type { Observable } from "../../reactivity/Observable";
@@ -14,6 +14,10 @@ export interface IDateTimeFieldProps extends ICommonFieldProps {
   includeTime?: boolean;
   /** Date display formatter, host supplies locale-correct formatting. */
   formatDate?: (date: Date) => string;
+  /** Localized calendar strings (month/day names), smart tier supplies from metadata. */
+  strings?: DatePickerProps["strings"];
+  /** First day of the week (0 = Sunday). Smart tier supplies from user settings. */
+  firstDayOfWeek?: DatePickerProps["firstDayOfWeek"];
   placeholder?: string;
 }
 
@@ -71,7 +75,8 @@ const Body: React.FC<
   }
 > = (props) => {
   const styles = useStyles();
-  const { value, disabled, readOnly, includeTime, formatDate, placeholder } = props;
+  const { value, disabled, readOnly, includeTime, formatDate, strings, firstDayOfWeek, placeholder } =
+    props;
   const current = value.value;
   return (
     <FieldShell {...props}>
@@ -81,6 +86,8 @@ const Body: React.FC<
             value={current}
             onSelectDate={props.onDateSelect}
             formatDate={(date) => (date ? (formatDate ?? defaultFormatDate)(date) : "")}
+            strings={strings}
+            firstDayOfWeek={firstDayOfWeek}
             disabled={disabled || readOnly}
             placeholder={readOnly ? undefined : placeholder ?? "---"}
             allowTextInput

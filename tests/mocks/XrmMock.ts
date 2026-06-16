@@ -26,6 +26,10 @@ interface ICommonMockOptions {
   confirmResult?: boolean;
   /** Records the native lookup dialog (Xrm.Utility.lookupObjects) resolves with. */
   lookupResult?: Array<{ id: string; name?: string; entityType: string }>;
+  /** User UI language LCID surfaced on userSettings (G-06). */
+  languageId?: number;
+  /** Raw host date-format object surfaced on userSettings.dateFormattingInfo (G-06). */
+  dateFormattingInfo?: Record<string, unknown>;
 }
 
 export interface IModernXrmMockOptions extends ICommonMockOptions {
@@ -116,6 +120,8 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
         userSettings: {
           userId: `{${(options.userId ?? "aaaaaaaa-0000-0000-0000-000000000001").toUpperCase()}}`,
           userName: options.userName ?? "Mock User",
+          languageId: options.languageId,
+          dateFormattingInfo: options.dateFormattingInfo,
         },
       }),
       lookupObjects: async (lookupOptions: unknown) => {

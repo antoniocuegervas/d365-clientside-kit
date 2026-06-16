@@ -1,6 +1,6 @@
 import * as React from "react";
 import { SmartComponent } from "../../context/ViewModelContextProvider";
-import type { IAttributeMetadata } from "../../context/IViewModelContext";
+import type { IAttributeMetadata, IFormattingInfo } from "../../context/IViewModelContext";
 import type { Observable, OrObservable } from "../../reactivity/Observable";
 import { WaitingMessage } from "../presentational/WaitingMessage";
 import { FieldShell } from "../presentational/FieldShell";
@@ -35,6 +35,8 @@ export interface ISmartFieldProps<TValue> {
 
 interface ISmartFieldState {
   metadata?: IAttributeMetadata;
+  /** User locale formatting (G-06), loaded only when the control opts in. */
+  formatting?: IFormattingInfo;
   loadError?: string;
 }
 
@@ -55,6 +57,29 @@ export abstract class SmartFieldBase<
 
   override componentDidMount(): void {
     void this.loadMetadata();
+    if (this.usesFormatting()) {
+      void this.loadFormatting();
+    }
+  }
+
+  /**
+   * Override to true on controls that localize via user settings (G-06) , 
+   * date and numeric fields. Defaults to false so other fields skip the
+   * extra context call.
+   */
+  protected usesFormatting(): boolean {
+    return false;
+  }
+
+  private async loadFormatting(): Promise<void> {
+    try {
+      const formatting = await this.vmContext.getFormatting();
+      if (!this.isDisposed) {
+        this.setState({ formatting });
+      }
+    } catch {
+      // Non-fatal, controls fall back to default formatting.
+    }
   }
 
   private async loadMetadata(): Promise<void> {

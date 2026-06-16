@@ -12,6 +12,10 @@ export interface ICurrencyFieldProps extends ICommonFieldProps {
   precision?: number;
   min?: number;
   max?: number;
+  /** Decimal separator (CRM user setting), forwarded to the number input. */
+  decimalSymbol?: string;
+  /** Group (thousands) separator (CRM user setting), forwarded to the number input. */
+  groupSeparator?: string;
 }
 
 /** Currency, a NumberField with a supplied currency symbol prefix. */

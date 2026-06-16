@@ -47,6 +47,9 @@ export type {
   IEntityMetadata,
   IViewDefinition,
   ILookupOptions,
+  IFormattingInfo,
+  IDateFormatInfo,
+  ICurrencyInfo,
   AttributeKind,
 } from "./context/IViewModelContext";
 export { WebResourceContext } from "./context/WebResourceContext";

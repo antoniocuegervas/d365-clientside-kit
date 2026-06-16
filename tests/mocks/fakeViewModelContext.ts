@@ -1,6 +1,8 @@
 import type {
   IAttributeMetadata,
+  ICurrencyInfo,
   IEntityMetadata,
+  IFormattingInfo,
   IViewDefinition,
   IViewModelContext,
 } from "../../shared/context/IViewModelContext";
@@ -21,6 +23,12 @@ export interface IFakeContextOptions {
   actionResults?: Record<string, unknown>;
   /** Records the native lookup dialog resolves with. Default empty. */
   lookupResults?: IEntityReference[];
+  /** Locale formatting returned by getFormatting(). Default empty (controls use defaults). */
+  formatting?: IFormattingInfo;
+  /** User UI language LCID surfaced on context.user.languageId. */
+  languageId?: number;
+  /** Currency info returned by getCurrencySymbol, keyed by currency id. */
+  currencies?: Record<string, ICurrencyInfo>;
   /** Artificial async delay (ms) to exercise loading states. */
   delayMs?: number;
 }
@@ -55,9 +63,18 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
 
   const context: IViewModelContext = {
     clientUrl: "https://fake.crm.dynamics.com",
-    user: { id: "00000000-0000-0000-0000-0000000000aa", name: "Fake User" },
+    user: {
+      id: "00000000-0000-0000-0000-0000000000aa",
+      name: "Fake User",
+      languageId: options.languageId,
+    },
     orgVersion: "9.2.0.0",
     isLegacy: false,
+    getFormatting: async () => {
+      record("getFormatting");
+      await maybeDelay();
+      return options.formatting ?? {};
+    },
     webAPI: {
       createRecord: async (entity, data) => {
         record("createRecord", entity, data);
@@ -155,6 +172,11 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
           columns: [],
           ...overrides,
         };
+      },
+      getCurrencySymbol: async (transactionCurrencyId) => {
+        record("getCurrencySymbol", transactionCurrencyId);
+        await maybeDelay();
+        return options.currencies?.[transactionCurrencyId] ?? { symbol: "$" };
       },
     },
     navigation: {

@@ -35,11 +35,55 @@ export interface IViewModelContext {
 
   /** Form access when hosted on (or beside) a record form; undefined otherwise. */
   readonly formAccess?: IFormAccess;
+
+  /**
+   * Lazily resolves the user's locale formatting (G-06): date format info
+   * (localized day/month names + first day of week), decimal symbol, and
+   * number group separator. Cached per context. Smart controls read this and
+   * thread the values into presentational props; the boundary stays clean.
+   * Missing pieces resolve to undefined and controls fall back to defaults.
+   */
+  getFormatting(): Promise<IFormattingInfo>;
 }
 
 export interface IUserInfo {
   id: string;
   name: string;
+  /** User's UI language LCID (e.g. 1033), when the host exposes it (G-06). */
+  languageId?: number;
+}
+
+/** Localized date-formatting data, normalized to one shape across hosts (G-06). */
+export interface IDateFormatInfo {
+  /** Full weekday names, Sunday first (length 7). */
+  dayNames: string[];
+  /** Full month names (length 12). */
+  monthNames: string[];
+  /** Shortest weekday names, Sunday first (length 7). */
+  shortestDayNames: string[];
+  /** Abbreviated month names (length 12). */
+  abbreviatedMonthNames: string[];
+  /** First day of the week: 0 = Sunday … 6 = Saturday. */
+  firstDayOfWeek: number;
+  /** Short date pattern, e.g. "M/d/yyyy" or "dd/MM/yyyy", when known. */
+  shortDatePattern?: string;
+}
+
+/** User locale/number formatting resolved from the host (G-06). */
+export interface IFormattingInfo {
+  /** Decimal separator, e.g. "." or ",". */
+  decimalSymbol?: string;
+  /** Number group (thousands) separator, e.g. "," or ".". */
+  numberSeparator?: string;
+  dateFormatInfo?: IDateFormatInfo;
+}
+
+/** A transaction currency's display info (G-06b). */
+export interface ICurrencyInfo {
+  /** Currency symbol glyph, e.g. "$", "€". */
+  symbol: string;
+  /** Currency-specific precision, when the field uses pricing decimal precision. */
+  precision?: number;
 }
 
 /**
@@ -214,4 +258,10 @@ export interface IMetadataApi {
    * pattern that avoids hardcoding savedquery ids.
    */
   getViewByName(entityLogicalName: string, viewName: string): Promise<IViewDefinition>;
+  /**
+   * Resolves a transaction currency's symbol/precision by id (G-06b), cached
+   * per currency. Money controls supply the result to the `currencySymbol`
+   * prop so a record shows its real currency, not a hardcoded glyph.
+   */
+  getCurrencySymbol(transactionCurrencyId: string): Promise<ICurrencyInfo>;
 }

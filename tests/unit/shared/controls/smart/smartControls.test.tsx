@@ -7,6 +7,7 @@ import { ObservableEvent } from "../../../../../shared/reactivity/ObservableEven
 import { SmartTextField } from "../../../../../shared/controls/smart/SmartTextField";
 import { SmartOptionSet } from "../../../../../shared/controls/smart/SmartOptionSet";
 import { SmartLookup } from "../../../../../shared/controls/smart/SmartLookup";
+import { SmartNumberField } from "../../../../../shared/controls/smart/SmartNumberField";
 import { SmartViewGrid } from "../../../../../shared/controls/smart/SmartViewGrid";
 import type { IEntityReference } from "../../../../../shared/utils/EntityModel";
 import { createFakeViewModelContext } from "../../../../mocks/fakeViewModelContext";
@@ -193,6 +194,73 @@ describe("SmartLookup", () => {
       const query = calls.find((c) => c.api === "retrieveMultipleRecords");
       expect(String(query?.args[1])).toContain("and statecode eq 0");
     });
+  });
+});
+
+describe("SmartNumberField locale + currency (G-06 / G-06b)", () => {
+  it("formats with the user's decimal symbol and group separator", async () => {
+    const { context } = createFakeViewModelContext({
+      attributes: {
+        "opportunity.estimatedvalue": { displayName: "Est. Value", kind: "decimal", precision: 2 },
+      },
+      formatting: { decimalSymbol: ",", numberSeparator: "." },
+    });
+    const value = new Observable<number | null>(1234.5);
+    renderWith(
+      context,
+      <SmartNumberField entity="opportunity" attribute="estimatedvalue" value={value} />
+    );
+    await screen.findByText("Est. Value");
+    await waitFor(() => {
+      const input = screen.getByRole("textbox") as HTMLInputElement;
+      expect(input.value).toBe("1.234,50");
+    });
+  });
+
+  it("resolves the record's currency symbol from transactionCurrencyId (G-06b)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "opportunity.estimatedvalue": { displayName: "Est. Value", kind: "money", precision: 2 },
+      },
+      currencies: {
+        "55550000-0000-0000-0000-000000000005": { symbol: "€", precision: 2 },
+      },
+    });
+    const value = new Observable<number | null>(1000);
+    renderWith(
+      context,
+      <SmartNumberField
+        entity="opportunity"
+        attribute="estimatedvalue"
+        value={value}
+        transactionCurrencyId="55550000-0000-0000-0000-000000000005"
+      />
+    );
+    await waitFor(() => {
+      expect(calls.find((c) => c.api === "getCurrencySymbol")).toBeDefined();
+    });
+    expect(await screen.findByText("€")).toBeTruthy();
+  });
+
+  it("an explicit currencySymbol prop wins over resolution", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "opportunity.estimatedvalue": { displayName: "Est. Value", kind: "money", precision: 2 },
+      },
+    });
+    const value = new Observable<number | null>(1000);
+    renderWith(
+      context,
+      <SmartNumberField
+        entity="opportunity"
+        attribute="estimatedvalue"
+        value={value}
+        currencySymbol="£"
+        transactionCurrencyId="55550000-0000-0000-0000-000000000005"
+      />
+    );
+    expect(await screen.findByText("£")).toBeTruthy();
+    expect(calls.find((c) => c.api === "getCurrencySymbol")).toBeUndefined();
   });
 });
 

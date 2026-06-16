@@ -4,8 +4,10 @@ import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { entitySetName } from "../utils/odata";
 import { buildClientUIDataParam } from "../utils/webResourceParams";
 import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
+import { normalizeDateFormatInfo, resolveFormatting } from "./formatting";
 import type {
   IContextUtils,
+  IFormattingInfo,
   ILookupOptions,
   IMetadataApi,
   INavigation,
@@ -34,7 +36,13 @@ export interface IPcfContextLike {
       maxPageSize?: number
     ): PromiseLike<{ entities: Array<Record<string, unknown>>; nextLink?: string }>;
   };
-  userSettings: { userId: string; userName: string };
+  userSettings: {
+    userId: string;
+    userName: string;
+    languageId?: number;
+    dateFormattingInfo?: Record<string, unknown>;
+    numberFormattingInfo?: Record<string, unknown>;
+  };
   navigation: {
     openForm(options: { entityName: string; entityId?: string }): PromiseLike<unknown>;
     openAlertDialog(strings: { text: string; title?: string }): PromiseLike<unknown>;
@@ -62,16 +70,25 @@ export class PCFContext implements IViewModelContext {
   readonly navigation: INavigation;
   readonly utils: IContextUtils;
 
+  private readonly client: CdsClient;
+  private readonly rawDateFormat: Record<string, unknown> | undefined;
+  private readonly rawNumberFormat: Record<string, unknown> | undefined;
+  private formattingPromise?: Promise<IFormattingInfo>;
+
   constructor(source: IPcfContextLike, options?: { clientUrl?: string }) {
     // Same-origin relative URLs work when no client url is resolvable.
     this.clientUrl = options?.clientUrl ?? source.page?.getClientUrl?.() ?? "";
     this.user = {
       id: normalizeGuid(source.userSettings.userId),
       name: source.userSettings.userName,
+      languageId: source.userSettings.languageId,
     };
+    this.rawDateFormat = source.userSettings.dateFormattingInfo;
+    this.rawNumberFormat = source.userSettings.numberFormattingInfo;
     this.orgVersion = "9.2"; // PCF hosts are modern; the framework hides the build number
 
     const client = new CdsClient({ clientUrl: this.clientUrl });
+    this.client = client;
     this.webAPI = new PcfWebApi(source.webAPI, client);
     this.metadata = new MetadataService(client);
     this.navigation = new PcfNavigation(source.navigation, source.utils);
@@ -79,6 +96,32 @@ export class PCFContext implements IViewModelContext {
       alert: (message: string) => void this.navigation.openAlertDialog(message),
     };
   }
+
+  getFormatting(): Promise<IFormattingInfo> {
+    // PCF carries both date and number formatting on userSettings; fall back to
+    // the usersettings entity for any separators the host didn't supply. Cached.
+    this.formattingPromise ??= resolveFormatting({
+      client: this.client,
+      userId: this.user.id,
+      dateFormatInfo: normalizeDateFormatInfo(this.rawDateFormat),
+      decimalSymbol: readNumberFormat(this.rawNumberFormat, "numberDecimalSeparator", "NumberDecimalSeparator"),
+      numberSeparator: readNumberFormat(this.rawNumberFormat, "numberGroupSeparator", "NumberGroupSeparator"),
+    });
+    return this.formattingPromise;
+  }
+}
+
+function readNumberFormat(
+  raw: Record<string, unknown> | undefined,
+  ...keys: string[]
+): string | undefined {
+  for (const key of keys) {
+    const value = raw?.[key];
+    if (typeof value === "string" && value) {
+      return value;
+    }
+  }
+  return undefined;
 }
 
 class PcfWebApi implements IWebApi {

@@ -270,6 +270,29 @@ describe("MetadataService", () => {
     });
   });
 
+  describe("getCurrencySymbol (G-06b)", () => {
+    it("resolves the currency symbol/precision and caches per id", async () => {
+      server.respondWith((request) =>
+        request.url.includes("transactioncurrencies(")
+          ? {
+              status: 200,
+              responseText: JSON.stringify({ currencysymbol: "€", currencyprecision: 2 }),
+            }
+          : undefined
+      );
+      const id = "44440000-0000-0000-0000-000000000004";
+      const first = await service.getCurrencySymbol(id);
+      expect(first).toEqual({ symbol: "€", precision: 2 });
+      const requestCount = server.requests.length;
+      const second = await service.getCurrencySymbol(`{${id.toUpperCase()}}`);
+      expect(second).toBe(first); // same normalized-id cache entry
+      expect(server.requests.length).toBe(requestCount);
+      expect(decodeURIComponent(server.lastRequest.url)).toContain(
+        "$select=currencysymbol,currencyprecision"
+      );
+    });
+  });
+
   describe("getViewByName (G-05)", () => {
     const layoutXml =
       '<grid><row id="accountid"><cell name="name" width="300" /></row></grid>';

@@ -33,12 +33,19 @@ Auto: options as above. `value` is `Observable<number[]>`.
 Auto: Yes/No labels from the boolean option set metadata.
 
 ### SmartNumberField
-Auto: precision (0 for whole numbers), min/max bounds, money detection.
-Extra: `currencySymbol` (metadata does not carry the record's transaction
-currency in v1 — defaults to `$`).
+Auto: precision (0 for whole numbers), min/max bounds, money detection, and the
+user's decimal symbol / group separator from `context.getFormatting()` (G-06).
+Extra:
+
+| Prop | Purpose |
+|---|---|
+| `currencySymbol` | Force the money prefix — highest priority |
+| `transactionCurrencyId` | Resolve the record's real currency symbol from `transactioncurrency` (G-06b); used when `currencySymbol` is omitted. Falls back to `$` |
 
 ### SmartDatePicker
-Auto: date-only vs date-and-time from attribute format; locale display format.
+Auto: date-only vs date-and-time from attribute format; localized calendar
+strings (day/month names), first day of week, and short-date display format
+from `context.getFormatting()` (G-06).
 
 ### SmartLookup
 Auto: target entity (first metadata target), target's primary name/id

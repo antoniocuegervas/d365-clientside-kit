@@ -14,6 +14,8 @@ import type {
   IWebApi,
 } from "./IViewModelContext";
 import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
+import { resolveFormatting } from "./formatting";
+import type { IFormattingInfo } from "./IViewModelContext";
 import { XrmPageFormAccess, type IXrmPageLike } from "./XrmFormAccess";
 
 /**
@@ -27,6 +29,7 @@ export interface IXrmV8Like {
       getUserId(): string;
       getUserName(): string;
       getVersion?(): string;
+      getUserLcid?(): number;
     };
   };
   Utility: IXrmUtilityLookup & {
@@ -54,16 +57,21 @@ export class WebResourceContextV8 implements IViewModelContext {
   readonly utils: IContextUtils;
   readonly formAccess?: IFormAccess;
 
+  private readonly client: CdsClient;
+  private formattingPromise?: Promise<IFormattingInfo>;
+
   constructor(xrm: IXrmV8Like, formPage?: IXrmPageLike) {
     const pageContext = xrm.Page.context;
     this.clientUrl = pageContext.getClientUrl();
     this.user = {
       id: normalizeGuid(pageContext.getUserId()),
       name: pageContext.getUserName(),
+      languageId: pageContext.getUserLcid?.(),
     };
     this.orgVersion = pageContext.getVersion?.() ?? "8.2";
 
     const client = new CdsClient({ clientUrl: this.clientUrl, apiVersion: "8.2" });
+    this.client = client;
     this.webAPI = new CdsWebApi(client);
     this.metadata = new MetadataService(client);
     this.navigation = new V8Navigation(xrm.Utility);
@@ -77,6 +85,13 @@ export class WebResourceContextV8 implements IViewModelContext {
     if (XrmPageFormAccess.hasForm(page)) {
       this.formAccess = new XrmPageFormAccess(page);
     }
+  }
+
+  getFormatting(): Promise<IFormattingInfo> {
+    // 8.x doesn't reliably expose date-format names; decimal/separator come
+    // from the usersettings entity. Cached.
+    this.formattingPromise ??= resolveFormatting({ client: this.client, userId: this.user.id });
+    return this.formattingPromise;
   }
 }
 

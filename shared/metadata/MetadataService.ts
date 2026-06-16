@@ -2,6 +2,7 @@ import type { CdsClient } from "../data/CdsClient";
 import type {
   AttributeKind,
   IAttributeMetadata,
+  ICurrencyInfo,
   IEntityMetadata,
   IMetadataApi,
   IViewDefinition,
@@ -23,6 +24,7 @@ export class MetadataService implements IMetadataApi {
   private readonly entityCache = new Map<string, Promise<IEntityMetadata>>();
   private readonly attributeCache = new Map<string, Promise<IAttributeMetadata>>();
   private readonly viewCache = new Map<string, Promise<IViewDefinition>>();
+  private readonly currencyCache = new Map<string, Promise<ICurrencyInfo>>();
 
   constructor(client: CdsClient) {
     this.client = client;
@@ -56,6 +58,16 @@ export class MetadataService implements IMetadataApi {
     if (!cached) {
       cached = this.loadView(entityLogicalName, savedQueryId);
       this.viewCache.set(key, cached);
+    }
+    return cached;
+  }
+
+  getCurrencySymbol(transactionCurrencyId: string): Promise<ICurrencyInfo> {
+    const key = normalizeGuid(transactionCurrencyId);
+    let cached = this.currencyCache.get(key);
+    if (!cached) {
+      cached = this.loadCurrencySymbol(key);
+      this.currencyCache.set(key, cached);
     }
     return cached;
   }
@@ -243,6 +255,19 @@ export class MetadataService implements IMetadataApi {
       raw = result.entities[0];
     }
     return toViewDefinition(raw, entityLogicalName, savedQueryId);
+  }
+
+  /** Resolves a transaction currency's symbol + precision by id (G-06b). */
+  private async loadCurrencySymbol(transactionCurrencyId: string): Promise<ICurrencyInfo> {
+    const raw = await this.client.retrieveRecord(
+      "transactioncurrencies",
+      transactionCurrencyId,
+      "?$select=currencysymbol,currencyprecision"
+    );
+    return {
+      symbol: (raw.currencysymbol as string) ?? "$",
+      precision: raw.currencyprecision as number | undefined,
+    };
   }
 
   /**

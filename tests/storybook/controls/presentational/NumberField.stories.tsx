@@ -52,3 +52,15 @@ export const WithBounds: Story = {
   name: "Min/max clamping (type and blur)",
   render: () => <NumberField label="Discount %" precision={2} min={0} max={100} {...make(15)} />,
 };
+export const EuropeanSeparators: Story = {
+  name: "CRM separators (decimal ',' group '.')",
+  render: () => (
+    <NumberField
+      label="Annual Revenue"
+      precision={2}
+      decimalSymbol=","
+      groupSeparator="."
+      {...make(1234567.5)}
+    />
+  ),
+};

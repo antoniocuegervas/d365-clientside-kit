@@ -200,3 +200,28 @@ Per-method V8 fidelity stays a dial. The locale/user-settings surface and the
 control-side lookup dialog mode remain their own tasks (G-06, G-02), added in
 the now-established B-shape. The kit's own conveniences (`fetch`, `openClientUI`,
 `utils.alert`) sit atop the mirrored surface as additive extras.
+
+## D-021 — Locale formatting is a lazily-resolved context surface threaded as presentational props (G-06)
+
+The context gains `user.languageId?` and `getFormatting: Promise<IFormattingInfo>`
+(decimal symbol, number separator, normalized `IDateFormatInfo`). Resolution is
+**lazy and cached per context**, and per-host: modern reads
+`dateFormattingInfo`/`languageId` off the global user settings and queries the
+`usersettings` entity for the decimal/number separators (the proven webresource
+path); PCF reads both from `context.userSettings`; V8 queries `usersettings` and
+takes `languageId` from `getUserLcid`. Every piece is optional — a missing
+value means the control keeps its existing default, so the change is strictly
+non-regressive.
+
+The **boundary stays clean**: only the smart tier touches the context. Smart
+controls read `getFormatting` and pass plain values down — `DateTimeField`
+gains `strings`/`firstDayOfWeek` (+ the existing `formatDate`), `NumberField`
+gains `decimalSymbol`/`groupSeparator`. The presentational controls never import
+a context type. Labels and numeric precision are deliberately **not** re-solved
+(already metadata-correct).
+
+**G-06b (supersedes D-013/D-016):** money fields resolve the record's real
+currency symbol via `metadata.getCurrencySymbol(transactionCurrencyId)`
+(`transactioncurrency.currencysymbol`, cached per id). Priority: explicit
+`currencySymbol` prop › resolved `transactionCurrencyId` › `$` fallback. Symbol
+position/spacing stays out (deferred to G-07).

@@ -14,6 +14,10 @@ export interface INumberFieldProps extends ICommonFieldProps {
   max?: number;
   /** Prefix glyph, e.g. a currency symbol, supplied, never resolved here. */
   prefix?: string;
+  /** Decimal separator (CRM user setting). Default: browser-locale formatting. */
+  decimalSymbol?: string;
+  /** Group (thousands) separator (CRM user setting). Default: browser-locale formatting. */
+  groupSeparator?: string;
 }
 
 interface INumberFieldState {
@@ -36,13 +40,27 @@ export class NumberField extends ObserverComponent<INumberFieldProps, INumberFie
     if (value === null) {
       return "";
     }
-    const { precision } = this.props;
-    return precision !== undefined
-      ? value.toLocaleString(undefined, {
-          minimumFractionDigits: precision,
-          maximumFractionDigits: precision,
-        })
-      : value.toLocaleString();
+    const { precision, decimalSymbol, groupSeparator } = this.props;
+    // Default (no CRM separators supplied): browser-locale formatting, unchanged.
+    if (decimalSymbol === undefined && groupSeparator === undefined) {
+      return precision !== undefined
+        ? value.toLocaleString(undefined, {
+            minimumFractionDigits: precision,
+            maximumFractionDigits: precision,
+          })
+        : value.toLocaleString();
+    }
+    // CRM user-setting separators (G-06): format manually so the symbols match.
+    const fixed = precision !== undefined ? value.toFixed(precision) : String(value);
+    const negative = fixed.startsWith("-");
+    const [intPart, fracPart] = (negative ? fixed.slice(1) : fixed).split(".");
+    const grouped = groupSeparator
+      ? intPart.replace(/\B(?=(\d{3})+(?!\d))/g, groupSeparator)
+      : intPart;
+    const sign = negative ? "-" : "";
+    return fracPart !== undefined
+      ? `${sign}${grouped}${decimalSymbol ?? "."}${fracPart}`
+      : `${sign}${grouped}`;
   }
 
   private readonly handleChange = (
@@ -67,13 +85,29 @@ export class NumberField extends ObserverComponent<INumberFieldProps, INumberFie
     }
   };
 
+  /** Strips group separators and maps the decimal symbol back to "." for parsing. */
+  private normalizeInput(text: string): string {
+    const { decimalSymbol, groupSeparator } = this.props;
+    if (decimalSymbol === undefined && groupSeparator === undefined) {
+      return text.replace(/,/g, ""); // default: treat comma as a group separator
+    }
+    let normalized = text;
+    if (groupSeparator) {
+      normalized = normalized.split(groupSeparator).join("");
+    }
+    if (decimalSymbol && decimalSymbol !== ".") {
+      normalized = normalized.split(decimalSymbol).join(".");
+    }
+    return normalized;
+  }
+
   private commit(): void {
     const { editingText } = this.state;
     if (editingText === null) {
       return;
     }
     this.setState({ editingText: null });
-    const trimmed = editingText.trim().replace(/,/g, "");
+    const trimmed = this.normalizeInput(editingText.trim());
     if (trimmed === "") {
       this.props.onChange?.(null);
       return;

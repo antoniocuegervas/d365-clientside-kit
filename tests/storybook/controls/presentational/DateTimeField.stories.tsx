@@ -40,3 +40,29 @@ export const WithError: Story = {
     <DateTimeField label="Est. Close Date" errorMessage="Date must be in the future." {...make(null)} />
   ),
 };
+export const LocalizedCalendar: Story = {
+  name: "Localized strings + first day Monday (G-06)",
+  render: () => (
+    <DateTimeField
+      label="Est. Close Date"
+      firstDayOfWeek={1}
+      strings={{
+        months: [
+          "januari", "februari", "maart", "april", "mei", "juni",
+          "juli", "augustus", "september", "oktober", "november", "december",
+        ],
+        shortMonths: [
+          "jan", "feb", "mrt", "apr", "mei", "jun",
+          "jul", "aug", "sep", "okt", "nov", "dec",
+        ],
+        days: ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"],
+        shortDays: ["Z", "M", "D", "W", "D", "V", "Z"],
+        goToToday: "Naar vandaag",
+      }}
+      formatDate={(date) =>
+        `${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()}`
+      }
+      {...make(sampleDate)}
+    />
+  ),
+};
