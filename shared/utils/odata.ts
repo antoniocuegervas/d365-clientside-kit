@@ -30,6 +30,20 @@ export function odataBind(reference: IEntityReference, entitySet?: string): stri
   return `/${entitySet ?? entitySetName(reference.logicalName)}(${normalizeGuid(reference.id)})`;
 }
 
+/**
+ * Formats a primitive for an OData `$filter` literal: strings quoted and
+ * `''`-escaped, booleans as true/false, numbers raw (G-15).
+ */
+export function formatODataValue(value: string | number | boolean): string {
+  if (typeof value === "string") {
+    return `'${escapeODataString(value)}'`;
+  }
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+  return String(value);
+}
+
 /** Reads the formatted-value annotation for an attribute, if present. */
 export function formattedValue(
   record: Record<string, unknown>,

@@ -51,6 +51,14 @@ export interface IDataGridProps {
   selectedKey?: Observable<string | null>;
   /** Rows shown while loading. Default 5. */
   skeletonRows?: number;
+  /**
+   * Server-side sort mode: when set, header clicks call this instead of sorting
+   * the loaded page in memory, and the host re-supplies sorted rows. The header
+   * indicator follows {@link sortState}.
+   */
+  onColumnSort?: (columnKey: string, descending: boolean) => void;
+  /** Controlled sort indicator for server-sort mode. */
+  sortState?: OrObservable<{ columnKey: string; descending: boolean } | null>;
 }
 
 interface IDataGridState {
@@ -79,11 +87,18 @@ export class DataGrid extends ObserverComponent<IDataGridProps, IDataGridState> 
   constructor(props: IDataGridProps) {
     super(props);
     this.state = { sortColumn: null, sortAscending: true };
-    this.observe(props.columns, props.rows, props.loading, props.selectedKey);
+    this.observe(props.columns, props.rows, props.loading, props.selectedKey, props.sortState);
   }
 
   private readonly handleSort = (column: IGridColumn): void => {
     if (column.sortable === false) {
+      return;
+    }
+    // Server-sort mode: delegate to the host, which re-supplies sorted rows.
+    if (this.props.onColumnSort) {
+      const current = valueOf(this.props.sortState ?? null);
+      const descending = current?.columnKey === column.key ? !current.descending : false;
+      this.props.onColumnSort(column.key, descending);
       return;
     }
     this.setState((previous) => ({
@@ -94,6 +109,10 @@ export class DataGrid extends ObserverComponent<IDataGridProps, IDataGridState> 
 
   private sortedRows(): IGridRow[] {
     const rows = [...valueOf(this.props.rows)];
+    // Server-sort mode: rows arrive pre-sorted; never reorder in memory.
+    if (this.props.onColumnSort) {
+      return rows;
+    }
     const { sortColumn, sortAscending } = this.state;
     if (!sortColumn) {
       return rows;
@@ -125,6 +144,21 @@ const Body: React.FC<
   const columns = valueOf(props.columns);
   const loading = valueOf(props.loading ?? false);
   const selectedKey = props.selectedKey?.value ?? null;
+  const serverSort = props.onColumnSort ? valueOf(props.sortState ?? null) : null;
+  const sortDirectionFor = (key: string): "ascending" | "descending" | undefined => {
+    if (props.onColumnSort) {
+      return serverSort?.columnKey === key
+        ? serverSort.descending
+          ? "descending"
+          : "ascending"
+        : undefined;
+    }
+    return props.state.sortColumn === key
+      ? props.state.sortAscending
+        ? "ascending"
+        : "descending"
+      : undefined;
+  };
 
   if (loading) {
     return (
@@ -147,13 +181,7 @@ const Body: React.FC<
               key={column.key}
               className={styles.headerCell}
               style={column.width ? { width: column.width } : undefined}
-              sortDirection={
-                props.state.sortColumn === column.key
-                  ? props.state.sortAscending
-                    ? "ascending"
-                    : "descending"
-                  : undefined
-              }
+              sortDirection={sortDirectionFor(column.key)}
               onClick={() => props.onSort(column)}
             >
               {column.name}

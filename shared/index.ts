@@ -25,7 +25,13 @@ export {
   type IEntityReference,
   type IOptionItem,
 } from "./utils/EntityModel";
-export { entitySetName, escapeODataString, odataBind, formattedValue } from "./utils/odata";
+export {
+  entitySetName,
+  escapeODataString,
+  odataBind,
+  formattedValue,
+  formatODataValue,
+} from "./utils/odata";
 export { newGuid, newBatchBoundary } from "./utils/correlation";
 export {
   parseWebResourceParams,
@@ -126,7 +132,18 @@ export { SmartBooleanField, type ISmartBooleanFieldProps } from "./controls/smar
 export { SmartNumberField, type ISmartNumberFieldProps } from "./controls/smart/SmartNumberField";
 export { SmartDatePicker, type ISmartDatePickerProps } from "./controls/smart/SmartDatePicker";
 export { SmartLookup, type ISmartLookupProps } from "./controls/smart/SmartLookup";
-export { SmartViewGrid, type ISmartViewGridProps } from "./controls/smart/SmartViewGrid";
+export {
+  SmartViewGrid,
+  type ISmartViewGridProps,
+  type ISmartViewGridFilter,
+  type ISortSpec,
+} from "./controls/smart/SmartViewGrid";
+export {
+  buildSavedQueryOptions,
+  composeFilterExpression,
+  composeOrderBy,
+  type IViewQueryParams,
+} from "./controls/smart/viewGridQuery";
 
 // Components (composites)
 export { RecordReady, type IRecordReadyProps } from "./components/RecordReady";

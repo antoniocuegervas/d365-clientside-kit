@@ -8,7 +8,11 @@ import { SmartTextField } from "../../../../../shared/controls/smart/SmartTextFi
 import { SmartOptionSet } from "../../../../../shared/controls/smart/SmartOptionSet";
 import { SmartLookup } from "../../../../../shared/controls/smart/SmartLookup";
 import { SmartNumberField } from "../../../../../shared/controls/smart/SmartNumberField";
-import { SmartViewGrid } from "../../../../../shared/controls/smart/SmartViewGrid";
+import {
+  SmartViewGrid,
+  type ISmartViewGridFilter,
+  type ISortSpec,
+} from "../../../../../shared/controls/smart/SmartViewGrid";
 import type { IEntityReference } from "../../../../../shared/utils/EntityModel";
 import { createFakeViewModelContext } from "../../../../mocks/fakeViewModelContext";
 import type { IViewModelContext } from "../../../../../shared/context/IViewModelContext";
@@ -329,6 +333,69 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(query).toBeDefined();
     expect(query!.args[0]).toBe("account");
     expect(String(query!.args[1])).toContain("?savedQuery=");
+  });
+
+  it("composes quick find into the saved-query $filter (G-01)", async () => {
+    const { context, calls } = createFakeViewModelContext(viewSetup);
+    const quickFind = new Observable("cont");
+    renderWith(context, <SmartViewGrid entity="account" quickFind={quickFind} />);
+    await screen.findByText("Contoso Ltd");
+    const query = calls.find((c) => c.api === "retrieveMultipleRecords")!;
+    // default quick-find field is the entity's primary name ("name")
+    expect(String(query.args[1])).toContain("$filter=contains(name,'cont')");
+  });
+
+  it("applies declarative filters server-side (G-01)", async () => {
+    const { context, calls } = createFakeViewModelContext(viewSetup);
+    const filters = new Observable<ISmartViewGridFilter[]>([
+      { attribute: "statecode", value: 0 },
+    ]);
+    renderWith(context, <SmartViewGrid entity="account" filters={filters} />);
+    await screen.findByText("Contoso Ltd");
+    const query = calls.find((c) => c.api === "retrieveMultipleRecords")!;
+    expect(String(query.args[1])).toContain("$filter=statecode eq 0");
+  });
+
+  it("server sort: a header click updates orderBy and re-queries with $orderby (G-01)", async () => {
+    const { context, calls } = createFakeViewModelContext(viewSetup);
+    const orderBy = new Observable<ISortSpec | null>(null);
+    renderWith(context, <SmartViewGrid entity="account" orderBy={orderBy} serverSort />);
+    await screen.findByText("Contoso Ltd");
+    await userEvent.click(screen.getByText("Account Name"));
+    expect(orderBy.value).toEqual({ attribute: "name", descending: false });
+    await waitFor(() => {
+      const queries = calls.filter((c) => c.api === "retrieveMultipleRecords");
+      expect(String(queries.at(-1)!.args[1])).toContain("$orderby=name asc");
+    });
+  });
+
+  it("overrideFetchXml swaps the data source to host FetchXML, keeping layout (G-01)", async () => {
+    const { context, calls } = createFakeViewModelContext(viewSetup);
+    const override = new Observable<string | null>("<fetch><entity name='account'/></fetch>");
+    renderWith(context, <SmartViewGrid entity="account" overrideFetchXml={override} />);
+    await screen.findByText("Account Name"); // layout still from the view
+    await waitFor(() => {
+      expect(calls.find((c) => c.api === "fetch")).toBeDefined();
+    });
+  });
+
+  it("resolves the view by name when viewName is given (G-05)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      ...viewSetup,
+      views: {
+        "name:account:Hot Accounts": {
+          name: "Hot Accounts",
+          entityLogicalName: "account",
+          columns: [{ name: "name", width: 300 }],
+        },
+      },
+    });
+    renderWith(context, <SmartViewGrid entity="account" viewName="Hot Accounts" />);
+    await screen.findByText("Account Name");
+    expect(calls.find((c) => c.api === "getViewByName")?.args).toEqual([
+      "account",
+      "Hot Accounts",
+    ]);
   });
 
   it("re-runs the query when the refresh event fires (code-level refresh)", async () => {
