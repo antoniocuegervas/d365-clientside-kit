@@ -46,6 +46,7 @@ export type {
   IAttributeMetadata,
   IEntityMetadata,
   IViewDefinition,
+  ILookupOptions,
   AttributeKind,
 } from "./context/IViewModelContext";
 export { WebResourceContext } from "./context/WebResourceContext";

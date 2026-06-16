@@ -24,6 +24,8 @@ interface ICommonMockOptions {
   formRecord?: IMockFormRecord;
   /** What openConfirmDialog/confirmDialog should answer. Default true. */
   confirmResult?: boolean;
+  /** Records the native lookup dialog (Xrm.Utility.lookupObjects) resolves with. */
+  lookupResult?: Array<{ id: string; name?: string; entityType: string }>;
 }
 
 export interface IModernXrmMockOptions extends ICommonMockOptions {
@@ -116,6 +118,10 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
           userName: options.userName ?? "Mock User",
         },
       }),
+      lookupObjects: async (lookupOptions: unknown) => {
+        record("Utility.lookupObjects", lookupOptions);
+        return options.lookupResult ?? [];
+      },
     },
     Navigation: {
       openForm: async (formOptions: unknown) => {
@@ -173,6 +179,10 @@ export function createV8XrmMock(options: ICommonMockOptions = {}) {
       },
       openWebResource: (name: string, data?: string, width?: number, height?: number) =>
         record("Utility.openWebResource", name, data, width, height),
+      lookupObjects: async (lookupOptions: unknown) => {
+        record("Utility.lookupObjects", lookupOptions);
+        return options.lookupResult ?? [];
+      },
     },
   };
 

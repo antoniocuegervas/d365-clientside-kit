@@ -174,3 +174,29 @@ folded with G-03 view-driven search + G-10 icons, per OD-3). Items explicitly
 parked with revisit triggers: rich text (D-011/G-12), localized sample content
 (G-14). Production-specific legacy code (a third-party integration, a contact-list, the ten
 production PCFs, hooks) stays excluded per spec section 14.
+
+## D-020 — Option B realized by completing the surface, not renaming it (G-17)
+
+When G-17 began, the v1 context already used Xrm-mirrored method names for the
+common path — `createRecord`/`updateRecord`/`deleteRecord`/`retrieveRecord`/
+`retrieveMultipleRecords` (Xrm.WebApi) and `openForm`/`openAlertDialog`/
+`openConfirmDialog`/`openUrl` (Xrm.Navigation) — with Xrm-faithful read shapes
+(`{ entities, nextLink }`, annotated entities). Phase 1 had in practice shipped
+something closer to option B than the narrow "C" originally considered.
+Realizing option B therefore meant **completing** the mirrored surface and
+documenting the contract, not a wholesale rename/migration:
+
+- `IWebApi.executeAction(name, params, boundTo?)` + `executeWorkflow(id, recordId)`
+  (folds **G-08**) — every adapter delegates to the cds-client implementations
+  that already existed (D-014: production never touches `Xrm.WebApi.execute`'s
+  request-object contract). Deliberately **not** named `execute` to avoid
+  implying Xrm's request-object signature.
+- `INavigation.lookupObjects(options)` (folds the context half of **G-02**) —
+  mirrors `Xrm.Utility.lookupObjects` (not in `@types/xrm`, typed structurally
+  in `lookupObjects.ts`); modern + V8 webresources delegate to the host call,
+  PCF throws a clear "not available" error until a host surfaces one.
+
+Per-method V8 fidelity stays a dial. The locale/user-settings surface and the
+control-side lookup dialog mode remain their own tasks (G-06, G-02), added in
+the now-established B-shape. The kit's own conveniences (`fetch`, `openClientUI`,
+`utils.alert`) sit atop the mirrored surface as additive extras.

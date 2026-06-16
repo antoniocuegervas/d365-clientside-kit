@@ -1,9 +1,12 @@
 import { CdsClient, type IRetrieveMultipleResult } from "../data/CdsClient";
 import { MetadataService } from "../metadata/MetadataService";
-import { normalizeGuid } from "../utils/EntityModel";
+import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
+import { entitySetName } from "../utils/odata";
 import { buildClientUIDataParam } from "../utils/webResourceParams";
+import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
 import type {
   IContextUtils,
+  ILookupOptions,
   IMetadataApi,
   INavigation,
   IUserInfo,
@@ -41,6 +44,8 @@ export interface IPcfContextLike {
   };
   /** Undocumented but stable, the only client-url source inside PCF. */
   page?: { getClientUrl?(): string };
+  /** Optional native lookup dialog, when the PCF host surfaces one (G-02). */
+  utils?: IXrmUtilityLookup;
 }
 
 /**
@@ -66,9 +71,10 @@ export class PCFContext implements IViewModelContext {
     };
     this.orgVersion = "9.2"; // PCF hosts are modern; the framework hides the build number
 
-    this.webAPI = new PcfWebApi(source.webAPI);
-    this.metadata = new MetadataService(new CdsClient({ clientUrl: this.clientUrl }));
-    this.navigation = new PcfNavigation(source.navigation);
+    const client = new CdsClient({ clientUrl: this.clientUrl });
+    this.webAPI = new PcfWebApi(source.webAPI, client);
+    this.metadata = new MetadataService(client);
+    this.navigation = new PcfNavigation(source.navigation, source.utils);
     this.utils = {
       alert: (message: string) => void this.navigation.openAlertDialog(message),
     };
@@ -76,7 +82,10 @@ export class PCFContext implements IViewModelContext {
 }
 
 class PcfWebApi implements IWebApi {
-  constructor(private readonly api: IPcfContextLike["webAPI"]) {}
+  constructor(
+    private readonly api: IPcfContextLike["webAPI"],
+    private readonly client: CdsClient
+  ) {}
 
   async createRecord(
     entityLogicalName: string,
@@ -123,10 +132,29 @@ class PcfWebApi implements IWebApi {
       `?fetchXml=${encodeURIComponent(fetchXml)}`
     );
   }
+
+  executeAction(
+    actionName: string,
+    parameters?: Record<string, unknown>,
+    boundTo?: { entityLogicalName: string; id: string }
+  ): Promise<unknown> {
+    return this.client.executeAction(
+      actionName,
+      parameters,
+      boundTo ? { entitySet: entitySetName(boundTo.entityLogicalName), id: boundTo.id } : undefined
+    );
+  }
+
+  executeWorkflow(workflowId: string, recordId: string): Promise<unknown> {
+    return this.client.executeWorkflow(workflowId, recordId);
+  }
 }
 
 class PcfNavigation implements INavigation {
-  constructor(private readonly navigation: IPcfContextLike["navigation"]) {}
+  constructor(
+    private readonly navigation: IPcfContextLike["navigation"],
+    private readonly utils: IXrmUtilityLookup | undefined
+  ) {}
 
   async openForm(entityLogicalName: string, id?: string): Promise<void> {
     await this.navigation.openForm({
@@ -159,5 +187,9 @@ class PcfNavigation implements INavigation {
 
   openUrl(url: string): void {
     this.navigation.openUrl(url);
+  }
+
+  lookupObjects(options: ILookupOptions): Promise<IEntityReference[]> {
+    return callLookupObjects(this.utils, options, "PCF");
   }
 }

@@ -1,10 +1,13 @@
 import { CdsClient, type IRetrieveMultipleResult } from "../data/CdsClient";
 import { MetadataService } from "../metadata/MetadataService";
-import { normalizeGuid } from "../utils/EntityModel";
+import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
+import { entitySetName } from "../utils/odata";
 import { buildClientUIDataParam } from "../utils/webResourceParams";
+import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
 import type {
   IContextUtils,
   IFormAccess,
+  ILookupOptions,
   IMetadataApi,
   INavigation,
   IUserInfo,
@@ -37,9 +40,15 @@ export class WebResourceContext implements IViewModelContext {
     };
     this.orgVersion = globalContext.getVersion();
 
-    this.webAPI = new ModernWebApi(xrm.WebApi);
-    this.metadata = new MetadataService(new CdsClient({ clientUrl: this.clientUrl }));
-    this.navigation = new ModernNavigation(xrm.Navigation);
+    // One same-origin cds-client backs both metadata and execute*/executeWorkflow
+    // (D-014) so custom actions never touch Xrm.WebApi.execute's request-object API.
+    const client = new CdsClient({ clientUrl: this.clientUrl });
+    this.webAPI = new ModernWebApi(xrm.WebApi, client);
+    this.metadata = new MetadataService(client);
+    this.navigation = new ModernNavigation(
+      xrm.Navigation,
+      (xrm as unknown as { Utility?: IXrmUtilityLookup }).Utility
+    );
     this.utils = {
       alert: (message: string) => void this.navigation.openAlertDialog(message),
     };
@@ -55,7 +64,10 @@ export class WebResourceContext implements IViewModelContext {
 }
 
 class ModernWebApi implements IWebApi {
-  constructor(private readonly api: Xrm.WebApi) {}
+  constructor(
+    private readonly api: Xrm.WebApi,
+    private readonly client: CdsClient
+  ) {}
 
   async createRecord(
     entityLogicalName: string,
@@ -105,10 +117,29 @@ class ModernWebApi implements IWebApi {
       `?fetchXml=${encodeURIComponent(fetchXml)}`
     );
   }
+
+  executeAction(
+    actionName: string,
+    parameters?: Record<string, unknown>,
+    boundTo?: { entityLogicalName: string; id: string }
+  ): Promise<unknown> {
+    return this.client.executeAction(
+      actionName,
+      parameters,
+      boundTo ? { entitySet: entitySetName(boundTo.entityLogicalName), id: boundTo.id } : undefined
+    );
+  }
+
+  executeWorkflow(workflowId: string, recordId: string): Promise<unknown> {
+    return this.client.executeWorkflow(workflowId, recordId);
+  }
 }
 
 class ModernNavigation implements INavigation {
-  constructor(private readonly navigation: Xrm.Navigation) {}
+  constructor(
+    private readonly navigation: Xrm.Navigation,
+    private readonly utility: IXrmUtilityLookup | undefined
+  ) {}
 
   async openForm(entityLogicalName: string, id?: string): Promise<void> {
     await this.navigation.openForm({
@@ -148,5 +179,9 @@ class ModernNavigation implements INavigation {
 
   openUrl(url: string): void {
     this.navigation.openUrl(url);
+  }
+
+  lookupObjects(options: ILookupOptions): Promise<IEntityReference[]> {
+    return callLookupObjects(this.utility, options, "modern webresource");
   }
 }

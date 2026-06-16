@@ -5,6 +5,7 @@ import type {
   IViewModelContext,
 } from "../../shared/context/IViewModelContext";
 import type { IRetrieveMultipleResult } from "../../shared/data/CdsClient";
+import type { IEntityReference } from "../../shared/utils/EntityModel";
 
 /**
  * In-memory IViewModelContext stub for smart-control and ViewModel tests , 
@@ -16,6 +17,10 @@ export interface IFakeContextOptions {
   views?: Record<string, Partial<IViewDefinition>>; // key: savedQueryId or "default:entity"
   /** Scripted results returned by retrieveMultipleRecords/fetch, FIFO per entity. */
   queryResults?: Record<string, Array<IRetrieveMultipleResult>>;
+  /** Scripted responses returned by executeAction, keyed by action name. */
+  actionResults?: Record<string, unknown>;
+  /** Records the native lookup dialog resolves with. Default empty. */
+  lookupResults?: IEntityReference[];
   /** Artificial async delay (ms) to exercise loading states. */
   delayMs?: number;
 }
@@ -81,6 +86,16 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
         record("fetch", entity, fetchXml);
         await maybeDelay();
         return nextQueryResult(entity);
+      },
+      executeAction: async (actionName, parameters, boundTo) => {
+        record("executeAction", actionName, parameters, boundTo);
+        await maybeDelay();
+        return options.actionResults?.[actionName];
+      },
+      executeWorkflow: async (workflowId, recordId) => {
+        record("executeWorkflow", workflowId, recordId);
+        await maybeDelay();
+        return undefined;
       },
     },
     metadata: {
@@ -157,6 +172,11 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
         return true;
       },
       openUrl: (...args) => record("openUrl", ...args),
+      lookupObjects: async (lookupOptions) => {
+        record("lookupObjects", lookupOptions);
+        await maybeDelay();
+        return options.lookupResults ?? [];
+      },
     },
     utils: {
       alert: (message) => record("alert", message),

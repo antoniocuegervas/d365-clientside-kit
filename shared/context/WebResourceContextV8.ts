@@ -1,17 +1,19 @@
 import { CdsClient, type IRetrieveMultipleResult } from "../data/CdsClient";
 import { MetadataService } from "../metadata/MetadataService";
-import { normalizeGuid } from "../utils/EntityModel";
+import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { entitySetName } from "../utils/odata";
 import { buildClientUIDataParam } from "../utils/webResourceParams";
 import type {
   IContextUtils,
   IFormAccess,
+  ILookupOptions,
   IMetadataApi,
   INavigation,
   IUserInfo,
   IViewModelContext,
   IWebApi,
 } from "./IViewModelContext";
+import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
 import { XrmPageFormAccess, type IXrmPageLike } from "./XrmFormAccess";
 
 /**
@@ -27,7 +29,7 @@ export interface IXrmV8Like {
       getVersion?(): string;
     };
   };
-  Utility: {
+  Utility: IXrmUtilityLookup & {
     openEntityForm(name: string, id?: string): void;
     alertDialog(message: string, onCloseCallback?: () => void): void;
     confirmDialog(message: string, yesCallback?: () => void, noCallback?: () => void): void;
@@ -122,6 +124,22 @@ export class CdsWebApi implements IWebApi {
   fetch(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {
     return this.client.fetch(entitySetName(entityLogicalName), fetchXml);
   }
+
+  executeAction(
+    actionName: string,
+    parameters?: Record<string, unknown>,
+    boundTo?: { entityLogicalName: string; id: string }
+  ): Promise<unknown> {
+    return this.client.executeAction(
+      actionName,
+      parameters,
+      boundTo ? { entitySet: entitySetName(boundTo.entityLogicalName), id: boundTo.id } : undefined
+    );
+  }
+
+  executeWorkflow(workflowId: string, recordId: string): Promise<unknown> {
+    return this.client.executeWorkflow(workflowId, recordId);
+  }
 }
 
 class V8Navigation implements INavigation {
@@ -161,5 +179,10 @@ class V8Navigation implements INavigation {
 
   openUrl(url: string): void {
     window.open(url, "_blank");
+  }
+
+  lookupObjects(options: ILookupOptions): Promise<IEntityReference[]> {
+    // 8.x exposes Xrm.Utility.lookupObjects on newer builds; throws clearly otherwise.
+    return callLookupObjects(this.utility, options, "CRM 8.x webresource");
   }
 }

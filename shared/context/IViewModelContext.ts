@@ -1,5 +1,5 @@
 import type { IRetrieveMultipleResult } from "../data/CdsClient";
-import type { IOptionItem } from "../utils/EntityModel";
+import type { IEntityReference, IOptionItem } from "../utils/EntityModel";
 
 /**
  * IViewModelContext, everything shared React code may need from its host.
@@ -8,6 +8,15 @@ import type { IOptionItem } from "../utils/EntityModel";
  * for ALL CRM access. They must not reach into global Xrm.Page, raw
  * GetGlobalContext(), or parent.Xrm. Presentational controls never see this
  * interface at all.
+ *
+ * SHAPE, "option B" (D-014 / G-17): a kit-OWNED interface whose method names
+ * and signatures MIRROR `Xrm.WebApi` / `Xrm.Navigation`, so call sites read
+ * like the Xrm docs while the fake context stays cast-free and compiler-
+ * checked. Reads lean Xrm-faithful (annotated entities + `{ entities,
+ * nextLink }`); callers extract values with the LibraryUtils helpers they
+ * already know. The normalized MetadataService (D-007) and execute-over-
+ * cds-client (D-014) are kept regardless of host. V8 fidelity is a per-method
+ * dial, the cheap, familiar methods are mirrored cheaply.
  */
 export interface IViewModelContext {
   /** Org root URL, e.g. "https://org.crm.dynamics.com". */
@@ -58,6 +67,39 @@ export interface IWebApi {
   ): Promise<IRetrieveMultipleResult>;
   /** Convenience for the kit's dominant query path: plain FetchXML in. */
   fetch(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult>;
+  /**
+   * Executes a custom action (G-08). Unbound by default; pass `boundTo` for an
+   * action bound to a record. Rides cds-client on every host (D-014), so
+   * production never touches `Xrm.WebApi.online.execute`'s request-object
+   * contract. Returns the action's response body (or undefined when empty).
+   */
+  executeAction(
+    actionName: string,
+    parameters?: Record<string, unknown>,
+    boundTo?: { entityLogicalName: string; id: string }
+  ): Promise<unknown>;
+  /** Runs an on-demand classic workflow against one record by id (G-08). */
+  executeWorkflow(workflowId: string, recordId: string): Promise<unknown>;
+}
+
+/**
+ * Options for the native CRM lookup dialog (G-02), shaped to mirror
+ * `Xrm.Utility.lookupObjects` (which is not in the public typings). Each
+ * member maps 1:1 to the host call.
+ */
+export interface ILookupOptions {
+  /** Allow selecting more than one record. Default false. */
+  allowMultiSelect?: boolean;
+  /** Entity pre-selected in the entity-type switcher. */
+  defaultEntityType?: string;
+  /** Entities offered in the dialog. Single-entity when length 1. */
+  entityTypes?: string[];
+  /** Hide the recently-used (MRU) list. */
+  disableMru?: boolean;
+  /** Per-entity FetchXML `<filter>` applied to the dialog's view. */
+  filters?: Array<{ entityLogicalName: string; filterXml: string }>;
+  /** View ids offered in the view switcher (first is the default). */
+  viewIds?: string[];
 }
 
 export interface INavigation {
@@ -77,6 +119,13 @@ export interface INavigation {
   /** Resolves true when the user confirmed. */
   openConfirmDialog(text: string, title?: string): Promise<boolean>;
   openUrl(url: string): void;
+  /**
+   * Opens the native CRM lookup dialog (G-02), the full platform picker
+   * (recently used, view switching, cross-entity). Resolves the chosen
+   * records (empty array on cancel). Mirrors `Xrm.Utility.lookupObjects`;
+   * throws on hosts that cannot summon it.
+   */
+  lookupObjects(options: ILookupOptions): Promise<IEntityReference[]>;
 }
 
 export interface IContextUtils {

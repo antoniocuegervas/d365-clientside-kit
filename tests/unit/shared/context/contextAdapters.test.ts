@@ -131,6 +131,66 @@ describe("WebResourceContext (modern)", () => {
     await expect(context.navigation.openConfirmDialog("sure?")).resolves.toBe(false);
   });
 
+  it("executeAction rides cds-client and bound actions target the entity set", async () => {
+    const server = new FakeXhrServer();
+    server.install();
+    try {
+      server.respondAlways({ status: 200, responseText: JSON.stringify({ Result: "ok" }) });
+      const { xrm } = createModernXrmMock({ clientUrl: "https://org.crm.dynamics.com" });
+      const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+      await context.webAPI.executeAction("new_Recalculate", { Amount: 5 }, {
+        entityLogicalName: "opportunity",
+        id: "aaa00000-0000-0000-0000-000000000001",
+      });
+      expect(server.lastRequest.url).toBe(
+        "https://org.crm.dynamics.com/api/data/v9.2/opportunities(aaa00000-0000-0000-0000-000000000001)/Microsoft.Dynamics.CRM.new_Recalculate"
+      );
+    } finally {
+      server.uninstall();
+    }
+  });
+
+  it("executeWorkflow posts ExecuteWorkflow with the record EntityId", async () => {
+    const server = new FakeXhrServer();
+    server.install();
+    try {
+      server.respondAlways({ status: 200, responseText: "{}" });
+      const { xrm } = createModernXrmMock({ clientUrl: "https://org.crm.dynamics.com" });
+      const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+      await context.webAPI.executeWorkflow(
+        "bbb00000-0000-0000-0000-000000000002",
+        "ccc00000-0000-0000-0000-000000000003"
+      );
+      expect(server.lastRequest.url).toContain(
+        "workflows(bbb00000-0000-0000-0000-000000000002)/Microsoft.Dynamics.CRM.ExecuteWorkflow"
+      );
+      expect(JSON.parse(server.lastRequest.body as string)).toEqual({
+        EntityId: "ccc00000-0000-0000-0000-000000000003",
+      });
+    } finally {
+      server.uninstall();
+    }
+  });
+
+  it("lookupObjects calls Xrm.Utility.lookupObjects and maps results to entity references", async () => {
+    const { xrm, calls } = createModernXrmMock({
+      lookupResult: [
+        { id: "{AAA00000-0000-0000-0000-000000000001}", name: "Contoso", entityType: "account" },
+      ],
+    });
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    const result = await context.navigation.lookupObjects({
+      entityTypes: ["account"],
+      allowMultiSelect: false,
+    });
+    expect(result).toEqual([
+      { id: "aaa00000-0000-0000-0000-000000000001", logicalName: "account", name: "Contoso" },
+    ]);
+    const call = calls.find((c) => c.api === "Utility.lookupObjects");
+    expect(call).toBeDefined();
+    expect((call!.args[0] as { entityTypes?: string[] }).entityTypes).toEqual(["account"]);
+  });
+
   it("exposes formAccess when hosted on a record form", () => {
     const { xrm } = createModernXrmMock({
       formRecord: {
@@ -241,6 +301,19 @@ describe("WebResourceContextV8 shim matrix", () => {
     );
   });
 
+  it("lookupObjects delegates to Xrm.Utility.lookupObjects on 8.x builds that expose it", async () => {
+    const mock = createV8XrmMock({
+      lookupResult: [
+        { id: "{DDD00000-0000-0000-0000-000000000004}", name: "Legacy Co", entityType: "account" },
+      ],
+    });
+    const context = new WebResourceContextV8(mock.xrm);
+    const result = await context.navigation.lookupObjects({ entityTypes: ["account"] });
+    expect(result).toEqual([
+      { id: "ddd00000-0000-0000-0000-000000000004", logicalName: "account", name: "Legacy Co" },
+    ]);
+  });
+
   it("createRecord pluralizes logical names by convention", async () => {
     server.respondAlways({
       status: 204,
@@ -336,6 +409,14 @@ describe("PCFContext", () => {
       api: "retrieveMultipleRecords",
       args: ["contact", `?fetchXml=${encodeURIComponent("<fetch/>")}`],
     });
+  });
+
+  it("lookupObjects throws a clear error when the PCF host can't summon it", async () => {
+    const { source } = makeSource(); // no `utils` lookup surface
+    const context = new PCFContext(source);
+    await expect(context.navigation.lookupObjects({ entityTypes: ["account"] })).rejects.toThrow(
+      /lookup dialog .* is not available in the PCF host/
+    );
   });
 
   it("openClientUI uses navigation.openWebResource with encoded data", async () => {
