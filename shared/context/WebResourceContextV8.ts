@@ -5,13 +5,19 @@ import { entitySetName } from "../utils/odata";
 import { buildClientUIDataParam } from "../utils/webResourceParams";
 import type {
   IContextUtils,
+  IErrorDialogOptions,
+  IFileDetails,
   IFormAccess,
   ILookupOptions,
   IMetadataApi,
+  INavigateToPageInput,
   INavigation,
+  INavigationOptions,
+  IOpenFileOptions,
   IUserInfo,
   IViewModelContext,
   IWebApi,
+  IWindowOptions,
 } from "./IViewModelContext";
 import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
 import { resolveFormatting } from "./formatting";
@@ -203,5 +209,43 @@ class V8Navigation implements INavigation {
   lookupObjects(options: ILookupOptions): Promise<IEntityReference[]> {
     // 8.x exposes Xrm.Utility.lookupObjects on newer builds; throws clearly otherwise.
     return callLookupObjects(this.utility, options, "CRM 8.x webresource");
+  }
+
+  openErrorDialog(options: IErrorDialogOptions): Promise<void> {
+    // No native error dialog on 8.x, route message+details to the v8 alert,
+    // the way the legacy shim did (N-02).
+    const parts = [options.message, options.details].filter((part): part is string => !!part);
+    const text =
+      parts.join("\n\n") ||
+      (options.errorCode !== undefined ? `Error code: ${options.errorCode}` : "An error occurred.");
+    return this.openAlertDialog(text);
+  }
+
+  openFile(_file: IFileDetails, _options?: IOpenFileOptions): Promise<void> {
+    return Promise.reject(
+      new Error("openFile is not supported on the CRM 8.x host.")
+    );
+  }
+
+  async navigateTo(pageInput: INavigateToPageInput, _options?: INavigationOptions): Promise<void> {
+    // 8.x has no navigateTo, map the cases the v8 Utility can express.
+    if (pageInput.pageType === "webresource") {
+      this.utility.openWebResource(pageInput.webresourceName, pageInput.data);
+      return;
+    }
+    if (pageInput.pageType === "entityrecord") {
+      this.utility.openEntityForm(
+        pageInput.entityName,
+        pageInput.entityId ? normalizeGuid(pageInput.entityId) : undefined
+      );
+      return;
+    }
+    throw new Error(
+      `navigateTo pageType '${pageInput.pageType}' is not supported on the CRM 8.x host.`
+    );
+  }
+
+  openWebResource(webResourceName: string, windowOptions?: IWindowOptions, data?: string): void {
+    this.utility.openWebResource(webResourceName, data, windowOptions?.width, windowOptions?.height);
   }
 }

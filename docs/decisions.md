@@ -290,3 +290,24 @@ marked unsortable — they can't be sorted through the savedQuery layer (the T-0
 boundary). `CellType` and custom image-provider cells stay an unbuilt follow-on.
 Revisit if a view authored with only a meaningful `layoutxml` (no JSON) needs
 related-entity resolution — that path can't recover the owning entity today.
+
+## D-025 — `INavigation` mirrors the full `Xrm.Navigation` surface; V8 degrades per-method (N-02)
+
+`INavigation` adds the four missing platform methods — `openErrorDialog`,
+`openFile`, `navigateTo`, raw `openWebResource` — with kit-owned types whose
+shapes mirror the platform (`IErrorDialogOptions`, `IFileDetails`/
+`IOpenFileOptions`, the `INavigateToPageInput` discriminated union +
+`INavigationOptions`, `IWindowOptions`). Modern and PCF delegate straight to the
+native call (casting the kit page-input union to the Xrm/PCF type at the
+boundary rather than re-deriving the platform's exact union, which would drift).
+`openClientUI` stays the kit's opinionated webresource subset; `navigateTo` is
+the sanctioned path for the rest. V8 fidelity is the per-method dial D-014
+described: `openErrorDialog` formats `message`+`details` into the v8 alert (no
+native error chrome on 8.x), `navigateTo` maps the webresource/entityrecord
+cases to `Xrm.Utility` and throws a clear "not supported" for
+dashboard/entitylist/custom, and `openFile` rejects with a clear message.
+`openErrorDialog` is the idiomatic error surface and is wired into
+`CompanySearchViewModel.onSaveDetail` (try/catch → `openErrorDialog` with the
+thrown message as `details`) as the reference pattern apps should copy instead of
+hand-rolling error UX. Revisit V8 `navigateTo` coverage if an on-prem app needs a
+page type 8.x can't express.

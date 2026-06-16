@@ -7,13 +7,19 @@ import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
 import { normalizeDateFormatInfo, resolveFormatting } from "./formatting";
 import type {
   IContextUtils,
+  IErrorDialogOptions,
+  IFileDetails,
   IFormattingInfo,
   ILookupOptions,
   IMetadataApi,
+  INavigateToPageInput,
   INavigation,
+  INavigationOptions,
+  IOpenFileOptions,
   IUserInfo,
   IViewModelContext,
   IWebApi,
+  IWindowOptions,
 } from "./IViewModelContext";
 
 /**
@@ -49,6 +55,9 @@ export interface IPcfContextLike {
     openConfirmDialog(strings: { text: string; title?: string }): PromiseLike<{ confirmed: boolean }>;
     openUrl(url: string): void;
     openWebResource(name: string, options?: unknown, data?: string): void;
+    openErrorDialog(options: IErrorDialogOptions): PromiseLike<unknown>;
+    openFile(file: IFileDetails, options?: IOpenFileOptions): PromiseLike<unknown>;
+    navigateTo(pageInput: unknown, options?: unknown): PromiseLike<unknown>;
   };
   /** Undocumented but stable, the only client-url source inside PCF. */
   page?: { getClientUrl?(): string };
@@ -238,5 +247,25 @@ class PcfNavigation implements INavigation {
 
   lookupObjects(options: ILookupOptions): Promise<IEntityReference[]> {
     return callLookupObjects(this.utils, options, "PCF");
+  }
+
+  async openErrorDialog(options: IErrorDialogOptions): Promise<void> {
+    await this.navigation.openErrorDialog(options);
+  }
+
+  async openFile(file: IFileDetails, options?: IOpenFileOptions): Promise<void> {
+    await this.navigation.openFile(file, options);
+  }
+
+  async navigateTo(pageInput: INavigateToPageInput, options?: INavigationOptions): Promise<void> {
+    await this.navigation.navigateTo(pageInput, options);
+  }
+
+  openWebResource(webResourceName: string, windowOptions?: IWindowOptions, data?: string): void {
+    this.navigation.openWebResource(
+      webResourceName,
+      windowOptions ? { width: windowOptions.width, height: windowOptions.height } : undefined,
+      data
+    );
   }
 }

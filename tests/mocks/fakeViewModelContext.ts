@@ -214,6 +214,16 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
         await maybeDelay();
         return options.lookupResults ?? [];
       },
+      openErrorDialog: async (...args) => {
+        record("openErrorDialog", ...args);
+      },
+      openFile: async (...args) => {
+        record("openFile", ...args);
+      },
+      navigateTo: async (...args) => {
+        record("navigateTo", ...args);
+      },
+      openWebResource: (...args) => record("openWebResource", ...args),
     },
     utils: {
       alert: (message) => record("alert", message),

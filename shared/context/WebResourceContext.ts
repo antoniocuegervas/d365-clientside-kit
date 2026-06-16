@@ -7,14 +7,20 @@ import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
 import { normalizeDateFormatInfo, resolveFormatting } from "./formatting";
 import type {
   IContextUtils,
+  IErrorDialogOptions,
+  IFileDetails,
   IFormAccess,
   IFormattingInfo,
   ILookupOptions,
   IMetadataApi,
+  INavigateToPageInput,
   INavigation,
+  INavigationOptions,
+  IOpenFileOptions,
   IUserInfo,
   IViewModelContext,
   IWebApi,
+  IWindowOptions,
 } from "./IViewModelContext";
 import { XrmPageFormAccess, type IXrmPageLike } from "./XrmFormAccess";
 
@@ -211,5 +217,28 @@ class ModernNavigation implements INavigation {
 
   lookupObjects(options: ILookupOptions): Promise<IEntityReference[]> {
     return callLookupObjects(this.utility, options, "modern webresource");
+  }
+
+  async openErrorDialog(options: IErrorDialogOptions): Promise<void> {
+    await this.navigation.openErrorDialog(options);
+  }
+
+  async openFile(file: IFileDetails, options?: IOpenFileOptions): Promise<void> {
+    await this.navigation.openFile(file, options);
+  }
+
+  async navigateTo(pageInput: INavigateToPageInput, options?: INavigationOptions): Promise<void> {
+    await this.navigation.navigateTo(
+      pageInput as unknown as Parameters<Xrm.Navigation["navigateTo"]>[0],
+      options as unknown as Parameters<Xrm.Navigation["navigateTo"]>[1]
+    );
+  }
+
+  openWebResource(webResourceName: string, windowOptions?: IWindowOptions, data?: string): void {
+    this.navigation.openWebResource(
+      webResourceName,
+      windowOptions as unknown as Parameters<Xrm.Navigation["openWebResource"]>[1],
+      data
+    );
   }
 }

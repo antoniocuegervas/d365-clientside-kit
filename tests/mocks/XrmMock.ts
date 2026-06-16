@@ -147,6 +147,16 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
         return { confirmed: options.confirmResult ?? true };
       },
       openUrl: (url: string) => record("Navigation.openUrl", url),
+      openErrorDialog: async (errorOptions: unknown) => {
+        record("Navigation.openErrorDialog", errorOptions);
+        return {};
+      },
+      openFile: async (file: unknown, fileOptions: unknown) => {
+        record("Navigation.openFile", file, fileOptions);
+        return {};
+      },
+      openWebResource: (name: string, windowOptions?: unknown, data?: string) =>
+        record("Navigation.openWebResource", name, windowOptions, data),
     },
     Page: makePageMock(options.formRecord, calls),
   };

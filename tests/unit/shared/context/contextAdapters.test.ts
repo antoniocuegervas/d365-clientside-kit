@@ -191,6 +191,36 @@ describe("WebResourceContext (modern)", () => {
     expect((call!.args[0] as { entityTypes?: string[] }).entityTypes).toEqual(["account"]);
   });
 
+  it("delegates openErrorDialog / openFile / navigateTo / openWebResource natively (N-02)", async () => {
+    const { xrm, calls } = createModernXrmMock();
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+
+    await context.navigation.openErrorDialog({ message: "boom", details: "stack" });
+    expect(calls.find((c) => c.api === "Navigation.openErrorDialog")?.args[0]).toEqual({
+      message: "boom",
+      details: "stack",
+    });
+
+    await context.navigation.openFile(
+      { fileContent: "AAA", fileName: "r.txt", fileSize: 3, mimeType: "text/plain" },
+      { openMode: 2 }
+    );
+    const fileCall = calls.find((c) => c.api === "Navigation.openFile")!;
+    expect((fileCall.args[0] as { fileName: string }).fileName).toBe("r.txt");
+    expect(fileCall.args[1]).toEqual({ openMode: 2 });
+
+    await context.navigation.navigateTo(
+      { pageType: "entitylist", entityName: "account" },
+      { target: 2 }
+    );
+    const navCall = calls.find((c) => c.api === "Navigation.navigateTo")!;
+    expect(navCall.args[0]).toEqual({ pageType: "entitylist", entityName: "account" });
+
+    context.navigation.openWebResource("new_page.html", { width: 400 }, "payload");
+    const wrCall = calls.find((c) => c.api === "Navigation.openWebResource")!;
+    expect(wrCall.args).toEqual(["new_page.html", { width: 400 }, "payload"]);
+  });
+
   it("surfaces languageId and resolves formatting from userSettings + the usersettings entity (G-06)", async () => {
     const server = new FakeXhrServer();
     server.install();
@@ -352,6 +382,35 @@ describe("WebResourceContextV8 shim matrix", () => {
     ]);
   });
 
+  it("openErrorDialog routes message+details to the v8 alert (N-02)", async () => {
+    const { context, calls } = makeContext();
+    await context.navigation.openErrorDialog({ message: "Save failed", details: "stack trace" });
+    const alert = calls.find((c) => c.api === "Utility.alertDialog")!;
+    expect(alert.args[0]).toBe("Save failed\n\nstack trace");
+  });
+
+  it("openFile throws a clear not-supported error on 8.x (N-02)", async () => {
+    const { context } = makeContext();
+    await expect(
+      context.navigation.openFile({ fileContent: "AAA", fileName: "r.txt", fileSize: 3, mimeType: "text/plain" })
+    ).rejects.toThrow(/not supported on the CRM 8.x host/);
+  });
+
+  it("navigateTo maps webresource/entityrecord and throws for the rest (N-02)", async () => {
+    const { context, calls } = makeContext();
+    await context.navigation.navigateTo({ pageType: "webresource", webresourceName: "new_p.html", data: "x" });
+    expect(calls).toContainEqual({ api: "Utility.openWebResource", args: ["new_p.html", "x", undefined, undefined] });
+    await context.navigation.navigateTo({
+      pageType: "entityrecord",
+      entityName: "account",
+      entityId: "{AAA00000-0000-0000-0000-000000000001}",
+    });
+    expect(calls.find((c) => c.api === "Utility.openEntityForm")?.args[0]).toBe("account");
+    await expect(
+      context.navigation.navigateTo({ pageType: "dashboard" })
+    ).rejects.toThrow(/pageType 'dashboard' is not supported/);
+  });
+
   it("createRecord pluralizes logical names by convention", async () => {
     server.respondAlways({
       status: 204,
@@ -411,6 +470,18 @@ describe("PCFContext", () => {
         },
         openUrl: (url) => calls.push({ api: "openUrl", args: [url] }),
         openWebResource: (...args) => calls.push({ api: "openWebResource", args }),
+        openErrorDialog: async (errorOptions) => {
+          calls.push({ api: "openErrorDialog", args: [errorOptions] });
+          return {};
+        },
+        openFile: async (file, fileOptions) => {
+          calls.push({ api: "openFile", args: [file, fileOptions] });
+          return {};
+        },
+        navigateTo: async (pageInput, navOptions) => {
+          calls.push({ api: "navigateTo", args: [pageInput, navOptions] });
+          return {};
+        },
       },
       page: { getClientUrl: () => "https://org.crm.dynamics.com" },
     };
@@ -469,5 +540,32 @@ describe("PCFContext", () => {
         encodeURIComponent(JSON.stringify({ app: "template" })),
       ],
     });
+  });
+
+  it("delegates openErrorDialog / openFile / navigateTo natively (N-02)", async () => {
+    const { source, calls } = makeSource();
+    const context = new PCFContext(source);
+
+    await context.navigation.openErrorDialog({ message: "boom" });
+    expect(calls.find((c) => c.api === "openErrorDialog")?.args[0]).toEqual({ message: "boom" });
+
+    await context.navigation.openFile(
+      { fileContent: "AAA", fileName: "r.txt", fileSize: 3, mimeType: "text/plain" },
+      { openMode: 1 }
+    );
+    expect(calls.find((c) => c.api === "openFile")).toBeDefined();
+
+    await context.navigation.navigateTo({ pageType: "entityrecord", entityName: "account" });
+    expect(calls.find((c) => c.api === "navigateTo")?.args[0]).toEqual({
+      pageType: "entityrecord",
+      entityName: "account",
+    });
+
+    context.navigation.openWebResource("new_p.html", { width: 300 }, "x");
+    expect(calls.find((c) => c.api === "openWebResource" && c.args[0] === "new_p.html")?.args).toEqual([
+      "new_p.html",
+      { width: 300, height: undefined },
+      "x",
+    ]);
   });
 });

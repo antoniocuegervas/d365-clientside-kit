@@ -152,6 +152,68 @@ export interface ILookupOptions {
   viewIds?: string[];
 }
 
+/**
+ * Error-dialog options mirroring `Xrm.Navigation.ErrorDialogOptions` (N-02) , 
+ * the idiomatic CRM error surface. When `details` is set the dialog shows a
+ * "Download Log File" button; when only `errorCode` is set the platform looks
+ * up the message server-side.
+ */
+export interface IErrorDialogOptions {
+  message?: string;
+  details?: string;
+  errorCode?: number;
+}
+
+/** File payload for `openFile`, mirroring `Xrm.Navigation.FileDetails` (N-02). */
+export interface IFileDetails {
+  /** Base64-encoded file contents. */
+  fileContent: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+}
+
+/** `openFile` options, `openMode` 1 = open in-browser, 2 = save (N-02). */
+export interface IOpenFileOptions {
+  openMode?: 1 | 2;
+}
+
+/** A size value for navigation dialogs, a percentage by default. */
+export interface INavigationSize {
+  value: number;
+  unit?: "%" | "px";
+}
+
+/**
+ * Navigation options mirroring `Xrm.Navigation.NavigationOptions` (N-02).
+ * `target` 1 = inline (full page), 2 = dialog.
+ */
+export interface INavigationOptions {
+  target?: 1 | 2;
+  width?: number | INavigationSize;
+  height?: number | INavigationSize;
+  position?: 1 | 2;
+  title?: string;
+}
+
+/**
+ * Page inputs for the general `navigateTo` (N-02), mirroring the platform's
+ * `PageInput` union. Covers the navigable page types a webresource/PCF reaches
+ * for; the adapter passes them straight to the host.
+ */
+export type INavigateToPageInput =
+  | { pageType: "entityrecord"; entityName: string; entityId?: string; formType?: number; data?: Record<string, unknown> }
+  | { pageType: "entitylist"; entityName: string; viewId?: string; viewType?: number }
+  | { pageType: "custom"; name: string; entityName?: string; recordId?: string }
+  | { pageType: "dashboard"; dashboardId?: string }
+  | { pageType: "webresource"; webresourceName: string; data?: string };
+
+/** Window options for raw `openWebResource` (N-02). */
+export interface IWindowOptions {
+  height?: number;
+  width?: number;
+}
+
 export interface INavigation {
   openForm(entityLogicalName: string, id?: string): Promise<void>;
   /**
@@ -176,6 +238,29 @@ export interface INavigation {
    * throws on hosts that cannot summon it.
    */
   lookupObjects(options: ILookupOptions): Promise<IEntityReference[]>;
+  /**
+   * Shows the native CRM error dialog (N-02), the idiomatic error surface.
+   * Mirrors `Xrm.Navigation.openErrorDialog`. Modern/PCF delegate natively; V8
+   * routes `message`+`details` to the v8 alert.
+   */
+  openErrorDialog(options: IErrorDialogOptions): Promise<void>;
+  /**
+   * Opens or downloads a file blob (N-02). Mirrors `Xrm.Navigation.openFile`.
+   * Throws a clear "not supported" on hosts (V8) that lack it.
+   */
+  openFile(file: IFileDetails, options?: IOpenFileOptions): Promise<void>;
+  /**
+   * General platform navigation (N-02), entityrecord / entitylist / custom
+   * page / dashboard / webresource. Mirrors `Xrm.Navigation.navigateTo`.
+   * `openClientUI` is the kit's opinionated webresource subset; this is the
+   * rest. V8 maps the cases it can and throws clearly for the rest.
+   */
+  navigateTo(pageInput: INavigateToPageInput, options?: INavigationOptions): Promise<void>;
+  /**
+   * Raw webresource open (N-02), distinct from the opinionated `openClientUI`.
+   * Mirrors `Xrm.Navigation.openWebResource`.
+   */
+  openWebResource(webResourceName: string, windowOptions?: IWindowOptions, data?: string): void;
 }
 
 export interface IContextUtils {

@@ -100,11 +100,23 @@ export class CompanySearchViewModel {
       return;
     }
     const parent = this.detailParentAccount.value;
-    await this.context.webAPI.updateRecord("account", accountId, {
-      name: this.detailName.value,
-      industrycode: this.detailIndustry.value,
-      "parentaccountid@odata.bind": parent ? `/accounts(${parent.id})` : null,
-    });
+    try {
+      await this.context.webAPI.updateRecord("account", accountId, {
+        name: this.detailName.value,
+        industrycode: this.detailIndustry.value,
+        "parentaccountid@odata.bind": parent ? `/accounts(${parent.id})` : null,
+      });
+    } catch (error) {
+      if (!this.tracker.isDisposed) {
+        // The idiomatic CRM error surface (N-02): native error chrome plus a
+        // Download Log File button when details are present.
+        void this.context.navigation.openErrorDialog({
+          message: "Could not save the account.",
+          details: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return;
+    }
     if (this.tracker.isDisposed) {
       return;
     }
