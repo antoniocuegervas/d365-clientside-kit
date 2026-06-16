@@ -390,3 +390,17 @@ the smart tier only; the presentational-purity lint rule is untouched (form
 factor, RTL, etc. reach presentational controls as resolved props). This list is
 deliberately closed: future members need a new named consumer and their own
 D-entry, not accretion.
+
+## D-029 — Lookup round-trip lives in EntityModel; setAttributeValue auto-converts a reference (N-05)
+
+`toLookupValue`/`fromLookupValue` (and `EntityReference.toLookupValue`,
+`braceGuid`) live in `EntityModel` — the utils layer where `EntityReference`
+already lives — not the context layer, so any caller can convert without pulling
+in a host. The canonical `IXrmLookupValue` type also moves here and
+`context/lookupObjects.ts` re-exports it, removing the duplicate (the dialog
+result row and the form-write value are the same shape). `XrmPageFormAccess.
+setAttributeValue` duck-types an `IEntityReference` (object with string `id` +
+`logicalName`) and writes `[toLookupValue(ref)]` so apps can hand a chosen lookup
+straight to a form attribute and get the braces/array right; non-reference values
+pass through untouched. The braced-GUID detail is the easy thing to get wrong by
+hand, which is exactly why it's absorbed here.

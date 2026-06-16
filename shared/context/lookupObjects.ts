@@ -1,5 +1,5 @@
 import type { ILookupOptions } from "./IViewModelContext";
-import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
+import { normalizeGuid, type IEntityReference, type IXrmLookupValue } from "../utils/EntityModel";
 
 /**
  * Shared mapping between the kit's `ILookupOptions`/`IEntityReference` and the
@@ -9,11 +9,7 @@ import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
  */
 
 /** Native lookup result row, `Xrm.Utility.lookupObjects` resolves an array of these. */
-export interface IXrmLookupValue {
-  id: string;
-  name?: string;
-  entityType: string;
-}
+export type { IXrmLookupValue };
 
 /** Native lookup options object passed to `Xrm.Utility.lookupObjects`. */
 export interface IXrmLookupOptions {

@@ -8,6 +8,7 @@ import { WebResourceContextV8 } from "../../../../shared/context/WebResourceCont
 import { PCFContext, type IPcfContextLike } from "../../../../shared/context/PCFContext";
 import { FakeXhrServer } from "../../../mocks/FakeXhr";
 import { createModernXrmMock, createV8XrmMock } from "../../../mocks/XrmMock";
+import { EntityReference } from "../../../../shared/utils/EntityModel";
 
 describe("createWebResourceContext factory", () => {
   it("selects the modern adapter when Xrm.WebApi exists", () => {
@@ -336,6 +337,38 @@ describe("WebResourceContext (modern)", () => {
     const { xrm } = createModernXrmMock();
     const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
     expect(context.formAccess).toBeUndefined();
+  });
+
+  it("setAttributeValue converts an EntityReference to the Xrm lookup array (N-05)", () => {
+    const { xrm, calls } = createModernXrmMock({
+      formRecord: {
+        id: "ddd00000-0000-0000-0000-000000000004",
+        entityName: "account",
+        attributes: { parentaccountid: null },
+      },
+    });
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    context.formAccess!.setAttributeValue(
+      "parentaccountid",
+      new EntityReference("account", "aaa00000-0000-0000-0000-000000000001", "Contoso")
+    );
+    const setCall = calls.find((c) => c.api === "attribute.setValue:parentaccountid")!;
+    expect(setCall.args[0]).toEqual([
+      { id: "{aaa00000-0000-0000-0000-000000000001}", entityType: "account", name: "Contoso" },
+    ]);
+  });
+
+  it("setAttributeValue passes plain values through unchanged (N-05)", () => {
+    const { xrm, calls } = createModernXrmMock({
+      formRecord: {
+        id: "ddd00000-0000-0000-0000-000000000004",
+        entityName: "account",
+        attributes: { name: null },
+      },
+    });
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    context.formAccess!.setAttributeValue("name", "Fabrikam");
+    expect(calls.find((c) => c.api === "attribute.setValue:name")?.args[0]).toBe("Fabrikam");
   });
 });
 

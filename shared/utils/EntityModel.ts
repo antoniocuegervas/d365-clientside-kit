@@ -23,9 +23,54 @@ export interface IOptionItem {
   color?: string;
 }
 
+/**
+ * The `Xrm.LookupValue` shape, what a form lookup attribute's `setValue`
+ * expects and what `getValue` returns (N-05). Note the braced GUID Xrm uses on
+ * write and `entityType` (the platform's name for the logical name).
+ */
+export interface IXrmLookupValue {
+  /** Record id, Xrm expects a braced `{GUID}` on write. */
+  id: string;
+  /** Entity logical name (Xrm calls this `entityType`). */
+  entityType: string;
+  /** Primary-name display value. */
+  name?: string;
+}
+
 /** Normalizes a guid to the canonical bare lowercase form. */
 export function normalizeGuid(id: string): string {
   return id.replace(/[{}]/g, "").toLowerCase();
+}
+
+/** Wraps a bare guid in the braces Xrm expects when writing a lookup. */
+export function braceGuid(id: string): string {
+  return `{${normalizeGuid(id)}}`;
+}
+
+/**
+ * Converts a kit reference to the `Xrm.LookupValue` write shape (N-05): braced
+ * GUID + `entityType`. Apps push this onto a form lookup attribute.
+ */
+export function toLookupValue(reference: IEntityReference): IXrmLookupValue {
+  return {
+    id: braceGuid(reference.id),
+    entityType: reference.logicalName,
+    name: reference.name,
+  };
+}
+
+/**
+ * Converts an `Xrm.LookupValue` (or the array a form returns) back to a kit
+ * `EntityReference` (N-05). Uses the first element; returns null when empty.
+ */
+export function fromLookupValue(
+  value: IXrmLookupValue | IXrmLookupValue[] | null | undefined
+): EntityReference | null {
+  const first = Array.isArray(value) ? value[0] : value;
+  if (!first || !first.id) {
+    return null;
+  }
+  return new EntityReference(first.entityType, first.id, first.name);
 }
 
 export class EntityReference implements IEntityReference {
@@ -45,6 +90,11 @@ export class EntityReference implements IEntityReference {
       this.logicalName === other.logicalName &&
       this.id === normalizeGuid(other.id)
     );
+  }
+
+  /** This reference as an `Xrm.LookupValue` for writing to a form attribute (N-05). */
+  toLookupValue(): IXrmLookupValue {
+    return toLookupValue(this);
   }
 
   /**

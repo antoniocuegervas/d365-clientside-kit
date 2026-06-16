@@ -22,7 +22,11 @@ export { ObserverComponent } from "./reactivity/ObserverComponent";
 export {
   EntityReference,
   normalizeGuid,
+  braceGuid,
+  toLookupValue,
+  fromLookupValue,
   type IEntityReference,
+  type IXrmLookupValue,
   type IOptionItem,
 } from "./utils/EntityModel";
 export {

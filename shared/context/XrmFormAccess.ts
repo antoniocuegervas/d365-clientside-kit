@@ -1,5 +1,5 @@
 import type { IFormAccess } from "./IViewModelContext";
-import { normalizeGuid } from "../utils/EntityModel";
+import { normalizeGuid, toLookupValue, type IEntityReference } from "../utils/EntityModel";
 
 /**
  * Structural slice of an Xrm.Page / formContext that form access needs , 
@@ -47,6 +47,19 @@ export class XrmPageFormAccess implements IFormAccess {
   }
 
   setAttributeValue(attributeLogicalName: string, value: unknown): void {
-    this.page.data?.entity?.attributes.get(attributeLogicalName)?.setValue(value);
+    // A kit IEntityReference is converted to the Xrm.LookupValue[] write shape
+    // (braced GUID + entityType) so apps can push a chosen lookup straight onto
+    // a form attribute without hand-rolling the conversion (N-05).
+    const resolved = isEntityReference(value) ? [toLookupValue(value)] : value;
+    this.page.data?.entity?.attributes.get(attributeLogicalName)?.setValue(resolved);
   }
+}
+
+/** Duck-types a kit IEntityReference (vs a plain primitive/object value). */
+function isEntityReference(value: unknown): value is IEntityReference {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Partial<IEntityReference>;
+  return typeof candidate.id === "string" && typeof candidate.logicalName === "string";
 }
