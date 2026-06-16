@@ -56,3 +56,48 @@ export const Searching: Story = {
   name: "Busy state while host searches",
   render: () => <LookupField label="Parent Account" searching {...make(null)} />,
 };
+export const DialogMode: Story = {
+  name: "Dialog mode (Browse → native picker)",
+  render: () => {
+    const selected = new Observable<IEntityReference | null>(accountRefs[0]);
+    const results = new Observable<IEntityReference[]>([]);
+    return (
+      <LookupField
+        label="Parent Account"
+        mode="dialog"
+        selected={selected}
+        results={results}
+        onBrowse={() => (selected.value = accountRefs[(accountRefs.indexOf(selected.value!) + 1) % accountRefs.length])}
+        onChange={(v) => (selected.value = v)}
+      />
+    );
+  },
+};
+export const WithIcons: Story = {
+  name: "Inline results with entity icons",
+  render: () => {
+    const selected = new Observable<IEntityReference | null>(null);
+    const withIcon = accountRefs.map((r) => ({
+      ...r,
+      iconUrl:
+        "data:image/svg+xml;utf8," +
+        encodeURIComponent(
+          '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" rx="3" fill="%230078d4"/></svg>'
+        ),
+    }));
+    const results = new Observable<IEntityReference[]>([]);
+    return (
+      <LookupField
+        label="Parent Account"
+        selected={selected}
+        results={results}
+        onSearchTextChanged={(text) =>
+          (results.value = withIcon.filter((r) =>
+            (r.name ?? "").toLowerCase().includes(text.toLowerCase())
+          ))
+        }
+        onChange={(v) => (selected.value = v)}
+      />
+    );
+  },
+};

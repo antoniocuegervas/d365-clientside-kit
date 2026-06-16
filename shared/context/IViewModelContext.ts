@@ -270,4 +270,10 @@ export interface IMetadataApi {
    * prop so a record shows its real currency, not a hardcoded glyph.
    */
   getCurrencySymbol(transactionCurrencyId: string): Promise<ICurrencyInfo>;
+  /**
+   * Resolves an entity's icon URL (G-10): custom entities → their vector
+   * webresource; OOTB entities → the platform `svg_<objecttypecode>.svg`.
+   * Returns undefined when no icon can be resolved. Cached per entity.
+   */
+  getEntityIconUrl(entityLogicalName: string): Promise<string | undefined>;
 }

@@ -7,6 +7,7 @@ import { ObservableEvent } from "../../../../../shared/reactivity/ObservableEven
 import { SmartTextField } from "../../../../../shared/controls/smart/SmartTextField";
 import { SmartOptionSet } from "../../../../../shared/controls/smart/SmartOptionSet";
 import { SmartLookup } from "../../../../../shared/controls/smart/SmartLookup";
+import { StandardLookupField } from "../../../../../shared/controls/smart/StandardLookupField";
 import { SmartNumberField } from "../../../../../shared/controls/smart/SmartNumberField";
 import {
   SmartViewGrid,
@@ -173,6 +174,103 @@ describe("SmartLookup", () => {
     expect(String(query.args[1])).toContain("$top=10");
 
     expect(await screen.findByText("Contoso Ltd")).toBeTruthy();
+  });
+
+  it("dialog mode opens the native picker and commits the chosen record (G-02)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+      },
+      lookupResults: [
+        { id: "a1a00000-0000-0000-0000-000000000001", logicalName: "account", name: "Contoso Ltd" },
+      ],
+    });
+    const value = new Observable<IEntityReference | null>(null);
+    renderWith(
+      context,
+      <SmartLookup entity="contact" attribute="parentcustomerid" value={value} mode="dialog" />
+    );
+    await userEvent.click(await screen.findByLabelText("Browse records"));
+    await waitFor(() => {
+      expect(value.value?.id).toBe("a1a00000-0000-0000-0000-000000000001");
+    });
+    const dialog = calls.find((c) => c.api === "lookupObjects")!;
+    expect((dialog.args[0] as { entityTypes?: string[] }).entityTypes).toEqual(["account"]);
+  });
+
+  it("view-driven search runs the saved view as the source (G-03)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+      },
+      views: {
+        "name:account:Lookup View": { id: "99990000-0000-0000-0000-000000000009" },
+      },
+    });
+    const value = new Observable<IEntityReference | null>(null);
+    renderWith(
+      context,
+      <SmartLookup
+        entity="contact"
+        attribute="parentcustomerid"
+        value={value}
+        viewName="Lookup View"
+        searchDebounceMs={0}
+      />
+    );
+    await userEvent.type(await screen.findByRole("combobox"), "co");
+    await waitFor(() => {
+      const last = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
+      expect(String(last?.args[1])).toContain("contains(name,'co')");
+    });
+    const last = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1)!;
+    expect(String(last.args[1])).toContain("?savedQuery=99990000-0000-0000-0000-000000000009");
+  });
+
+  it("attaches the resolved entity icon to inline results (G-10)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+      },
+      entityIcons: { account: "https://org/_imgs/svg_1.svg" },
+      queryResults: {
+        account: [
+          { entities: [{ accountid: "a1a00000-0000-0000-0000-000000000001", name: "Contoso Ltd" }] },
+        ],
+      },
+    });
+    const value = new Observable<IEntityReference | null>(null);
+    renderWith(
+      context,
+      <SmartLookup
+        entity="contact"
+        attribute="parentcustomerid"
+        value={value}
+        showIcons
+        searchDebounceMs={0}
+      />
+    );
+    await userEvent.type(await screen.findByRole("combobox"), "co");
+    await screen.findByText("Contoso Ltd");
+    expect(calls.find((c) => c.api === "getEntityIconUrl")?.args).toEqual(["account"]);
+    await waitFor(() => {
+      expect(document.querySelector('img[src="https://org/_imgs/svg_1.svg"]')).toBeTruthy();
+    });
+  });
+
+  it("StandardLookupField opens the dialog and stores the picked record (G-02)", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      lookupResults: [
+        { id: "a1a00000-0000-0000-0000-000000000001", logicalName: "account", name: "Contoso Ltd" },
+      ],
+    });
+    const value = new Observable<IEntityReference | null>(null);
+    renderWith(context, <StandardLookupField value={value} entityTypes={["account"]} label="Company" />);
+    await userEvent.click(await screen.findByLabelText("Browse records"));
+    await waitFor(() => {
+      expect(value.value?.name).toBe("Contoso Ltd");
+    });
+    expect(calls.find((c) => c.api === "lookupObjects")).toBeDefined();
   });
 
   it("ANDs the extra filter clause into the search", async () => {

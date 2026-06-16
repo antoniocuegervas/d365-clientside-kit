@@ -293,6 +293,32 @@ describe("MetadataService", () => {
     });
   });
 
+  describe("getEntityIconUrl (G-10)", () => {
+    it("OOTB entity → platform svg by object type code", async () => {
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({ LogicalName: "account", ObjectTypeCode: 1, IconVectorName: null }),
+      });
+      await expect(service.getEntityIconUrl("account")).resolves.toBe(
+        "https://org.crm.dynamics.com/_imgs/svg_1.svg"
+      );
+    });
+
+    it("custom entity → its vector webresource", async () => {
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({
+          LogicalName: "new_widget",
+          ObjectTypeCode: 10050,
+          IconVectorName: "new_widgeticon",
+        }),
+      });
+      await expect(service.getEntityIconUrl("new_widget")).resolves.toBe(
+        "https://org.crm.dynamics.com/WebResources/new_widgeticon"
+      );
+    });
+  });
+
   describe("getViewByName (G-05)", () => {
     const layoutXml =
       '<grid><row id="accountid"><cell name="name" width="300" /></row></grid>';

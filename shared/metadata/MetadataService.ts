@@ -25,6 +25,7 @@ export class MetadataService implements IMetadataApi {
   private readonly attributeCache = new Map<string, Promise<IAttributeMetadata>>();
   private readonly viewCache = new Map<string, Promise<IViewDefinition>>();
   private readonly currencyCache = new Map<string, Promise<ICurrencyInfo>>();
+  private readonly iconCache = new Map<string, Promise<string | undefined>>();
 
   constructor(client: CdsClient) {
     this.client = client;
@@ -68,6 +69,15 @@ export class MetadataService implements IMetadataApi {
     if (!cached) {
       cached = this.loadCurrencySymbol(key);
       this.currencyCache.set(key, cached);
+    }
+    return cached;
+  }
+
+  getEntityIconUrl(entityLogicalName: string): Promise<string | undefined> {
+    let cached = this.iconCache.get(entityLogicalName);
+    if (!cached) {
+      cached = this.loadEntityIconUrl(entityLogicalName);
+      this.iconCache.set(entityLogicalName, cached);
     }
     return cached;
   }
@@ -255,6 +265,28 @@ export class MetadataService implements IMetadataApi {
       raw = result.entities[0];
     }
     return toViewDefinition(raw, entityLogicalName, savedQueryId);
+  }
+
+  /**
+   * Resolves an entity's icon URL (G-10). Rules carried from production (the
+   * OOTB `svg_<otc>.svg` path is a tested assumption, not documented platform
+   * behavior): custom entities (logical name contains "_") → their vector
+   * webresource; OOTB entities → `/_imgs/svg_<ObjectTypeCode>.svg`.
+   */
+  private async loadEntityIconUrl(entityLogicalName: string): Promise<string | undefined> {
+    const raw = await this.client.get(
+      `EntityDefinitions(LogicalName='${entityLogicalName}')` +
+        `?$select=LogicalName,ObjectTypeCode,IconVectorName`
+    );
+    const base = this.client.clientUrl;
+    if (entityLogicalName.includes("_")) {
+      const vector = raw.IconVectorName as string | undefined;
+      return vector ? `${base}/WebResources/${vector}` : undefined;
+    }
+    const objectTypeCode = raw.ObjectTypeCode as number | undefined;
+    return objectTypeCode !== undefined && objectTypeCode !== null
+      ? `${base}/_imgs/svg_${objectTypeCode}.svg`
+      : undefined;
   }
 
   /** Resolves a transaction currency's symbol + precision by id (G-06b). */

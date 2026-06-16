@@ -1,6 +1,6 @@
 import * as React from "react";
-import { Button, Combobox, Option, makeStyles, tokens } from "@fluentui/react-components";
-import { DismissRegular } from "@fluentui/react-icons";
+import { Button, Combobox, Input, Option, makeStyles, tokens } from "@fluentui/react-components";
+import { DismissRegular, SearchRegular } from "@fluentui/react-icons";
 import { ObserverComponent } from "../../reactivity/ObserverComponent";
 import { valueOf, type Observable, type OrObservable } from "../../reactivity/Observable";
 import type { IEntityReference } from "../../utils/EntityModel";
@@ -21,6 +21,14 @@ export interface ILookupFieldProps extends ICommonFieldProps {
   placeholder?: string;
   /** True while the host is searching, to show the busy hint. */
   searching?: OrObservable<boolean>;
+  /**
+   * "inline" (default) is the search-as-you-type combobox; "dialog" shows the
+   * selected value + a Browse button that raises {@link onBrowse} (the smart
+   * tier opens the native CRM picker), G-02.
+   */
+  mode?: "inline" | "dialog";
+  /** Raised when the Browse button is clicked in dialog mode. */
+  onBrowse?: () => void;
 }
 
 interface ILookupFieldState {
@@ -30,6 +38,7 @@ interface ILookupFieldState {
 const useStyles = makeStyles({
   row: { display: "flex", alignItems: "center", columnGap: tokens.spacingHorizontalXS },
   combo: { flexGrow: 1, minWidth: 0 },
+  optionIcon: { marginRight: tokens.spacingHorizontalXS, verticalAlign: "middle" },
 });
 
 /**
@@ -90,6 +99,40 @@ const Body: React.FC<
   const text = state.searchText ?? current?.name ?? "";
   const interactive = !disabled && !readOnly;
 
+  if (props.mode === "dialog") {
+    return (
+      <FieldShell {...props}>
+        <div className={styles.row}>
+          <Input
+            className={styles.combo}
+            readOnly
+            value={current?.name ?? ""}
+            placeholder={readOnly ? undefined : placeholder ?? "No record selected"}
+            disabled={disabled}
+          />
+          {interactive ? (
+            <Button
+              appearance="subtle"
+              size="small"
+              icon={<SearchRegular />}
+              aria-label="Browse records"
+              onClick={props.onBrowse}
+            />
+          ) : null}
+          {interactive && current ? (
+            <Button
+              appearance="subtle"
+              size="small"
+              icon={<DismissRegular />}
+              aria-label="Clear value"
+              onClick={props.onClear}
+            />
+          ) : null}
+        </div>
+      </FieldShell>
+    );
+  }
+
   return (
     <FieldShell {...props}>
       <div className={styles.row}>
@@ -115,6 +158,16 @@ const Body: React.FC<
             ) : (
               results.map((result) => (
                 <Option key={result.id} value={result.id} text={result.name ?? result.id}>
+                  {result.iconUrl ? (
+                    <img
+                      src={result.iconUrl}
+                      alt=""
+                      aria-hidden
+                      width={16}
+                      height={16}
+                      className={styles.optionIcon}
+                    />
+                  ) : null}
                   {result.name ?? result.id}
                 </Option>
               ))

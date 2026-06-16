@@ -31,6 +31,8 @@ export interface IFakeContextOptions {
   languageId?: number;
   /** Currency info returned by getCurrencySymbol, keyed by currency id. */
   currencies?: Record<string, ICurrencyInfo>;
+  /** Icon URLs returned by getEntityIconUrl, keyed by entity logical name. */
+  entityIcons?: Record<string, string>;
   /** Artificial async delay (ms) to exercise loading states. */
   delayMs?: number;
 }
@@ -185,6 +187,11 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
         record("getCurrencySymbol", transactionCurrencyId);
         await maybeDelay();
         return options.currencies?.[transactionCurrencyId] ?? { symbol: "$" };
+      },
+      getEntityIconUrl: async (entity) => {
+        record("getEntityIconUrl", entity);
+        await maybeDelay();
+        return options.entityIcons?.[entity];
       },
     },
     navigation: {

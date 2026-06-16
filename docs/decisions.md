@@ -245,3 +245,19 @@ generalizes the legacy cross-sell fork into one opt-in, per-column feature;
 default rendering stays metadata-driven. Link-entity (dotted) columns can't be
 filtered/sorted through the savedQuery layer — a platform boundary, so those
 clauses are dropped rather than silently mis-querying.
+
+## D-023 — Lookups offer inline + dialog, switchable; the dialog call stays in the smart tier (G-02/G-03/G-10)
+
+Both lookup experiences ship, switchable by one prop (per the kit owner): the
+inline search-as-you-type stays the default; `SmartLookup mode="dialog"` opens
+the native CRM picker (`lookupObjects`) with the same value Observable and
+onChange contract. A thin standalone `StandardLookupField` covers the
+dialog-only / cross-entity case (no attribute binding). The presentational
+`LookupField` stays pure — in dialog mode it renders the chosen value + a Browse
+button and raises `onBrowse`; the smart tier owns the `lookupObjects` call.
+Cancelling the dialog (empty result) leaves the value unchanged — clearing is
+explicit. View-driven inline search (G-03) reuses the saved-view source via
+`?savedQuery={id}&$filter=contains(name,…)` — no FetchXML templating. Entity
+icons (G-10, `getEntityIconUrl`, cached) are opt-in (`showIcons`) since they
+cost an extra metadata read; the OOTB `svg_<otc>.svg` path is a tested
+assumption carried from production, not documented platform behavior.

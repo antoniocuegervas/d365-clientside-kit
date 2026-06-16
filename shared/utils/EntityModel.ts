@@ -11,6 +11,8 @@ export interface IEntityReference {
   logicalName: string;
   /** Primary-name display value, when known. */
   name?: string;
+  /** Entity icon URL for display (G-10); set by the smart tier when enabled. */
+  iconUrl?: string;
 }
 
 /** One choice in an option set (presentational controls render these). */

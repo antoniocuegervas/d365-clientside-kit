@@ -136,6 +136,10 @@ export { SmartNumberField, type ISmartNumberFieldProps } from "./controls/smart/
 export { SmartDatePicker, type ISmartDatePickerProps } from "./controls/smart/SmartDatePicker";
 export { SmartLookup, type ISmartLookupProps } from "./controls/smart/SmartLookup";
 export {
+  StandardLookupField,
+  type IStandardLookupFieldProps,
+} from "./controls/smart/StandardLookupField";
+export {
   SmartViewGrid,
   type ISmartViewGridProps,
   type ISmartViewGridFilter,

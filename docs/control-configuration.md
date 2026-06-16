@@ -55,9 +55,18 @@ Extra props:
 | Prop | Purpose |
 |---|---|
 | `targetEntity` | Pick one target on Customer/Owner polymorphic lookups |
-| `filter` | OData `$filter` clause ANDed into every search — the "one extra filter step" scenario; can change between renders (cascades) |
+| `filter` | OData `$filter` clause ANDed into every inline search — the "one extra filter step" scenario; can change between renders (cascades) |
 | `top` | Result count (default 10) |
 | `searchDebounceMs` | Default 250; 0 for tests |
+| `mode` | `"inline"` (default search box) or `"dialog"` (native CRM picker via lookupObjects, same value contract) — G-02 |
+| `filterXml` | FetchXML `<filter>` for the dialog's view (dialog mode) |
+| `viewId` / `viewName` | View-driven inline search — run a saved view as the source (G-03) |
+| `showIcons` | Resolve + show the target entity's icon in results (G-10) |
+
+**StandardLookupField** — standalone, dialog-only lookup (button → native picker,
+no inline box, no attribute binding): `value`, `entityTypes`, `label`, `filters`
+(per-entity FetchXML), `onChange`. Use for cross-entity pickers; prefer
+`SmartLookup mode="dialog"` for attribute-bound lookups.
 
 ### SmartViewGrid
 Auto: layout/columns from the savedquery's layoutxml, headers from attribute
