@@ -1,5 +1,5 @@
 /**
- * FormContextUtils, the one place for form/grid field manipulation a CRM dev
+ * FormContextUtils is the one place for form/grid field manipulation a CRM dev
  * would otherwise copy-paste as raw Xrm snippets: lock/unlock, show/hide/disable,
  * required level, and field/form notifications.
  *
@@ -8,10 +8,10 @@
  * works against the selected row's context, so hooks share code between forms
  * and grids.
  *
- * WHY this lives in utils (not in ClientHook): both clienthooks AND clientui
- * webresources need these helpers, so they can't live in the hooks base class , 
- * they belong in a shared, host-neutral utility. They deliberately do NOT depend
- * on IViewModelContext; they operate on the form context CRM provides.
+ * It lives in utils, not ClientHook, because both clienthooks and clientui
+ * webresources need these helpers, so they can't sit in the hooks base class.
+ * They don't depend on IViewModelContext; they operate on the form context CRM
+ * provides.
  */
 
 type FormContextLike = Xrm.FormContext;
@@ -54,10 +54,10 @@ function forEachAttributeControl(
   }
 }
 
-/** Form-level notification severity (N-07). */
+/** Form-level notification severity. */
 export type FormNotificationLevel = "ERROR" | "WARNING" | "INFO";
 
-/** One clickable action inside a rich field notification (N-12). */
+/** One clickable action inside a rich field notification. */
 export interface FieldNotificationAction {
   /** Link text for the action. */
   message: string;
@@ -66,7 +66,7 @@ export interface FieldNotificationAction {
 }
 
 /**
- * Options for a rich field notification (N-12), mirroring the platform's
+ * Options for a rich field notification, mirroring the platform's
  * `Xrm.Controls.AddControlNotificationOptions` with kit-owned types (option B).
  */
 export interface FieldNotificationOptions {
@@ -130,7 +130,7 @@ export class FormContextUtils {
 
   /**
    * Locks (or unlocks) every field on the form/grid row, optionally sparing an
-   * allow-list, the "make this record read-only from script" workhorse.
+   * allow-list. The "make this record read-only from script" helper.
    */
   static setAllFieldsDisabled(
     formContext: FormContextLike,
@@ -162,7 +162,7 @@ export class FormContextUtils {
 
   /**
    * Sets a field-level notification (the warning icon + tooltip beside a field)
-   * on every control bound to the attribute (N-07). `uniqueId` identifies the
+   * on every control bound to the attribute. `uniqueId` identifies the
    * notification so it can be cleared later. No-op when the field isn't on the form.
    */
   static setFieldNotification(
@@ -178,7 +178,7 @@ export class FormContextUtils {
     });
   }
 
-  /** Clears the field-level notification with `uniqueId` from the attribute's controls (N-07/N-12). */
+  /** Clears the field-level notification with `uniqueId` from the attribute's controls. */
   static clearFieldNotification(
     formContext: FormContextLike,
     attributeName: string,
@@ -193,7 +193,7 @@ export class FormContextUtils {
 
   /**
    * Adds a rich, actionable field notification, severity, multiple lines, and
-   * clickable actions, on every control bound to the attribute (N-12). This is
+   * clickable actions, on every control bound to the attribute. This is
    * the platform's `control.addNotification`, a step up from the plain
    * {@link FormContextUtils.setFieldNotification}. Clear it with
    * {@link FormContextUtils.clearFieldNotification} (same `uniqueId`); there is no
@@ -213,7 +213,7 @@ export class FormContextUtils {
   }
 
   /**
-   * Shows a form-level notification banner at the top of the form (N-07).
+   * Shows a form-level notification banner at the top of the form.
    * `uniqueId` identifies it for later clearing. Returns whether the platform
    * accepted it.
    */
@@ -226,7 +226,7 @@ export class FormContextUtils {
     return formContext.ui?.setFormNotification?.(message, level, uniqueId) ?? false;
   }
 
-  /** Clears the form-level notification with `uniqueId` (N-07). */
+  /** Clears the form-level notification with `uniqueId`. */
   static clearFormNotification(formContext: FormContextLike, uniqueId: string): boolean {
     return formContext.ui?.clearFormNotification?.(uniqueId) ?? false;
   }

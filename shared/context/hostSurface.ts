@@ -4,9 +4,9 @@
  * adapter pulls the same pieces:
  *
  *   - Form access over an Xrm.Page-shaped object (XrmPageFormAccess)
- *   - The seamless platform-mirror builders: client / device / utils extras (N-03)
- *   - Locale/user-settings formatting resolution (G-06)
- *   - Mapping to/from native Xrm.Utility.lookupObjects (G-02)
+ *   - The seamless platform-mirror builders: client / device / utils extras
+ *   - Locale/user-settings formatting resolution
+ *   - Mapping to/from native Xrm.Utility.lookupObjects
  */
 
 import type { CdsClient } from "../data/CdsClient";
@@ -34,7 +34,7 @@ import {
 // ===========================================================================
 
 /**
- * Structural slice of an Xrm.Page / formContext that form access needs , 
+ * Structural slice of an Xrm.Page / formContext that form access needs. It is
  * identical between modern UCI webresources (parent Xrm.Page) and CRM 8.x.
  */
 export interface IXrmPageLike {
@@ -90,14 +90,14 @@ export class XrmPageFormAccess implements IFormAccess {
   setAttributeValue(attributeLogicalName: string, value: unknown): void {
     // A kit IEntityReference is converted to the Xrm.LookupValue[] write shape
     // (braced GUID + entityType) so apps can push a chosen lookup straight onto
-    // a form attribute without hand-rolling the conversion (N-05).
+    // a form attribute without hand-rolling the conversion.
     const resolved = isEntityReference(value) ? [toLookupValue(value)] : value;
     this.page.data?.entity?.attributes.get(attributeLogicalName)?.setValue(resolved);
   }
 }
 
 // ===========================================================================
-// Platform-mirror builders: client / device / utils extras (N-03)
+// Platform-mirror builders: client / device / utils extras
 // ===========================================================================
 
 /** Structural slice of `GlobalContext.client` / PCF `context.client`. */
@@ -199,7 +199,7 @@ export function utilsFromXrm(
 }
 
 // ===========================================================================
-// Locale / user-settings formatting (G-06)
+// Locale / user-settings formatting
 // ===========================================================================
 
 /** Loose shape covering both Xrm (PascalCase) and PCF (camelCase) date-format objects. */
@@ -271,7 +271,7 @@ export function normalizeDateFormatInfo(raw: RawDateFormat): IDateFormatInfo | u
 
 /**
  * Fills in the decimal symbol / number separator from the `usersettings`
- * entity when the host did not already provide them. Failures are swallowed , 
+ * entity when the host did not already provide them. Failures are swallowed, so
  * the controls fall back to browser-locale formatting.
  */
 export async function resolveFormatting(input: {
@@ -301,7 +301,7 @@ export async function resolveFormatting(input: {
 }
 
 // ===========================================================================
-// Native lookup dialog mapping (G-02)
+// Native lookup dialog mapping
 // ===========================================================================
 
 /** Native lookup result row, `Xrm.Utility.lookupObjects` resolves an array of these. */

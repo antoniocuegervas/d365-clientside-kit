@@ -1,13 +1,13 @@
 /**
- * LibraryUtils, broad, host-neutral helpers a CRM dev reaches for that aren't
- * form-context manipulation (that's {@link FormContextUtils}). Three families,
- * consolidated here rather than scattered across small files:
+ * LibraryUtils holds broad, host-neutral helpers a CRM dev reaches for that
+ * aren't form-context manipulation (that's {@link FormContextUtils}). Three
+ * families, consolidated here rather than scattered across small files:
  *
  *   - OData formatting for the Dataverse Web API (entity sets, escaping, binds)
- *   - Webresource `data`/`?app=` parameter parsing (the section 7.5 canonical parser)
+ *   - Webresource `data`/`?app=` parameter parsing (the canonical parser)
  *   - GUID / $batch boundary generation
  *
- * Stateless static methods, no dependencies of their own beyond EntityModel.
+ * Stateless static methods, with no dependencies of their own beyond EntityModel.
  */
 
 import { normalizeGuid, type IEntityReference } from "./EntityModel";
@@ -84,7 +84,7 @@ export class LibraryUtils {
 
   /**
    * Formats a primitive for an OData `$filter` literal: strings quoted and
-   * `''`-escaped, booleans as true/false, numbers raw (G-15).
+   * `''`-escaped, booleans as true/false, numbers raw.
    */
   static formatODataValue(value: string | number | boolean): string {
     if (typeof value === "string") {

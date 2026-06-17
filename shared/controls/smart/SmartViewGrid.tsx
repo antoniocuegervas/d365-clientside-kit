@@ -21,36 +21,36 @@ export interface ISmartViewGridProps {
   entity: string;
   /** Saved view (savedquery) id. Omit to use the entity's default grid view. */
   viewId?: string;
-  /** Saved view by display name (G-05), resolved when `viewId` is absent. */
+  /** Saved view by display name, resolved when `viewId` is absent. */
   viewName?: string;
-  /** Programmatic refresh channel, publish to re-run the view query (#2). */
+  /** Programmatic refresh channel: publish to re-run the view query. */
   refresh?: ObservableEvent<void>;
   /**
-   * Quick-find text (G-01). Contains-matched against `quickFindFields` (or the
+   * Quick-find text. Contains-matched against `quickFindFields` (or the
    * entity's primary name when those are omitted), ANDed over the view query.
    */
   quickFind?: Observable<string>;
   /** Fields the quick-find text searches. Default: the entity's primary name. */
   quickFindFields?: string[];
-  /** Declarative eq/ne filters (G-01), re-queried server-side on change. */
+  /** Declarative eq/ne filters, re-queried server-side on change. */
   filters?: Observable<ISmartViewGridFilter[]>;
-  /** Server-side sort spec (G-01). Header clicks update it when `serverSort`. */
+  /** Server-side sort spec. Header clicks update it when `serverSort`. */
   orderBy?: Observable<ISortSpec | null>;
   /** Enable header-click server sorting (writes `orderBy`). */
   serverSort?: boolean;
   /**
-   * Dynamic/polymorphic columns (G-16), keyed by layout column name (to replace
+   * Dynamic/polymorphic columns, keyed by layout column name (to replace
    * that column's rendering) or a synthetic `calc_*` key (appended to the grid).
    * Each resolves its cell from 2+ source fields with per-source formatting.
    */
   columnOverrides?: Record<string, IDynamicColumnSpec>;
   /**
-   * Page size (G-01). When set, the grid pages server-side and shows a
+   * Page size. When set, the grid pages server-side and shows a
    * Pagination control. Omit for the whole result set in one query.
    */
   pageSize?: number;
   /**
-   * Paging mode (N-04). `"simple"` (default) is forward-cookie next/prev over
+   * Paging mode. `"simple"` (default) is forward-cookie next/prev over
    * `@odata.nextLink`, visited pages cached so "previous" is instant.
    * `"rich"` enables jump-to-any-page, first/last, and a total count via
    * FetchXML `page`/`count` (the only server-side random-page mechanism in
@@ -58,23 +58,23 @@ export interface ISmartViewGridProps {
    */
   pagination?: "simple" | "rich";
   /**
-   * Raised on every page change (N-04). For the `overrideFetchXml` + rich case
+   * Raised on every page change. For the `overrideFetchXml` + rich case
    * the grid is controlled: it raises this and the host re-supplies that page's
    * FetchXML (host owns the `page`/`count` injection).
    */
   onPageChange?: (pageNumber: number) => void;
   /**
-   * Host-supplied total page count (N-04), for the `overrideFetchXml` + rich
+   * Host-supplied total page count, for the `overrideFetchXml` + rich
    * case where the grid can't compute it. Null when unknown (degrades to
    * next/prev). Ignored for the saved-view path (the grid computes it).
    */
   pageCount?: Observable<number | null>;
-  /** Host-supplied total record count (N-04), for the "X–Y of N" label in override mode. */
+  /** Host-supplied total record count, for the "X–Y of N" label in override mode. */
   totalRecordCount?: Observable<number | null>;
-  /** Host-owned current page (N-04), the grid writes its page changes here. */
+  /** Host-owned current page, the grid writes its page changes here. */
   currentPage?: Observable<number>;
   /**
-   * Override mode (G-01): when this holds a FetchXML string, the host supplies
+   * Override mode: when this holds a FetchXML string, the host supplies
    * the query while the view still supplies the layout, the canonical
    * "native look, custom data" path. Null/empty falls back to the saved query.
    */
@@ -84,11 +84,11 @@ export interface ISmartViewGridProps {
   /** Host-owned selected record id for row highlight. */
   selectedRecordId?: Observable<string | null>;
   /**
-   * Row invoke (double-click / Enter), distinct from select (G-01). Defaults
+   * Row invoke (double-click / Enter), distinct from select. Defaults
    * to opening the record's form; pass to override.
    */
   onItemInvoked?: (recordId: string, row: IGridRow) => void;
-  /** Enable multi-select checkboxes (G-01). */
+  /** Enable multi-select checkboxes. */
   multiSelect?: boolean;
   /** Host-owned set of selected record ids for multi-select. */
   selectedRecordIds?: Observable<string[]>;
@@ -105,7 +105,7 @@ interface ISmartViewGridState {
  * Read-only saved-view grid: one view id (or name) in, native-looking
  * grid out. The smart tier loads the view for its layout, runs its data via
  * `?savedQuery={id}` with quick find / filters / server sort layered on top
- * (T-01 + G-01), resolves headers from metadata, and feeds a presentational
+ *, resolves headers from metadata, and feeds a presentational
  * DataGrid. An `overrideFetchXml` observable swaps the data source while
  * keeping the view's layout.
  */
@@ -224,8 +224,8 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   /**
    * Column headers come from attribute display names, resolved against each
    * column's OWNING entity (`relatedEntity` for link-entity/aliased columns,
-   * else the view's root), N-01. Attribute kinds are captured so cells render
-   * type-aware (G-01), lookup columns become clickable links that openForm.
+   * else the view's root). Attribute kinds are captured so cells render
+   * type-aware: lookup columns become clickable links that openForm.
    */
   private async resolveColumns(view: IViewDefinition): Promise<IGridColumn[]> {
     const overrides = this.props.columnOverrides ?? {};
@@ -252,7 +252,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         }
         const base: IGridColumn = { key: column.name, name: header, width: column.width };
         // Lookups, link-entity columns, and DisableSorting cells can't be
-        // sorted through the savedQuery layer (T-01 boundary).
+        // sorted through the savedQuery layer (a platform boundary).
         if (kind === "lookup" || column.relatedEntity || column.disableSorting) {
           base.sortable = false;
         }
@@ -272,7 +272,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     return layoutColumns;
   }
 
-  /** Builds a grid column for a dynamic/polymorphic spec (G-16). */
+  /** Builds a grid column for a dynamic/polymorphic spec. */
   private toDynamicColumn(key: string, spec: IDynamicColumnSpec, width?: number): IGridColumn {
     return {
       key,
@@ -333,7 +333,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     return this.entityMeta ? [this.entityMeta.primaryNameAttribute] : [];
   }
 
-  /** Composes `?savedQuery=…` with quick find / filters / `$orderby` / `$top` (T-01 + G-01). */
+  /** Composes `?savedQuery=…` with quick find / filters / `$orderby` / `$top`. */
   private buildQueryOptions(view: IViewDefinition): string {
     return buildSavedQueryOptions(view.id, {
       quickFindText: this.props.quickFind?.value,
@@ -355,7 +355,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         }
         if (this.columnKinds.get(column.name) === "lookup") {
           // Related-entity lookups ride alias-qualified keys, not the
-          // `_attr_value` triplet (N-01).
+          // `_attr_value` triplet.
           const cell = column.relatedEntity
             ? aliasedLookupCell(record, column.name)
             : lookupCell(record, column.name);
@@ -364,7 +364,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
           row[column.name] = LibraryUtils.formattedValue(record, column.name) ?? record[column.name] ?? "";
         }
       }
-      // Dynamic/polymorphic columns (G-16): resolve a node per spec.
+      // Dynamic/polymorphic columns: resolve a node per spec.
       for (const [key, spec] of Object.entries(overrides)) {
         row[key] = this.renderDynamicCell(spec, record, row);
       }
@@ -378,7 +378,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     if (!view) {
       return;
     }
-    // Rich saved-view paging is page-driven via FetchXML (N-04), load page 1
+    // Rich saved-view paging is page-driven via FetchXML, load page 1
     // and request the total once.
     if (this.isRichSavedView()) {
       await this.loadRichPage(1, true);
@@ -415,7 +415,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     }
   }
 
-  /** Composes the rich-mode FetchXML: view query + filters/quick-find/sort (N-04). */
+  /** Composes the rich-mode FetchXML: view query + filters/quick-find/sort. */
   private buildRichFetchXml(view: IViewDefinition): string {
     let fetch = view.fetchXml;
     // Declarative filters → one AND filter (root attributes only).
@@ -577,7 +577,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
 
   /**
    * Invoke (double-click / Enter): override prop, else open the record's form.
-   * Activity views are special-cased (N-08): `activitypointer` is not an
+   * Activity views are special-cased: `activitypointer` is not an
    * openable form, so the real activity type is resolved per row from the
    * `activitytypecode` formatted value (e.g. "phonecall") and the id from
    * `activityid` (the row key). A readable error surfaces when the view doesn't
@@ -680,7 +680,7 @@ function xmlEscape(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
-// --- savedQuery OData composition (T-01 + G-01) ----------------------------
+// --- savedQuery OData composition ----------------------------
 
 export interface ISmartViewGridFilter {
   attribute: string;
@@ -755,7 +755,7 @@ export function buildSavedQueryOptions(viewId: string, params: IViewQueryParams)
   return `?${parts.join("&")}`;
 }
 
-// --- FetchXML mutation for rich paging (N-04) ------------------------------
+// --- FetchXML mutation for rich paging ------------------------------
 
 export interface IFetchPagingOptions {
   /** 1-based page → `page` attribute. */
@@ -820,7 +820,7 @@ export function setRootOrder(fetchXml: string, attribute: string, descending: bo
   return withoutOrders.replace(/(<\/entity>)/, `${orderXml}$1`);
 }
 
-// --- Web API record cell readers (N-01 / G-01) -----------------------------
+// --- Web API record cell readers -----------------------------
 
 export interface ILookupCell {
   id: string;
@@ -848,7 +848,7 @@ export function lookupCell(
   };
 }
 
-/** Splits an aliased layout column (`alias.attr`) into its parts (N-01). */
+/** Splits an aliased layout column (`alias.attr`) into its parts. */
 export function splitAliasedColumn(columnName: string): { alias?: string; logicalName: string } {
   const dot = columnName.indexOf(".");
   if (dot < 0) {
@@ -857,7 +857,7 @@ export function splitAliasedColumn(columnName: string): { alias?: string; logica
   return { alias: columnName.slice(0, dot), logicalName: columnName.slice(dot + 1) };
 }
 
-/** Reads a link-entity lookup from its alias-qualified keys, or null when empty (N-01). */
+/** Reads a link-entity lookup from its alias-qualified keys, or null when empty. */
 export function aliasedLookupCell(
   record: Record<string, unknown>,
   columnName: string
@@ -875,7 +875,7 @@ export function aliasedLookupCell(
   };
 }
 
-// --- Dynamic / polymorphic columns (G-16) ----------------------------------
+// --- Dynamic / polymorphic columns ----------------------------------
 
 export interface IDynamicColumnSource {
   /** Source attribute (supports the aliased "alias.attr" form). */
@@ -927,7 +927,7 @@ function readSource(
   return hasValue(formatted) ? { source, value: formatted, isLookup: false } : null;
 }
 
-/** First source (in order) that has a value, or null when all are empty (G-16). */
+/** First source (in order) that has a value, or null when all are empty. */
 export function resolveDynamicSource(
   record: Record<string, unknown>,
   spec: IDynamicColumnSpec
