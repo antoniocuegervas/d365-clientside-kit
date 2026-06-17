@@ -3,7 +3,7 @@ import { Observable } from "../../../shared/reactivity/Observable";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
 import type { IGridRow } from "../../../shared/controls/presentational/DataGrid";
 import type { IEntityReference } from "../../../shared/utils/EntityModel";
-import { formattedValue } from "../../../shared/utils/odata";
+import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
 import {
   buildFetchXml,
   condition,
@@ -73,10 +73,10 @@ export class OpportunitySearchViewModel {
       this.rows.value = result.entities.map((record) => ({
         key: String(record.opportunityid),
         topic: (record.name as string) ?? "",
-        customer: formattedValue(record, "_customerid_value") ?? "",
-        value: formattedValue(record, "estimatedvalue") ?? String(record.estimatedvalue ?? ""),
-        closing: formattedValue(record, "estimatedclosedate") ?? "",
-        rating: formattedValue(record, "opportunityratingcode") ?? "",
+        customer: LibraryUtils.formattedValue(record, "_customerid_value") ?? "",
+        value: LibraryUtils.formattedValue(record, "estimatedvalue") ?? String(record.estimatedvalue ?? ""),
+        closing: LibraryUtils.formattedValue(record, "estimatedclosedate") ?? "",
+        rating: LibraryUtils.formattedValue(record, "opportunityratingcode") ?? "",
       }));
       this.resultSummary.value = `${result.entities.length} open opportunities`;
     } finally {

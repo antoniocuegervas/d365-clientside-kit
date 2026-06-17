@@ -1,8 +1,7 @@
 import { CdsClient, type IRetrieveMultipleResult } from "../data/CdsClient";
 import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
-import { entitySetName } from "../utils/odata";
-import { buildClientUIDataParam } from "../utils/webResourceParams";
+import { LibraryUtils } from "../utils/LibraryUtils";
 import type {
   IContextUtils,
   IErrorDialogOptions,
@@ -130,15 +129,15 @@ export class CdsWebApi implements IWebApi {
   constructor(private readonly client: CdsClient) {}
 
   createRecord(entityLogicalName: string, data: Record<string, unknown>): Promise<{ id: string }> {
-    return this.client.createRecord(entitySetName(entityLogicalName), data);
+    return this.client.createRecord(LibraryUtils.entitySetName(entityLogicalName), data);
   }
 
   updateRecord(entityLogicalName: string, id: string, data: Record<string, unknown>): Promise<void> {
-    return this.client.updateRecord(entitySetName(entityLogicalName), id, data);
+    return this.client.updateRecord(LibraryUtils.entitySetName(entityLogicalName), id, data);
   }
 
   deleteRecord(entityLogicalName: string, id: string): Promise<void> {
-    return this.client.deleteRecord(entitySetName(entityLogicalName), id);
+    return this.client.deleteRecord(LibraryUtils.entitySetName(entityLogicalName), id);
   }
 
   retrieveRecord(
@@ -146,14 +145,14 @@ export class CdsWebApi implements IWebApi {
     id: string,
     options?: string
   ): Promise<Record<string, unknown>> {
-    return this.client.retrieveRecord(entitySetName(entityLogicalName), id, options);
+    return this.client.retrieveRecord(LibraryUtils.entitySetName(entityLogicalName), id, options);
   }
 
   retrieveMultipleRecords(
     entityLogicalName: string,
     options?: string
   ): Promise<IRetrieveMultipleResult> {
-    const entitySet = entitySetName(entityLogicalName);
+    const entitySet = LibraryUtils.entitySetName(entityLogicalName);
     // Honor the Xrm.WebApi-style "?fetchXml=" channel so call sites stay portable.
     if (options?.startsWith("?fetchXml=")) {
       const fetchXml = decodeURIComponent(options.slice("?fetchXml=".length));
@@ -163,12 +162,12 @@ export class CdsWebApi implements IWebApi {
   }
 
   fetch(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {
-    return this.client.fetch(entitySetName(entityLogicalName), fetchXml);
+    return this.client.fetch(LibraryUtils.entitySetName(entityLogicalName), fetchXml);
   }
 
   fetchPage(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {
     // Already cds-backed; the parsed annotations carry the paging info (N-04).
-    return this.client.fetch(entitySetName(entityLogicalName), fetchXml);
+    return this.client.fetch(LibraryUtils.entitySetName(entityLogicalName), fetchXml);
   }
 
   retrieveMultipleByUrl(url: string): Promise<IRetrieveMultipleResult> {
@@ -183,7 +182,7 @@ export class CdsWebApi implements IWebApi {
     return this.client.executeAction(
       actionName,
       parameters,
-      boundTo ? { entitySet: entitySetName(boundTo.entityLogicalName), id: boundTo.id } : undefined
+      boundTo ? { entitySet: LibraryUtils.entitySetName(boundTo.entityLogicalName), id: boundTo.id } : undefined
     );
   }
 
@@ -207,7 +206,7 @@ class V8Navigation implements INavigation {
   ): Promise<void> {
     this.utility.openWebResource(
       webResourceName,
-      encodeURIComponent(buildClientUIDataParam(app, payload)),
+      encodeURIComponent(LibraryUtils.buildClientUIDataParam(app, payload)),
       size?.width,
       size?.height
     );

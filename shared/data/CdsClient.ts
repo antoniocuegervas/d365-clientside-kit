@@ -1,4 +1,4 @@
-import { newBatchBoundary } from "../utils/correlation";
+import { LibraryUtils } from "../utils/LibraryUtils";
 import { normalizeGuid } from "../utils/EntityModel";
 
 /**
@@ -160,7 +160,7 @@ export class CdsClient {
     entitySet: string,
     fetchXml: string
   ): Promise<IRetrieveMultipleResult> {
-    const boundary = newBatchBoundary();
+    const boundary = LibraryUtils.newBatchBoundary();
     const innerUrl = `${this.apiUrl}${entitySet}?fetchXml=${encodeURIComponent(fetchXml)}`;
     const body = [
       `--${boundary}`,

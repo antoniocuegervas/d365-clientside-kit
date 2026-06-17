@@ -1,250 +1,157 @@
 /**
- * LibraryUtils, the one module CRM developers import for form/grid field
- * manipulation they would otherwise copy-paste as raw Xrm snippets.
+ * LibraryUtils, broad, host-neutral helpers a CRM dev reaches for that aren't
+ * form-context manipulation (that's {@link FormContextUtils}). Three families,
+ * consolidated here rather than scattered across small files:
  *
- * Every function takes the form context handed to the event handler
- * (`executionContext.getFormContext()`). On editable grids, the same call
- * shape works against the selected row's context, so hooks can share code
- * between forms and grids.
+ *   - OData formatting for the Dataverse Web API (entity sets, escaping, binds)
+ *   - Webresource `data`/`?app=` parameter parsing (the section 7.5 canonical parser)
+ *   - GUID / $batch boundary generation
  *
- * These utilities deliberately do NOT depend on IViewModelContext, they
- * operate on the form context CRM gives client hooks, and must stay usable
- * from any host.
+ * Stateless static methods, no dependencies of their own beyond EntityModel.
  */
 
-type FormContextLike = Xrm.FormContext;
+import { normalizeGuid, type IEntityReference } from "./EntityModel";
 
-/** Controls that support setDisabled (standard field controls do). */
-function isDisableable(control: Xrm.Controls.Control): control is Xrm.Controls.StandardControl {
-  return typeof (control as Xrm.Controls.StandardControl).setDisabled === "function";
+/** Parsed webresource parameters. */
+export interface IWebResourceParams {
+  /** Selected app key, from ?app= or the data payload's "app" property. */
+  app?: string;
+  /** Parsed data payload: JSON object, plain string, or undefined. */
+  data?: unknown;
+  /** All raw query parameters for app-specific needs. */
+  query: Record<string, string>;
 }
 
-function isHideable(control: Xrm.Controls.Control): control is Xrm.Controls.StandardControl {
-  return typeof (control as Xrm.Controls.StandardControl).setVisible === "function";
-}
-
-/** Runs `action` over every control bound to each named attribute. */
-function forEachAttributeControl(
-  formContext: FormContextLike,
-  attributeNames: string[],
-  action: (control: Xrm.Controls.Control) => void
-): void {
-  for (const name of attributeNames) {
-    const attribute = formContext.getAttribute(name);
-    if (!attribute) {
-      continue; // attribute not on this form, a no-op, matching CRM script habits
+/** Peels CRM's (sometimes double-)encoded `data` param into JSON or a plain string. */
+function parseDataParam(raw: string): unknown {
+  let text = raw;
+  // CRM can hand the data parameter over still-encoded; peel at most twice.
+  for (let i = 0; i < 2 && /%[0-9a-fA-F]{2}/.test(text); i++) {
+    try {
+      text = decodeURIComponent(text);
+    } catch {
+      break;
     }
-    attribute.controls.forEach((control) => {
-      if (control) {
-        action(control);
+  }
+  if (text.startsWith("{") || text.startsWith("[")) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      // Not JSON after all, fall through to the plain string.
+    }
+  }
+  return text;
+}
+
+export class LibraryUtils {
+  // --- OData formatting ----------------------------------------------------
+
+  /**
+   * Derives the entity set name from a logical name using standard Dataverse
+   * pluralization. Convention-based, pass an explicit set name wherever a
+   * customization breaks the convention (rare for OOTB entities).
+   */
+  static entitySetName(logicalName: string): string {
+    const lower = logicalName.toLowerCase();
+    if (/(s|x|z|ch|sh)$/.test(lower)) {
+      return `${lower}es`;
+    }
+    if (/[^aeiou]y$/.test(lower)) {
+      return `${lower.slice(0, -1)}ies`;
+    }
+    return `${lower}s`;
+  }
+
+  /** Escapes a string literal for use inside an OData filter/query. */
+  static escapeODataString(value: string): string {
+    return value.replace(/'/g, "''");
+  }
+
+  /** Formats an @odata.bind path for associating a lookup on create/update. */
+  static odataBind(reference: IEntityReference, entitySet?: string): string {
+    return `/${entitySet ?? LibraryUtils.entitySetName(reference.logicalName)}(${normalizeGuid(reference.id)})`;
+  }
+
+  /**
+   * Formats a primitive for an OData `$filter` literal: strings quoted and
+   * `''`-escaped, booleans as true/false, numbers raw (G-15).
+   */
+  static formatODataValue(value: string | number | boolean): string {
+    if (typeof value === "string") {
+      return `'${LibraryUtils.escapeODataString(value)}'`;
+    }
+    if (typeof value === "boolean") {
+      return value ? "true" : "false";
+    }
+    return String(value);
+  }
+
+  /** Reads the formatted-value annotation for an attribute, if present. */
+  static formattedValue(
+    record: Record<string, unknown>,
+    attributeLogicalName: string
+  ): string | undefined {
+    return record[`${attributeLogicalName}@OData.Community.Display.V1.FormattedValue`] as
+      | string
+      | undefined;
+  }
+
+  // --- Webresource parameters ---------------------------------------
+
+  /**
+   * The ONE canonical parser for webresource parameters. App selection comes,
+   * in priority order, from `?app=<key>` or the `?data=` payload's `app`
+   * property (`data` may be JSON or a plain string, possibly double-encoded).
+   */
+  static parseWebResourceParams(search: string): IWebResourceParams {
+    const params = new URLSearchParams(search.startsWith("?") ? search : `?${search}`);
+    const query: Record<string, string> = {};
+    params.forEach((value, key) => {
+      query[key] = value;
+    });
+
+    let data: unknown;
+    const rawData = params.get("data");
+    if (rawData !== null && rawData !== "") {
+      data = parseDataParam(rawData);
+    }
+
+    let app = params.get("app") ?? undefined;
+    if (!app && typeof data === "object" && data !== null) {
+      const fromData = (data as Record<string, unknown>).app;
+      if (typeof fromData === "string") {
+        app = fromData;
       }
+    }
+
+    return { app, data, query };
+  }
+
+  /**
+   * Builds the `data` parameter value for opening the unified shell with an app
+   * key and optional payload, the counterpart of parseWebResourceParams.
+   */
+  static buildClientUIDataParam(app: string, payload?: Record<string, unknown>): string {
+    return JSON.stringify({ app, ...payload });
+  }
+
+  // --- GUID / $batch boundaries --------------------------------------------
+
+  /** RFC-4122 v4 GUID (uses crypto.randomUUID when available). */
+  static newGuid(): string {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    // Fallback v4 generator for hosts without crypto.randomUUID.
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
     });
   }
-}
 
-/** Shows or hides all controls bound to the given attributes. */
-export function setFieldsVisible(
-  formContext: FormContextLike,
-  attributeNames: string[],
-  visible: boolean
-): void {
-  forEachAttributeControl(formContext, attributeNames, (control) => {
-    if (isHideable(control)) {
-      control.setVisible(visible);
-    }
-  });
-}
-
-/** Enables or disables all controls bound to the given attributes. */
-export function setFieldsDisabled(
-  formContext: FormContextLike,
-  attributeNames: string[],
-  disabled: boolean
-): void {
-  forEachAttributeControl(formContext, attributeNames, (control) => {
-    if (isDisableable(control)) {
-      control.setDisabled(disabled);
-    }
-  });
-}
-
-/** Sets the requirement level on the given attributes. */
-export function setFieldsRequired(
-  formContext: FormContextLike,
-  attributeNames: string[],
-  level: Xrm.Attributes.RequirementLevel
-): void {
-  for (const name of attributeNames) {
-    formContext.getAttribute(name)?.setRequiredLevel(level);
-  }
-}
-
-/**
- * Locks (or unlocks) every field on the form/grid row, optionally sparing an
- * allow-list, the "make this record read-only from script" workhorse.
- */
-export function setAllFieldsDisabled(
-  formContext: FormContextLike,
-  disabled: boolean,
-  options?: { except?: string[] }
-): void {
-  const except = new Set(options?.except ?? []);
-  formContext.data.entity.attributes.forEach((attribute) => {
-    if (except.has(attribute.getName())) {
-      return;
-    }
-    attribute.controls.forEach((control) => {
-      if (control && isDisableable(control)) {
-        control.setDisabled(disabled);
-      }
-    });
-  });
-}
-
-/** Convenience aliases that read naturally at call sites. */
-export function lockAllFields(formContext: FormContextLike, options?: { except?: string[] }): void {
-  setAllFieldsDisabled(formContext, true, options);
-}
-
-export function unlockAllFields(
-  formContext: FormContextLike,
-  options?: { except?: string[] }
-): void {
-  setAllFieldsDisabled(formContext, false, options);
-}
-
-/** Controls that support set/clearNotification (standard field controls do). */
-function isNotifiable(control: Xrm.Controls.Control): control is Xrm.Controls.StandardControl {
-  return typeof (control as Xrm.Controls.StandardControl).setNotification === "function";
-}
-
-/**
- * Sets a field-level notification (the warning icon + tooltip beside a field)
- * on every control bound to the attribute (N-07). `uniqueId` identifies the
- * notification so it can be cleared later. No-op when the field isn't on the form.
- */
-export function setFieldNotification(
-  formContext: FormContextLike,
-  attributeName: string,
-  message: string,
-  uniqueId: string
-): void {
-  forEachAttributeControl(formContext, [attributeName], (control) => {
-    if (isNotifiable(control)) {
-      control.setNotification(message, uniqueId);
-    }
-  });
-}
-
-/** Clears the field-level notification with `uniqueId` from the attribute's controls (N-07/N-12). */
-export function clearFieldNotification(
-  formContext: FormContextLike,
-  attributeName: string,
-  uniqueId: string
-): void {
-  forEachAttributeControl(formContext, [attributeName], (control) => {
-    if (isNotifiable(control)) {
-      control.clearNotification(uniqueId);
-    }
-  });
-}
-
-/** Controls that support the rich addNotification API (standard field controls do). */
-function isRichNotifiable(control: Xrm.Controls.Control): control is Xrm.Controls.StandardControl {
-  return typeof (control as Xrm.Controls.StandardControl).addNotification === "function";
-}
-
-/** One clickable action inside a rich field notification (N-12). */
-export interface FieldNotificationAction {
-  /** Link text for the action. */
-  message: string;
-  /** Handlers invoked when the user clicks the action. */
-  actions: Array<() => void>;
-}
-
-/**
- * Options for a rich field notification (N-12), mirroring the platform's
- * `Xrm.Controls.AddControlNotificationOptions` with kit-owned types (option B).
- */
-export interface FieldNotificationOptions {
-  /** Notification lines shown in the flyout. */
-  messages: string[];
-  /** Severity; the platform defaults to a recommendation when omitted. */
-  notificationLevel?: "ERROR" | "RECOMMENDATION";
-  /** Identifies the notification so it can be cleared via clearFieldNotification. */
-  uniqueId: string;
-  /** Optional clickable "fix this" affordances. */
-  actions?: FieldNotificationAction[];
-}
-
-/**
- * Adds a rich, actionable field notification, severity, multiple lines, and
- * clickable actions, on every control bound to the attribute (N-12). This is
- * the platform's `control.addNotification`, a step up from the plain
- * {@link setFieldNotification}. Clear it with {@link clearFieldNotification}
- * (same `uniqueId`); there is no separate remover. No-op when the field isn't on
- * the form or the control doesn't support rich notifications (e.g. some editable
- * grid cells).
- */
-export function addFieldNotification(
-  formContext: FormContextLike,
-  attributeName: string,
-  options: FieldNotificationOptions
-): void {
-  forEachAttributeControl(formContext, [attributeName], (control) => {
-    if (isRichNotifiable(control)) {
-      control.addNotification(options as Xrm.Controls.AddControlNotificationOptions);
-    }
-  });
-}
-
-/** Form-level notification severity (N-07). */
-export type FormNotificationLevel = "ERROR" | "WARNING" | "INFO";
-
-/**
- * Shows a form-level notification banner at the top of the form (N-07).
- * `uniqueId` identifies it for later clearing. Returns whether the platform
- * accepted it.
- */
-export function setFormNotification(
-  formContext: FormContextLike,
-  message: string,
-  level: FormNotificationLevel,
-  uniqueId: string
-): boolean {
-  return formContext.ui?.setFormNotification?.(message, level, uniqueId) ?? false;
-}
-
-/** Clears the form-level notification with `uniqueId` (N-07). */
-export function clearFormNotification(formContext: FormContextLike, uniqueId: string): boolean {
-  return formContext.ui?.clearFormNotification?.(uniqueId) ?? false;
-}
-
-/** Form type as a readable union instead of the raw XrmEnum integer. */
-export type FormType =
-  | "undefined"
-  | "create"
-  | "update"
-  | "readonly"
-  | "disabled"
-  | "bulkedit"
-  | "other";
-
-export function getFormType(formContext: FormContextLike): FormType {
-  switch (formContext.ui?.getFormType?.()) {
-    case 0:
-      return "undefined";
-    case 1:
-      return "create";
-    case 2:
-      return "update";
-    case 3:
-      return "readonly";
-    case 4:
-      return "disabled";
-    case 6:
-      return "bulkedit";
-    default:
-      return "other";
+  /** Boundary token for multipart $batch requests, e.g. "batch_<guid>". */
+  static newBatchBoundary(): string {
+    return `batch_${LibraryUtils.newGuid()}`;
   }
 }

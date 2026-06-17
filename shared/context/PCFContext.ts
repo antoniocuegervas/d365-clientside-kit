@@ -1,8 +1,7 @@
 import { CdsClient, type IRetrieveMultipleResult } from "../data/CdsClient";
 import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
-import { entitySetName } from "../utils/odata";
-import { buildClientUIDataParam } from "../utils/webResourceParams";
+import { LibraryUtils } from "../utils/LibraryUtils";
 import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
 import { normalizeDateFormatInfo, resolveFormatting } from "./formatting";
 import {
@@ -219,7 +218,7 @@ class PcfWebApi implements IWebApi {
 
   fetchPage(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {
     // Rides cds-client so the FetchXML paging annotations survive (N-04).
-    return this.client.fetch(entitySetName(entityLogicalName), fetchXml);
+    return this.client.fetch(LibraryUtils.entitySetName(entityLogicalName), fetchXml);
   }
 
   retrieveMultipleByUrl(url: string): Promise<IRetrieveMultipleResult> {
@@ -234,7 +233,7 @@ class PcfWebApi implements IWebApi {
     return this.client.executeAction(
       actionName,
       parameters,
-      boundTo ? { entitySet: entitySetName(boundTo.entityLogicalName), id: boundTo.id } : undefined
+      boundTo ? { entitySet: LibraryUtils.entitySetName(boundTo.entityLogicalName), id: boundTo.id } : undefined
     );
   }
 
@@ -265,7 +264,7 @@ class PcfNavigation implements INavigation {
     this.navigation.openWebResource(
       webResourceName,
       size ? { width: size.width, height: size.height, openInNewWindow: false } : undefined,
-      encodeURIComponent(buildClientUIDataParam(app, payload))
+      encodeURIComponent(LibraryUtils.buildClientUIDataParam(app, payload))
     );
   }
 

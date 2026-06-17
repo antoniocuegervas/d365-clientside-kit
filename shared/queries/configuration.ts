@@ -1,5 +1,5 @@
 import type { IViewModelContext } from "../context/IViewModelContext";
-import { escapeODataString } from "../utils/odata";
+import { LibraryUtils } from "../utils/LibraryUtils";
 
 /**
  * The "configuration entity" pattern (G-05): a custom table holds key/value
@@ -28,7 +28,7 @@ export async function getConfigurationParameter(
 ): Promise<unknown> {
   const { entity, nameField, valueField, key } = options;
   const query =
-    `?$select=${valueField}&$filter=${nameField} eq '${escapeODataString(key)}'`;
+    `?$select=${valueField}&$filter=${nameField} eq '${LibraryUtils.escapeODataString(key)}'`;
   const result = await context.webAPI.retrieveMultipleRecords(entity, query);
   if (result.entities.length === 0) {
     throw new Error(`Configuration parameter '${key}' not found`);

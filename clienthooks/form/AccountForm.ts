@@ -1,4 +1,4 @@
-import * as LibraryUtils from "../../shared/utils/LibraryUtils";
+import { FormContextUtils } from "../../shared/utils/FormContextUtils";
 import { ClientHook } from "../shared/ClientHook";
 
 /**
@@ -15,20 +15,20 @@ export class AccountForm extends ClientHook {
   /** Arrow property so CRM can call the handler unbound. */
   readonly onLoad = (executionContext: Xrm.Events.EventContext): void => {
     const formContext = AccountForm.formContextOf(executionContext);
-    const formType = LibraryUtils.getFormType(formContext);
+    const formType = FormContextUtils.getFormType(formContext);
 
     // Credit fields make no sense until the record exists.
-    LibraryUtils.setFieldsVisible(
+    FormContextUtils.setFieldsVisible(
       formContext,
       ["creditonhold", "creditlimit"],
       formType !== "create"
     );
 
     // Account number is system-assigned here, visible but locked.
-    LibraryUtils.setFieldsDisabled(formContext, ["accountnumber"], true);
+    FormContextUtils.setFieldsDisabled(formContext, ["accountnumber"], true);
 
     // Nudge for a phone number without hard-blocking the save.
-    LibraryUtils.setFieldsRequired(formContext, ["telephone1"], "recommended");
+    FormContextUtils.setFieldsRequired(formContext, ["telephone1"], "recommended");
   };
 
   /**
@@ -45,9 +45,9 @@ export class AccountForm extends ClientHook {
     const PHONE_ID = "account-phone-recommended";
     const phone = formContext.getAttribute("telephone1")?.getValue();
     if (phone) {
-      LibraryUtils.clearFieldNotification(formContext, "telephone1", PHONE_ID);
+      FormContextUtils.clearFieldNotification(formContext, "telephone1", PHONE_ID);
     } else {
-      LibraryUtils.setFieldNotification(
+      FormContextUtils.setFieldNotification(
         formContext,
         "telephone1",
         "A main phone is recommended for new accounts.",
@@ -60,9 +60,9 @@ export class AccountForm extends ClientHook {
     const SITE_ID = "account-website-recommended";
     const website = formContext.getAttribute("websiteurl")?.getValue();
     if (website) {
-      LibraryUtils.clearFieldNotification(formContext, "websiteurl", SITE_ID);
+      FormContextUtils.clearFieldNotification(formContext, "websiteurl", SITE_ID);
     } else {
-      LibraryUtils.addFieldNotification(formContext, "websiteurl", {
+      FormContextUtils.addFieldNotification(formContext, "websiteurl", {
         messages: ["No website captured for this account."],
         notificationLevel: "RECOMMENDATION",
         uniqueId: SITE_ID,

@@ -2,7 +2,7 @@ import * as React from "react";
 import type { IAttributeMetadata, ILookupOptions } from "../../context/IViewModelContext";
 import { Observable } from "../../reactivity/Observable";
 import { normalizeGuid, type IEntityReference } from "../../utils/EntityModel";
-import { escapeODataString } from "../../utils/odata";
+import { LibraryUtils } from "../../utils/LibraryUtils";
 import { LookupField } from "../presentational/LookupField";
 import { SmartFieldBase, type ISmartFieldProps } from "./SmartFieldBase";
 
@@ -126,7 +126,7 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
         this.resolveIcon(target),
       ]);
       const clauses = [
-        searchText ? `contains(${nameAttribute},'${escapeODataString(searchText)}')` : undefined,
+        searchText ? `contains(${nameAttribute},'${LibraryUtils.escapeODataString(searchText)}')` : undefined,
         this.props.filter,
       ].filter(Boolean);
       const filter = clauses.length > 0 ? `&$filter=${clauses.join(" and ")}` : "";

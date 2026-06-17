@@ -10,7 +10,7 @@ import type {
 } from "../context/IViewModelContext";
 import type { IOptionItem } from "../utils/EntityModel";
 import { normalizeGuid } from "../utils/EntityModel";
-import { escapeODataString } from "../utils/odata";
+import { LibraryUtils } from "../utils/LibraryUtils";
 
 /**
  * MetadataService, cached, context-mediated Dataverse metadata.
@@ -313,7 +313,7 @@ export class MetadataService implements IMetadataApi {
   ): Promise<IViewDefinition> {
     const select = "$select=name,fetchxml,layoutxml,layoutjson,returnedtypecode,savedqueryid";
     const filter =
-      `$filter=name eq '${escapeODataString(viewName)}' and ` +
+      `$filter=name eq '${LibraryUtils.escapeODataString(viewName)}' and ` +
       `returnedtypecode eq '${entityLogicalName}' and statecode eq 0`;
     const result = await this.client.retrieveMultiple("savedqueries", `?${select}&${filter}`);
     if (result.entities.length === 0) {

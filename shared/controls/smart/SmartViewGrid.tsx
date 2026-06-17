@@ -8,7 +8,7 @@ import type {
 } from "../../context/IViewModelContext";
 import { Observable, type Unsubscribe } from "../../reactivity/Observable";
 import type { ObservableEvent } from "../../reactivity/ObservableEvent";
-import { escapeODataString, formatODataValue, formattedValue } from "../../utils/odata";
+import { LibraryUtils } from "../../utils/LibraryUtils";
 import { DataGrid, type IGridColumn, type IGridRow } from "../presentational/DataGrid";
 import { Pagination } from "../presentational/Pagination";
 
@@ -361,7 +361,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
             : lookupCell(record, column.name);
           row[column.name] = cell ?? "";
         } else {
-          row[column.name] = formattedValue(record, column.name) ?? record[column.name] ?? "";
+          row[column.name] = LibraryUtils.formattedValue(record, column.name) ?? record[column.name] ?? "";
         }
       }
       // Dynamic/polymorphic columns (G-16): resolve a node per spec.
@@ -708,7 +708,7 @@ export function composeFilterExpression(params: IViewQueryParams): string | unde
   const clauses: string[] = [];
   const text = params.quickFindText?.trim();
   if (text) {
-    const escaped = escapeODataString(text);
+    const escaped = LibraryUtils.escapeODataString(text);
     const contains = (params.quickFindFields ?? [])
       .filter(isRootAttribute)
       .map((field) => `contains(${field},'${escaped}')`);
@@ -725,7 +725,7 @@ export function composeFilterExpression(params: IViewQueryParams): string | unde
     if (!isRootAttribute(filter.attribute)) {
       continue;
     }
-    clauses.push(`${filter.attribute} ${filter.operator ?? "eq"} ${formatODataValue(filter.value)}`);
+    clauses.push(`${filter.attribute} ${filter.operator ?? "eq"} ${LibraryUtils.formatODataValue(filter.value)}`);
   }
   return clauses.length > 0 ? clauses.join(" and ") : undefined;
 }
@@ -916,14 +916,14 @@ function readSource(
     return cell ? { source, value: cell, isLookup: true } : null;
   }
   if (source.kind === "formatted") {
-    const formatted = formattedValue(record, source.field);
+    const formatted = LibraryUtils.formattedValue(record, source.field);
     return hasValue(formatted) ? { source, value: formatted, isLookup: false } : null;
   }
   const raw = record[source.field];
   if (hasValue(raw)) {
     return { source, value: raw, isLookup: false };
   }
-  const formatted = formattedValue(record, source.field);
+  const formatted = LibraryUtils.formattedValue(record, source.field);
   return hasValue(formatted) ? { source, value: formatted, isLookup: false } : null;
 }
 

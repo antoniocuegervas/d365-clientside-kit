@@ -29,20 +29,16 @@ export {
   type IXrmLookupValue,
   type IOptionItem,
 } from "./utils/EntityModel";
+// Broad, host-neutral helpers as a static class (OData formatting, webresource
+// params, GUID/$batch). Form/grid manipulation lives in FormContextUtils.
+export { LibraryUtils, type IWebResourceParams } from "./utils/LibraryUtils";
 export {
-  entitySetName,
-  escapeODataString,
-  odataBind,
-  formattedValue,
-  formatODataValue,
-} from "./utils/odata";
-export { newGuid, newBatchBoundary } from "./utils/correlation";
-export {
-  parseWebResourceParams,
-  buildClientUIDataParam,
-  type IWebResourceParams,
-} from "./utils/webResourceParams";
-export * as LibraryUtils from "./utils/LibraryUtils";
+  FormContextUtils,
+  type FormNotificationLevel,
+  type FormType,
+  type FieldNotificationOptions,
+  type FieldNotificationAction,
+} from "./utils/FormContextUtils";
 
 // Host abstraction
 export type {

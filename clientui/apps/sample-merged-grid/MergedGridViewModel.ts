@@ -2,7 +2,7 @@ import type { IViewModelContext } from "../../../shared/context/IViewModelContex
 import { Observable } from "../../../shared/reactivity/Observable";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
 import type { IGridRow } from "../../../shared/controls/presentational/DataGrid";
-import { formattedValue } from "../../../shared/utils/odata";
+import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
 import { buildFetchXml, condition } from "../../../shared/queries/fetchXml";
 
 /**
@@ -67,8 +67,8 @@ export class MergedGridViewModel {
     return {
       key: `${source}-${record.opportunityid}`,
       topic: (record.name as string) ?? "",
-      customer: formattedValue(record, "_customerid_value") ?? "",
-      value: formattedValue(record, "estimatedvalue") ?? "",
+      customer: LibraryUtils.formattedValue(record, "_customerid_value") ?? "",
+      value: LibraryUtils.formattedValue(record, "estimatedvalue") ?? "",
       source,
       recordId: String(record.opportunityid),
     };

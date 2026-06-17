@@ -5,7 +5,7 @@ import { createContextFromXrm } from "../shared/context/createWebResourceContext
 import { findXrm } from "../shared/context/createWebResourceContext";
 import { ViewModelContextProvider } from "../shared/context/ViewModelContextProvider";
 import { d365Theme } from "../shared/theme/d365Theme";
-import { parseWebResourceParams } from "../shared/utils/webResourceParams";
+import { LibraryUtils } from "../shared/utils/LibraryUtils";
 import { getApp, listApps } from "./registry";
 import type { IAppHost } from "./AppContract";
 
@@ -41,7 +41,7 @@ export async function bootstrap(options: IBootstrapOptions = {}): Promise<Root |
 
   try {
     // 2. Parse app selection: ?app= and/or CRM data payload (step 3).
-    const params = parseWebResourceParams(options.search ?? win.location.search);
+    const params = LibraryUtils.parseWebResourceParams(options.search ?? win.location.search);
 
     // 3. Wait for Xrm in this window or the parent, with a visible failure.
     const xrm = await waitForXrm(win, options.xrmTimeoutMs ?? 10_000);

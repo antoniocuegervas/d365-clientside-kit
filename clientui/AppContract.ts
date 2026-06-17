@@ -1,6 +1,6 @@
 import * as React from "react";
 import type { IViewModelContext } from "../shared/context/IViewModelContext";
-import type { IWebResourceParams } from "../shared/utils/webResourceParams";
+import type { IWebResourceParams } from "../shared/utils/LibraryUtils";
 
 /**
  * App adapter contract: apps are RENDER-ONLY. The shell calls

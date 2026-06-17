@@ -2,7 +2,7 @@ import type { IViewModelContext } from "../../../shared/context/IViewModelContex
 import { Observable } from "../../../shared/reactivity/Observable";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
 import type { IGridRow } from "../../../shared/controls/presentational/DataGrid";
-import { formattedValue } from "../../../shared/utils/odata";
+import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
 import { buildFetchXml, condition } from "../../../shared/queries/fetchXml";
 
 /**
@@ -60,10 +60,10 @@ export class ActivitiesGridViewModel {
       key: `${entity}-${record.activityid}`,
       type: typeLabel,
       subject: (record.subject as string) ?? "",
-      regarding: formattedValue(record, "_regardingobjectid_value") ?? "",
-      due: formattedValue(record, "scheduledend") ?? "",
+      regarding: LibraryUtils.formattedValue(record, "_regardingobjectid_value") ?? "",
+      due: LibraryUtils.formattedValue(record, "scheduledend") ?? "",
       dueSort: (record.scheduledend as string) ?? null,
-      status: formattedValue(record, "statecode") ?? "",
+      status: LibraryUtils.formattedValue(record, "statecode") ?? "",
       entity,
       recordId: String(record.activityid),
     }));

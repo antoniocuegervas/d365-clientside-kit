@@ -1,4 +1,4 @@
-import * as LibraryUtils from "../../shared/utils/LibraryUtils";
+import { FormContextUtils } from "../../shared/utils/FormContextUtils";
 import { ClientHook } from "../shared/ClientHook";
 
 /**
@@ -16,6 +16,6 @@ export class LockedGrid extends ClientHook {
     // The selected grid row's context exposes the same attribute/control
     // surface as a form context, LibraryUtils works on both.
     const rowContext = LockedGrid.formContextOf(executionContext);
-    LibraryUtils.lockAllFields(rowContext);
+    FormContextUtils.lockAllFields(rowContext);
   };
 }
