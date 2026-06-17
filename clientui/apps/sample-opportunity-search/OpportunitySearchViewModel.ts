@@ -4,11 +4,6 @@ import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTrac
 import type { IGridRow } from "../../../shared/controls/presentational/DataGrid";
 import type { IEntityReference } from "../../../shared/utils/EntityModel";
 import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
-import {
-  buildFetchXml,
-  condition,
-  containsCondition,
-} from "../../../shared/queries/fetchXml";
 
 /**
  * Kitchen-sink composite filter: nearly every control type in one
@@ -37,36 +32,43 @@ export class OpportunitySearchViewModel {
   readonly onSearch = async (): Promise<void> => {
     this.searching.value = true;
     try {
+      const esc = LibraryUtils.escapeXml;
+      // Each filter line is a literal <condition>, included only when its field is set.
       const filters = [
-        condition("statecode", "eq", "0"),
-        this.topicContains.value ? containsCondition("name", this.topicContains.value) : "",
-        this.customer.value ? condition("customerid", "eq", this.customer.value.id) : "",
-        this.rating.value !== null ? condition("opportunityratingcode", "eq", String(this.rating.value)) : "",
-        this.decisionMaker.value !== null
-          ? condition("decisionmaker", "eq", this.decisionMaker.value ? "1" : "0")
+        `<condition attribute="statecode" operator="eq" value="0" />`,
+        this.topicContains.value
+          ? `<condition attribute="name" operator="like" value="%${esc(this.topicContains.value)}%" />`
           : "",
-        this.minValue.value !== null ? condition("estimatedvalue", "ge", String(this.minValue.value)) : "",
-        this.closingAfter.value ? condition("estimatedclosedate", "on-or-after", toDateOnly(this.closingAfter.value)) : "",
-        this.closingBefore.value ? condition("estimatedclosedate", "on-or-before", toDateOnly(this.closingBefore.value)) : "",
+        this.customer.value
+          ? `<condition attribute="customerid" operator="eq" value="${esc(this.customer.value.id)}" />`
+          : "",
+        this.rating.value !== null
+          ? `<condition attribute="opportunityratingcode" operator="eq" value="${this.rating.value}" />`
+          : "",
+        this.decisionMaker.value !== null
+          ? `<condition attribute="decisionmaker" operator="eq" value="${this.decisionMaker.value ? 1 : 0}" />`
+          : "",
+        this.minValue.value !== null
+          ? `<condition attribute="estimatedvalue" operator="ge" value="${this.minValue.value}" />`
+          : "",
+        this.closingAfter.value
+          ? `<condition attribute="estimatedclosedate" operator="on-or-after" value="${toDateOnly(this.closingAfter.value)}" />`
+          : "",
+        this.closingBefore.value
+          ? `<condition attribute="estimatedclosedate" operator="on-or-before" value="${toDateOnly(this.closingBefore.value)}" />`
+          : "",
       ].join("");
 
-      const result = await this.context.webAPI.fetch(
-        "opportunity",
-        buildFetchXml({
-          entity: "opportunity",
-          attributes: [
-            "name",
-            "customerid",
-            "estimatedvalue",
-            "estimatedclosedate",
-            "opportunityratingcode",
-            "opportunityid",
-          ],
-          filter: filters,
-          order: { attribute: "estimatedclosedate" },
-          top: 50,
-        })
-      );
+      const fetchXml =
+        `<fetch version="1.0" output-format="xml-platform" mapping="logical" top="50">` +
+        `<entity name="opportunity">` +
+        `<attribute name="name" /><attribute name="customerid" /><attribute name="estimatedvalue" />` +
+        `<attribute name="estimatedclosedate" /><attribute name="opportunityratingcode" />` +
+        `<attribute name="opportunityid" />` +
+        `<filter type="and">${filters}</filter>` +
+        `<order attribute="estimatedclosedate" descending="false" /></entity></fetch>`;
+
+      const result = await this.context.webAPI.fetch("opportunity", fetchXml);
       if (this.tracker.isDisposed) {
         return;
       }

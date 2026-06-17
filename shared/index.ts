@@ -167,14 +167,8 @@ export {
 // Components (composites)
 export { RecordReady, type IRecordReadyProps } from "./components/RecordReady";
 
-// Queries (reusable FetchXML fragments)
-export {
-  buildFetchXml,
-  condition,
-  containsCondition,
-  escapeXml,
-  type IFetchXmlOptions,
-} from "./queries/fetchXml";
+// Queries. FetchXML is authored as template literals in ViewModels (more
+// readable + feature-complete than a builder); value escaping is LibraryUtils.escapeXml.
 export {
   getConfigurationParameter,
   type IConfigurationParameterOptions,

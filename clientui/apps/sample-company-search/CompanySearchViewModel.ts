@@ -5,7 +5,7 @@ import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTrac
 import type { IGridRow } from "../../../shared/controls/presentational/DataGrid";
 import type { IEntityReference } from "../../../shared/utils/EntityModel";
 import { EntityReference } from "../../../shared/utils/EntityModel";
-import { buildFetchXml, containsCondition, condition } from "../../../shared/queries/fetchXml";
+import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
 
 /**
  * Flagship "99% native" scenario: a saved-view account grid that the
@@ -45,16 +45,16 @@ export class CompanySearchViewModel {
     this.searching.value = true;
     this.hasSearched.value = true;
     try {
-      const result = await this.context.webAPI.fetch(
-        "account",
-        buildFetchXml({
-          entity: "account",
-          attributes: ["name", "address1_city", "telephone1", "accountid"],
-          filter: containsCondition("name", text.trim()) + condition("statecode", "eq", "0"),
-          order: { attribute: "name" },
-          top: 50,
-        })
-      );
+      const fetchXml =
+        `<fetch version="1.0" output-format="xml-platform" mapping="logical" top="50">` +
+        `<entity name="account">` +
+        `<attribute name="name" /><attribute name="address1_city" />` +
+        `<attribute name="telephone1" /><attribute name="accountid" />` +
+        `<filter type="and">` +
+        `<condition attribute="name" operator="like" value="%${LibraryUtils.escapeXml(text.trim())}%" />` +
+        `<condition attribute="statecode" operator="eq" value="0" /></filter>` +
+        `<order attribute="name" descending="false" /></entity></fetch>`;
+      const result = await this.context.webAPI.fetch("account", fetchXml);
       if (this.tracker.isDisposed) {
         return;
       }

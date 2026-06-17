@@ -3,7 +3,6 @@ import { Observable } from "../../../shared/reactivity/Observable";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
 import type { IGridRow } from "../../../shared/controls/presentational/DataGrid";
 import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
-import { buildFetchXml, condition } from "../../../shared/queries/fetchXml";
 
 /**
  * Canonical multi-query merged grid: rows from TWO FetchXML sources
@@ -24,30 +23,23 @@ export class MergedGridViewModel {
   readonly load = async (): Promise<void> => {
     this.loading.value = true;
     try {
+      const cols = (names: string[]): string =>
+        names.map((n) => `<attribute name="${n}" />`).join("");
       const attributes = ["name", "customerid", "estimatedvalue", "opportunityid"];
+      const openFetch =
+        `<fetch version="1.0" output-format="xml-platform" mapping="logical" top="25">` +
+        `<entity name="opportunity">${cols(attributes)}` +
+        `<filter type="and"><condition attribute="statecode" operator="eq" value="0" /></filter>` +
+        `<order attribute="estimatedvalue" descending="true" /></entity></fetch>`;
+      const wonFetch =
+        `<fetch version="1.0" output-format="xml-platform" mapping="logical" top="25">` +
+        `<entity name="opportunity">${cols([...attributes, "actualclosedate"])}` +
+        `<filter type="and"><condition attribute="statecode" operator="eq" value="1" />` +
+        `<condition attribute="actualclosedate" operator="last-x-days" value="30" /></filter>` +
+        `<order attribute="actualclosedate" descending="true" /></entity></fetch>`;
       const [open, recentlyWon] = await Promise.all([
-        this.context.webAPI.fetch(
-          "opportunity",
-          buildFetchXml({
-            entity: "opportunity",
-            attributes,
-            filter: condition("statecode", "eq", "0"),
-            order: { attribute: "estimatedvalue", descending: true },
-            top: 25,
-          })
-        ),
-        this.context.webAPI.fetch(
-          "opportunity",
-          buildFetchXml({
-            entity: "opportunity",
-            attributes: [...attributes, "actualclosedate"],
-            filter:
-              condition("statecode", "eq", "1") +
-              condition("actualclosedate", "last-x-days", "30"),
-            order: { attribute: "actualclosedate", descending: true },
-            top: 25,
-          })
-        ),
+        this.context.webAPI.fetch("opportunity", openFetch),
+        this.context.webAPI.fetch("opportunity", wonFetch),
       ]);
       if (this.tracker.isDisposed) {
         return;

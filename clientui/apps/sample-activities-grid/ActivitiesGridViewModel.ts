@@ -3,7 +3,6 @@ import { Observable } from "../../../shared/reactivity/Observable";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
 import type { IGridRow } from "../../../shared/controls/presentational/DataGrid";
 import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
-import { buildFetchXml, condition } from "../../../shared/queries/fetchXml";
 
 /**
  * Canonical "data model doesn't fit one native control" scenario:
@@ -45,16 +44,15 @@ export class ActivitiesGridViewModel {
   };
 
   private async fetchActivity(entity: string, typeLabel: string): Promise<IGridRow[]> {
-    const result = await this.context.webAPI.fetch(
-      entity,
-      buildFetchXml({
-        entity,
-        attributes: ["subject", "scheduledend", "regardingobjectid", "statecode", "activityid"],
-        filter: condition("statecode", "eq", "0"),
-        order: { attribute: "scheduledend" },
-        top: 25,
-      })
-    );
+    const fetchXml =
+      `<fetch version="1.0" output-format="xml-platform" mapping="logical" top="25">` +
+      `<entity name="${entity}">` +
+      `<attribute name="subject" /><attribute name="scheduledend" />` +
+      `<attribute name="regardingobjectid" /><attribute name="statecode" /><attribute name="activityid" />` +
+      `<filter type="and"><condition attribute="statecode" operator="eq" value="0" /></filter>` +
+      `<order attribute="scheduledend" descending="false" />` +
+      `</entity></fetch>`;
+    const result = await this.context.webAPI.fetch(entity, fetchXml);
     return result.entities.map((record) => ({
       // Source-prefixed keys keep merged rows unique across entities.
       key: `${entity}-${record.activityid}`,

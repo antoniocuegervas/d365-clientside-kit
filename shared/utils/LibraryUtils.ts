@@ -67,6 +67,16 @@ export class LibraryUtils {
     return value.replace(/'/g, "''");
   }
 
+  /** Escapes a value for interpolation into a FetchXML attribute literal. */
+  static escapeXml(value: string): string {
+    return value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
+  }
+
   /** Formats an @odata.bind path for associating a lookup on create/update. */
   static odataBind(reference: IEntityReference, entitySet?: string): string {
     return `/${entitySet ?? LibraryUtils.entitySetName(reference.logicalName)}(${normalizeGuid(reference.id)})`;
