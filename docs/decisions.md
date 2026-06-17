@@ -524,3 +524,60 @@ reference use; unit-tested). D-028's member list is no longer "closed";
 it is closed *against the obscure tail*, open to the commonly-used surface.
 Revisit only if the commonly-used line proves too fuzzy in practice — then tighten
 with examples rather than reverting to legacy-usage gating.
+
+---
+
+# Maintainability pass decisions (legibility / authored voice)
+
+A pass focused on making the kit legible and maintainable for a solo, intermittent
+maintainer (and publishable), steering the code away from generated defaults
+back toward the owner's style. These entries record the binding style choices.
+
+## D-035 — Legibility refactors: de-hop, where-you-expect, literal queries
+
+Structural changes made so a control or module is understandable from one file,
+guided by two rules: (a) **big files are fine, big AND scattered is not** (inline a
+helper used by only one consumer into that consumer; keep genuinely-shared ones
+shared), and (b) **abstraction must remove a concern, not relocate one**.
+
+- **Grid de-hop** (`55b0eb5`): the grid-only helpers (`viewGridQuery`,
+  `fetchXmlPaging`, `dynamicColumns`, and the OData cell-readers) were inlined into
+  `SmartViewGrid.tsx` and the three modules deleted. `odata.ts` content later moved
+  into `LibraryUtils`. Grid dependency hops dropped from ~8 to ~4.
+- **Utils split into static classes** (`798a07b`): `FormContextUtils` (form/grid
+  manipulation (the pre-`LockForm` group), with a header noting it
+  lives in utils not `ClientHook` because clientui needs it too) and `LibraryUtils`
+  (OData formatting, webresource params, GUID/$batch). Merged the over-split
+  `odata.ts` / `webResourceParams.ts` / `correlation.ts`; `EntityModel` stays its
+  own model file. **Static classes** were chosen over module functions per the kit
+  owner; tree-shaking/bundle size is a non-issue here (enterprise app, cached;
+  Fluent/React dwarf these helpers).
+- **FetchXML as template literals** (`c3c37b2`, `1f18c39`): deleted the
+  `buildFetchXml` builder (a leaky, incomplete abstraction); ViewModels author
+  `<fetch>` as multi-line, indented, single-quoted template literals that read as
+  XML and paste into a FetchXML tool. Value escaping is `LibraryUtils.escapeXml`.
+- **Context merge** (`9b28f90`): four interdependent host helpers
+  (`contextSurface`, `formatting`, `lookupObjects`, `XrmFormAccess`) merged into one
+  `hostSurface.ts`; `createWebResourceContext` kept as its own discoverable factory.
+  context/ went 10 files to 7.
+- **DRY threshold is roughly 3**: something used <=3 times and unlikely to change
+  may be duplicated locally when it improves readability; >3 uses gets examined.
+
+## D-036 — Authored comment voice (no em dashes, no in-code doc-ID citations)
+
+The kit is public, so public exports keep `/** */` JSDoc, but written plainly in
+the maintainer's voice. The hard rules:
+
+- **No em dashes (`—`) in comments/JSDoc, ever** (the clearest AI tell; the owner
+  flagged it explicitly). Use period, comma, parentheses, or colon. Applies to
+  user-facing strings too (app titles took colons).
+- **No internal doc-ID citations in code** (`§x.x`, `N-xx`, `G-xx`, `T-xx`,
+  `D-xxx`); rationale lives here in `decisions.md`, not in source a consumer reads.
+- No essays or flourish ("the workhorse", "native parity").
+- In-file sectioning uses `//#region` / `//#endregion`, not `// --- banner ---`.
+- 2-space indent; smart field controls signpost what `SmartFieldBase` does for them.
+
+Applied codebase-wide in `2be679b` (voice + citations + flourish, 67 files, 0 em
+dashes / 0 citations remaining, verified green). The `banner -> #region` conversion
+(the last sub-item) was **in progress and uncommitted** at handover; see the
+handover notes.
