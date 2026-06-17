@@ -11,7 +11,7 @@ import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
  * one FetchXML, the fields themselves are all metadata-aware blocks.
  */
 export class OpportunitySearchViewModel {
-  // --- Filter fields (bound by smart blocks in the View) ----------------
+  //#region Filter fields (bound by smart blocks in the View)
   readonly topicContains = new Observable<string | null>(null);
   readonly customer = new Observable<IEntityReference | null>(null);
   readonly rating = new Observable<number | null>(null);
@@ -20,10 +20,13 @@ export class OpportunitySearchViewModel {
   readonly closingAfter = new Observable<Date | null>(null);
   readonly closingBefore = new Observable<Date | null>(null);
 
-  // --- Results -----------------------------------------------------------
+  //#endregion
+
+  //#region Results
   readonly rows = new Observable<IGridRow[]>([]);
   readonly searching = new Observable<boolean>(false);
   readonly resultSummary = new Observable<string | null>(null);
+  //#endregion
 
   private readonly tracker = new SubscriptionTracker();
 

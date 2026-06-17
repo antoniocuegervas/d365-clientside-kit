@@ -93,7 +93,7 @@ export class MetadataService implements IMetadataApi {
     return cached;
   }
 
-  // ----------------------------------------------------------------- loads
+  //#region loads
 
   private async loadEntityMetadata(entityLogicalName: string): Promise<IEntityMetadata> {
     const raw = await this.client.get(
@@ -327,6 +327,7 @@ export class MetadataService implements IMetadataApi {
     }
     return toViewDefinition(result.entities[0], entityLogicalName);
   }
+  //#endregion
 }
 
 /** Normalizes a raw savedquery record into the kit's IViewDefinition. */
@@ -352,7 +353,7 @@ function toViewDefinition(
   };
 }
 
-// ------------------------------------------------------------- normalizers
+//#region normalizers
 
 type RawLabel = unknown;
 type RawOption = { Value?: number; Label?: RawLabel; Color?: string };
@@ -491,3 +492,4 @@ export function parseLayoutColumnsFromJson(layoutJson: string): IViewColumn[] {
   }
   return columns;
 }
+//#endregion

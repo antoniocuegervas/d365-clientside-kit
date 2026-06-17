@@ -11,17 +11,18 @@ import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTrac
  * the save behavior. Keep ViewModels this thin wherever possible.
  */
 export class TemplateViewModel {
-  // --- Observables the View binds to ---------------------------------
+  //#region Observables the View binds to
   readonly accountName = new Observable<string | null>(null);
   readonly industry = new Observable<number | null>(null);
   readonly isSaving = new Observable<boolean>(false);
   readonly saveMessage = new Observable<string | null>(null);
+  //#endregion
 
   private readonly tracker = new SubscriptionTracker();
 
   constructor(private readonly context: IViewModelContext) {}
 
-  // --- Handlers wired explicitly in the View --------------------------
+  //#region Handlers wired explicitly in the View
   readonly onSave = async (): Promise<void> => {
     if (!this.accountName.value) {
       this.saveMessage.value = "Enter an account name first.";
@@ -50,6 +51,8 @@ export class TemplateViewModel {
       }
     }
   };
+
+  //#endregion
 
   dispose(): void {
     this.tracker.dispose();

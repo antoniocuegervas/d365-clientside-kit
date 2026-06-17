@@ -29,9 +29,7 @@ import {
   type ILookupOptions,
 } from "./IViewModelContext";
 
-// ===========================================================================
-// Form access
-// ===========================================================================
+//#region Form access
 
 /**
  * Structural slice of an Xrm.Page / formContext that form access needs. It is
@@ -96,9 +94,9 @@ export class XrmPageFormAccess implements IFormAccess {
   }
 }
 
-// ===========================================================================
-// Platform-mirror builders: client / device / utils extras
-// ===========================================================================
+//#endregion
+
+//#region Platform-mirror builders: client / device / utils extras
 
 /** Structural slice of `GlobalContext.client` / PCF `context.client`. */
 export interface IXrmClientLike {
@@ -198,9 +196,9 @@ export function utilsFromXrm(
   };
 }
 
-// ===========================================================================
-// Locale / user-settings formatting
-// ===========================================================================
+//#endregion
+
+//#region Locale / user-settings formatting
 
 /** Loose shape covering both Xrm (PascalCase) and PCF (camelCase) date-format objects. */
 type RawDateFormat = Record<string, unknown> | undefined;
@@ -300,9 +298,9 @@ export async function resolveFormatting(input: {
   return { decimalSymbol, numberSeparator, dateFormatInfo: input.dateFormatInfo };
 }
 
-// ===========================================================================
-// Native lookup dialog mapping
-// ===========================================================================
+//#endregion
+
+//#region Native lookup dialog mapping
 
 /** Native lookup result row, `Xrm.Utility.lookupObjects` resolves an array of these. */
 export type { IXrmLookupValue };
@@ -360,3 +358,4 @@ export async function callLookupObjects(
   const result = await utility.lookupObjects(toXrmLookupOptions(options));
   return toEntityReferences(result);
 }
+//#endregion

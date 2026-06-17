@@ -378,7 +378,7 @@ export interface IFormAccess {
   readonly raw: unknown;
 }
 
-// ----------------------------------------------------------------- metadata
+//#region metadata
 
 /** Kit-level attribute classification used to pick presentational controls. */
 export type AttributeKind =
@@ -486,3 +486,4 @@ export interface IMetadataApi {
    */
   getEntityIconUrl(entityLogicalName: string): Promise<string | undefined>;
 }
+//#endregion

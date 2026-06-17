@@ -44,7 +44,7 @@ function parseDataParam(raw: string): unknown {
 }
 
 export class LibraryUtils {
-  // --- OData formatting ----------------------------------------------------
+  //#region OData formatting
 
   /**
    * Derives the entity set name from a logical name using standard Dataverse
@@ -106,7 +106,9 @@ export class LibraryUtils {
       | undefined;
   }
 
-  // --- Webresource parameters ---------------------------------------
+  //#endregion
+
+  //#region Webresource parameters
 
   /**
    * The ONE canonical parser for webresource parameters. App selection comes,
@@ -145,7 +147,9 @@ export class LibraryUtils {
     return JSON.stringify({ app, ...payload });
   }
 
-  // --- GUID / $batch boundaries --------------------------------------------
+  //#endregion
+
+  //#region GUID / $batch boundaries
 
   /** RFC-4122 v4 GUID (uses crypto.randomUUID when available). */
   static newGuid(): string {
@@ -164,4 +168,5 @@ export class LibraryUtils {
   static newBatchBoundary(): string {
     return `batch_${LibraryUtils.newGuid()}`;
   }
+  //#endregion
 }

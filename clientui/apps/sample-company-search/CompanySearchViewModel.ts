@@ -13,29 +13,34 @@ import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
  * selection, and an editable detail panel, all looking like form controls.
  */
 export class CompanySearchViewModel {
-  // --- Search state ----------------------------------------------------
+  //#region Search state
   readonly searchText = new Observable<string>("");
   readonly searchRows = new Observable<IGridRow[]>([]);
   readonly searching = new Observable<boolean>(false);
   /** True once a search ran, switches the View from saved view to results. */
   readonly hasSearched = new Observable<boolean>(false);
 
-  // --- Saved-view grid control ------------------------------------------
+  //#endregion
+
+  //#region Saved-view grid control
   readonly refreshViewGrid = new ObservableEvent<void>();
 
-  // --- Selection + detail panel -----------------------------------------
+  //#endregion
+
+  //#region Selection + detail panel
   readonly selectedAccountId = new Observable<string | null>(null);
   readonly detailName = new Observable<string | null>(null);
   readonly detailParentAccount = new Observable<IEntityReference | null>(null);
   readonly detailIndustry = new Observable<number | null>(null);
   readonly detailLoading = new Observable<boolean>(false);
   readonly saveMessage = new Observable<string | null>(null);
+  //#endregion
 
   private readonly tracker = new SubscriptionTracker();
 
   constructor(private readonly context: IViewModelContext) {}
 
-  // --- Handlers ----------------------------------------------------------
+  //#region Handlers
   readonly onSearch = async (text: string): Promise<void> => {
     if (!text.trim()) {
       // Empty search returns the View to the native saved-view experience.
@@ -131,6 +136,8 @@ export class CompanySearchViewModel {
       void this.onSearch(this.searchText.value);
     }
   };
+
+  //#endregion
 
   dispose(): void {
     this.tracker.dispose();

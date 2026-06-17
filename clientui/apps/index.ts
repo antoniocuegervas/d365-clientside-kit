@@ -3,17 +3,21 @@
  * category. Importing a module registers its app in the registry.
  */
 
-// --- Shell + onboarding -----------------------------------------------
+//#region Shell + onboarding
 import "./template/app";
 import "./samples-hub/app";
+//#endregion
 
-// --- Samples: everyday tier (start here) --------------------------------
+//#region Samples: everyday tier (start here)
 import "./sample-company-search/app";
+//#endregion
 
-// --- Samples: composition tier ------------------------------------------
+//#region Samples: composition tier
 import "./sample-opportunity-search/app";
 import "./sample-territory-cascade/app";
+//#endregion
 
-// --- Samples: exotic-data tier (limitation bypass) ------------------------
+//#region Samples: exotic-data tier (limitation bypass)
 import "./sample-merged-grid/app";
 import "./sample-activities-grid/app";
+//#endregion

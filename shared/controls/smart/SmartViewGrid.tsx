@@ -661,11 +661,9 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   }
 }
 
-// ===========================================================================
 // Grid-internal helpers, inlined so the grid is understandable from one file
 // (no scavenger hunt across helper modules). Exported for unit tests only; the
 // kit barrel does NOT re-export these.
-// ===========================================================================
 
 /** Root-entity attributes only, dotted (link-entity) names can't be filtered/sorted. */
 const isRootAttribute = (field: string): boolean => !field.includes(".");
@@ -680,7 +678,7 @@ function xmlEscape(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
-// --- savedQuery OData composition ----------------------------
+//#region savedQuery OData composition
 
 export interface ISmartViewGridFilter {
   attribute: string;
@@ -755,7 +753,9 @@ export function buildSavedQueryOptions(viewId: string, params: IViewQueryParams)
   return `?${parts.join("&")}`;
 }
 
-// --- FetchXML mutation for rich paging ------------------------------
+//#endregion
+
+//#region FetchXML mutation for rich paging
 
 export interface IFetchPagingOptions {
   /** 1-based page → `page` attribute. */
@@ -820,7 +820,9 @@ export function setRootOrder(fetchXml: string, attribute: string, descending: bo
   return withoutOrders.replace(/(<\/entity>)/, `${orderXml}$1`);
 }
 
-// --- Web API record cell readers -----------------------------
+//#endregion
+
+//#region Web API record cell readers
 
 export interface ILookupCell {
   id: string;
@@ -875,7 +877,9 @@ export function aliasedLookupCell(
   };
 }
 
-// --- Dynamic / polymorphic columns ----------------------------------
+//#endregion
+
+//#region Dynamic / polymorphic columns
 
 export interface IDynamicColumnSource {
   /** Source attribute (supports the aliased "alias.attr" form). */
@@ -940,3 +944,4 @@ export function resolveDynamicSource(
   }
   return null;
 }
+//#endregion

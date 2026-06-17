@@ -77,7 +77,7 @@ export class CdsClient {
     return `${this.clientUrl}/api/data/v${this.apiVersion}/`;
   }
 
-  // ---------------------------------------------------------------- CRUD
+  //#region CRUD
 
   /** Creates a record. Returns the new record's id. */
   async createRecord(entitySet: string, data: Record<string, unknown>): Promise<{ id: string }> {
@@ -141,7 +141,9 @@ export class CdsClient {
     return JSON.parse(response.responseText) as Record<string, unknown>;
   }
 
-  // ------------------------------------------------------------- FetchXML
+  //#endregion
+
+  //#region FetchXML
 
   /**
    * Executes a FetchXML query. Falls back to a $batch POST automatically when
@@ -189,7 +191,9 @@ export class CdsClient {
     return parseCollection(text.slice(start, end + 1));
   }
 
-  // ------------------------------------------------- Actions and workflows
+  //#endregion
+
+  //#region Actions and workflows
 
   /**
    * Executes a custom action. Unbound by default; pass `boundTo` for an action
@@ -221,7 +225,9 @@ export class CdsClient {
     );
   }
 
-  // -------------------------------------------------------------- plumbing
+  //#endregion
+
+  //#region plumbing
 
   private request(
     method: "GET" | "POST" | "PATCH" | "DELETE",
@@ -258,6 +264,7 @@ export class CdsClient {
       xhr.send(body);
     });
   }
+  //#endregion
 }
 
 function qualifyAction(actionName: string): string {
