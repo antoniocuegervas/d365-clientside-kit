@@ -8,30 +8,13 @@ import type {
 } from "../../context/IViewModelContext";
 import { Observable, type Unsubscribe } from "../../reactivity/Observable";
 import type { ObservableEvent } from "../../reactivity/ObservableEvent";
-import {
-  aliasedLookupCell,
-  formattedValue,
-  lookupCell,
-  splitAliasedColumn,
-  type ILookupCell,
-} from "../../utils/odata";
+import { escapeODataString, formatODataValue, formattedValue } from "../../utils/odata";
 import { DataGrid, type IGridColumn, type IGridRow } from "../presentational/DataGrid";
 import { Pagination } from "../presentational/Pagination";
-import { resolveDynamicSource, type IDynamicColumnSpec } from "./dynamicColumns";
 
-export type {
-  IDynamicColumnSpec,
-  IDynamicColumnSource,
-  IResolvedSource,
-} from "./dynamicColumns";
-import {
-  buildSavedQueryOptions,
-  type ISmartViewGridFilter,
-  type ISortSpec,
-} from "./viewGridQuery";
-import { addRootFilter, setFetchPaging, setRootOrder, type IFetchCondition } from "./fetchXmlPaging";
-
-export type { ISmartViewGridFilter, ISortSpec } from "./viewGridQuery";
+// Query composition, FetchXML paging, cell readers, and dynamic-column logic
+// are defined at the BOTTOM of this file (grid-internal, exported there only
+// for unit tests, not re-exported from the kit barrel).
 
 export interface ISmartViewGridProps {
   /** Entity logical name, e.g. "account". */
@@ -676,4 +659,284 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       </>
     );
   }
+}
+
+// ===========================================================================
+// Grid-internal helpers, inlined so the grid is understandable from one file
+// (no scavenger hunt across helper modules). Exported for unit tests only; the
+// kit barrel does NOT re-export these.
+// ===========================================================================
+
+/** Root-entity attributes only, dotted (link-entity) names can't be filtered/sorted. */
+const isRootAttribute = (field: string): boolean => !field.includes(".");
+
+/** XML-escapes a value for a FetchXML attribute literal. */
+function xmlEscape(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+// --- savedQuery OData composition (T-01 + G-01) ----------------------------
+
+export interface ISmartViewGridFilter {
+  attribute: string;
+  /** Comparison operator. Default "eq". */
+  operator?: "eq" | "ne";
+  /** Skipped entirely when null/undefined. */
+  value: string | number | boolean | null | undefined;
+}
+
+export interface ISortSpec {
+  attribute: string;
+  descending?: boolean;
+}
+
+export interface IViewQueryParams {
+  quickFindText?: string;
+  quickFindFields?: string[];
+  filters?: ISmartViewGridFilter[];
+  orderBy?: ISortSpec | null;
+  top?: number;
+}
+
+/** quickFind AND filter1 AND … , or undefined when nothing applies. Root attrs only. */
+export function composeFilterExpression(params: IViewQueryParams): string | undefined {
+  const clauses: string[] = [];
+  const text = params.quickFindText?.trim();
+  if (text) {
+    const escaped = escapeODataString(text);
+    const contains = (params.quickFindFields ?? [])
+      .filter(isRootAttribute)
+      .map((field) => `contains(${field},'${escaped}')`);
+    if (contains.length === 1) {
+      clauses.push(contains[0]);
+    } else if (contains.length > 1) {
+      clauses.push(`(${contains.join(" or ")})`);
+    }
+  }
+  for (const filter of params.filters ?? []) {
+    if (filter.value === null || filter.value === undefined) {
+      continue;
+    }
+    if (!isRootAttribute(filter.attribute)) {
+      continue;
+    }
+    clauses.push(`${filter.attribute} ${filter.operator ?? "eq"} ${formatODataValue(filter.value)}`);
+  }
+  return clauses.length > 0 ? clauses.join(" and ") : undefined;
+}
+
+/** e.g. "createdon desc", undefined for link-entity attributes or no sort. */
+export function composeOrderBy(orderBy: ISortSpec | null | undefined): string | undefined {
+  if (!orderBy || !isRootAttribute(orderBy.attribute)) {
+    return undefined;
+  }
+  return `${orderBy.attribute}${orderBy.descending ? " desc" : " asc"}`;
+}
+
+/** Builds `?savedQuery=…[&$filter=…][&$orderby=…][&$top=…]`. */
+export function buildSavedQueryOptions(viewId: string, params: IViewQueryParams): string {
+  const parts = [`savedQuery=${viewId}`];
+  const filter = composeFilterExpression(params);
+  if (filter) {
+    parts.push(`$filter=${filter}`);
+  }
+  const orderBy = composeOrderBy(params.orderBy);
+  if (orderBy) {
+    parts.push(`$orderby=${orderBy}`);
+  }
+  if (params.top) {
+    parts.push(`$top=${params.top}`);
+  }
+  return `?${parts.join("&")}`;
+}
+
+// --- FetchXML mutation for rich paging (N-04) ------------------------------
+
+export interface IFetchPagingOptions {
+  /** 1-based page → `page` attribute. */
+  page: number;
+  /** Page size → `count` attribute. */
+  count: number;
+  /** Add `returntotalrecordcount='true'` to fetch the (capped) total once. */
+  returnTotalRecordCount?: boolean;
+}
+
+export interface IFetchCondition {
+  attribute: string;
+  operator: string;
+  value?: string | number | boolean;
+}
+
+/** Sets page/count (+ optional total) on the root <fetch>, stripping conflicting attrs. */
+export function setFetchPaging(fetchXml: string, options: IFetchPagingOptions): string {
+  return fetchXml.replace(/<fetch\b([^>]*?)(\/?)>/, (_match, attrs: string, selfClose: string) => {
+    const cleaned = attrs.replace(
+      /\s+(page|count|top|paging-cookie|returntotalrecordcount)="[^"]*"/g,
+      ""
+    );
+    let injected = ` page="${options.page}" count="${options.count}"`;
+    if (options.returnTotalRecordCount) {
+      injected += ` returntotalrecordcount="true"`;
+    }
+    return `<fetch${cleaned}${injected}${selfClose}>`;
+  });
+}
+
+/** Inserts a `<filter type>` with conditions just inside the root `<entity>`. Root attrs only. */
+export function addRootFilter(
+  fetchXml: string,
+  conditions: IFetchCondition[],
+  type: "and" | "or" = "and"
+): string {
+  const usable = conditions.filter((condition) => isRootAttribute(condition.attribute));
+  if (usable.length === 0) {
+    return fetchXml;
+  }
+  const inner = usable
+    .map((condition) => {
+      const valueAttr =
+        condition.value === undefined ? "" : ` value="${xmlEscape(String(condition.value))}"`;
+      return `<condition attribute="${condition.attribute}" operator="${condition.operator}"${valueAttr} />`;
+    })
+    .join("");
+  const filterXml = `<filter type="${type}">${inner}</filter>`;
+  return fetchXml.replace(/(<entity\b[^>]*>)/, `$1${filterXml}`);
+}
+
+/** Replaces the root entity's `<order>` with a single host order. Root attrs only. */
+export function setRootOrder(fetchXml: string, attribute: string, descending: boolean): string {
+  if (!isRootAttribute(attribute)) {
+    return fetchXml;
+  }
+  const withoutOrders = fetchXml
+    .replace(/<order\b[^>]*\/>/g, "")
+    .replace(/<order\b[^>]*>\s*<\/order>/g, "");
+  const orderXml = `<order attribute="${attribute}" descending="${descending ? "true" : "false"}" />`;
+  return withoutOrders.replace(/(<\/entity>)/, `${orderXml}$1`);
+}
+
+// --- Web API record cell readers (N-01 / G-01) -----------------------------
+
+export interface ILookupCell {
+  id: string;
+  name: string;
+  /** Target entity logical name from the lookuplogicalname annotation. */
+  target: string;
+}
+
+/** Reads a root lookup from the `_attr_value` triplet, or null when empty. */
+export function lookupCell(
+  record: Record<string, unknown>,
+  attributeLogicalName: string
+): ILookupCell | null {
+  const idKey = `_${attributeLogicalName}_value`;
+  const id = record[idKey];
+  if (id === null || id === undefined || id === "") {
+    return null;
+  }
+  const name = record[`${idKey}@OData.Community.Display.V1.FormattedValue`];
+  const target = record[`${idKey}@Microsoft.Dynamics.CRM.lookuplogicalname`];
+  return {
+    id: String(id),
+    name: name !== undefined ? String(name) : "",
+    target: target !== undefined ? String(target) : "",
+  };
+}
+
+/** Splits an aliased layout column (`alias.attr`) into its parts (N-01). */
+export function splitAliasedColumn(columnName: string): { alias?: string; logicalName: string } {
+  const dot = columnName.indexOf(".");
+  if (dot < 0) {
+    return { logicalName: columnName };
+  }
+  return { alias: columnName.slice(0, dot), logicalName: columnName.slice(dot + 1) };
+}
+
+/** Reads a link-entity lookup from its alias-qualified keys, or null when empty (N-01). */
+export function aliasedLookupCell(
+  record: Record<string, unknown>,
+  columnName: string
+): ILookupCell | null {
+  const id = record[columnName];
+  if (id === null || id === undefined || id === "") {
+    return null;
+  }
+  const name = record[`${columnName}@OData.Community.Display.V1.FormattedValue`];
+  const target = record[`${columnName}@Microsoft.Dynamics.CRM.lookuplogicalname`];
+  return {
+    id: String(id),
+    name: name !== undefined ? String(name) : "",
+    target: target !== undefined ? String(target) : "",
+  };
+}
+
+// --- Dynamic / polymorphic columns (G-16) ----------------------------------
+
+export interface IDynamicColumnSource {
+  /** Source attribute (supports the aliased "alias.attr" form). */
+  field: string;
+  kind?: "lookup" | "text" | "formatted" | "custom";
+  render?: (row: IGridRow, value: unknown) => React.ReactNode;
+}
+
+export interface IDynamicColumnSpec {
+  header: string;
+  /** Probed in order; the first source with a value renders the cell. */
+  sources: IDynamicColumnSource[];
+  sort?: {
+    fetchOrder?: (descending: boolean) => string;
+    odataOrder?: (descending: boolean) => string;
+    comparator?: (a: IGridRow, b: IGridRow) => number;
+  };
+  filter?: (criteria: unknown) => string;
+}
+
+export interface IResolvedSource {
+  source: IDynamicColumnSource;
+  value: unknown;
+  /** True when `value` is an ILookupCell (render as a link). */
+  isLookup: boolean;
+}
+
+const hasValue = (value: unknown): boolean =>
+  value !== null && value !== undefined && value !== "";
+
+/** Reads one source's value per its kind, or null when empty. */
+function readSource(
+  record: Record<string, unknown>,
+  source: IDynamicColumnSource
+): IResolvedSource | null {
+  if (source.kind === "lookup") {
+    const cell = lookupCell(record, source.field);
+    return cell ? { source, value: cell, isLookup: true } : null;
+  }
+  if (source.kind === "formatted") {
+    const formatted = formattedValue(record, source.field);
+    return hasValue(formatted) ? { source, value: formatted, isLookup: false } : null;
+  }
+  const raw = record[source.field];
+  if (hasValue(raw)) {
+    return { source, value: raw, isLookup: false };
+  }
+  const formatted = formattedValue(record, source.field);
+  return hasValue(formatted) ? { source, value: formatted, isLookup: false } : null;
+}
+
+/** First source (in order) that has a value, or null when all are empty (G-16). */
+export function resolveDynamicSource(
+  record: Record<string, unknown>,
+  spec: IDynamicColumnSpec
+): IResolvedSource | null {
+  for (const source of spec.sources) {
+    const resolved = readSource(record, source);
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return null;
 }

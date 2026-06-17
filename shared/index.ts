@@ -35,10 +35,6 @@ export {
   odataBind,
   formattedValue,
   formatODataValue,
-  lookupCell,
-  aliasedLookupCell,
-  splitAliasedColumn,
-  type ILookupCell,
 } from "./utils/odata";
 export { newGuid, newBatchBoundary } from "./utils/correlation";
 export {
@@ -171,19 +167,6 @@ export {
   type IDynamicColumnSpec,
   type IDynamicColumnSource,
 } from "./controls/smart/SmartViewGrid";
-export {
-  buildSavedQueryOptions,
-  composeFilterExpression,
-  composeOrderBy,
-  type IViewQueryParams,
-} from "./controls/smart/viewGridQuery";
-export {
-  setFetchPaging,
-  addRootFilter,
-  setRootOrder,
-  type IFetchPagingOptions,
-  type IFetchCondition,
-} from "./controls/smart/fetchXmlPaging";
 
 // Components (composites)
 export { RecordReady, type IRecordReadyProps } from "./components/RecordReady";
