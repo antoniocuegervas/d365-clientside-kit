@@ -10,7 +10,7 @@ export interface ISmartOptionSetProps extends ISmartFieldProps<number | null> {
 }
 
 /**
- * Choice field, the option list and labels load from the attribute's option
+ * Choice field. The option list and labels load from the attribute's option
  * set; `filterOptions` lets a caller prune or reorder before display.
  * `SmartFieldBase` loads the metadata and renders the loading/error state.
  */

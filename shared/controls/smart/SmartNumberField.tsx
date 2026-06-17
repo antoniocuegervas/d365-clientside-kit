@@ -6,15 +6,15 @@ import { SmartFieldBase, type ISmartFieldProps } from "./SmartFieldBase";
 
 export interface ISmartNumberFieldProps extends ISmartFieldProps<number | null> {
   /**
-   * Currency symbol when the attribute is money. Highest priority, when
-   * omitted, `transactionCurrencyId` (if given) resolves the record's real
-   * symbol (G-06b); otherwise the field falls back to "$".
+   * Currency symbol when the attribute is money. Highest priority; when omitted,
+   * `transactionCurrencyId` (if given) resolves the record's real symbol,
+   * otherwise the field falls back to "$".
    */
   currencySymbol?: string;
   /**
    * The record's transaction currency id (e.g. `_transactioncurrencyid_value`).
    * When supplied for a money field, the smart tier resolves the currency's
-   * symbol from it (G-06b) and supplies it to the presentational control.
+   * symbol from it and supplies it to the presentational control.
    */
   transactionCurrencyId?: string;
 }
@@ -49,7 +49,7 @@ export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumber
         this.forceUpdate();
       }
     } catch {
-      // Non-fatal, fall back to the supplied/default symbol.
+      // Non-fatal: fall back to the supplied/default symbol.
     }
   }
 

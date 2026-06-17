@@ -10,7 +10,7 @@ export interface ISmartTextFieldProps extends ISmartFieldProps<string | null> {
 }
 
 /**
- * Text field resolved from metadata, single-line vs memo and max length come
+ * Text field resolved from metadata. Single-line vs memo and max length come
  * from the attribute. `SmartFieldBase` loads the metadata and renders the
  * loading/error state; this only maps it to the control.
  */

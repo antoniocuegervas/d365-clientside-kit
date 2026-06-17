@@ -11,7 +11,7 @@ import {
 export type ISmartDatePickerProps = ISmartFieldProps<Date | null>;
 
 /**
- * Date / date-time field, date-only vs date+time comes from the attribute; the
+ * Date / date-time field. Date-only vs date+time comes from the attribute; the
  * calendar strings, first day of week, and display format follow the user's
  * locale. `SmartFieldBase` loads the metadata and renders the loading/error state.
  */

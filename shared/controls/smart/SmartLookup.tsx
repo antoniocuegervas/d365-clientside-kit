@@ -8,8 +8,8 @@ import { SmartFieldBase, type ISmartFieldProps } from "./SmartFieldBase";
 
 export interface ISmartLookupProps extends ISmartFieldProps<IEntityReference | null> {
   /**
-   * Target entity override. Default: the attribute's first metadata target
-   * (Customer/Owner lookups have several, pick explicitly for those).
+   * Target entity override. Defaults to the attribute's first metadata target.
+   * Customer/Owner lookups have several, so pick one explicitly for those.
    */
   targetEntity?: string;
   /** Extra OData $filter clause ANDed into the inline search. */
@@ -19,32 +19,32 @@ export interface ISmartLookupProps extends ISmartFieldProps<IEntityReference | n
   /** Debounce for search-as-you-type, ms. Default 250. 0 disables (tests). */
   searchDebounceMs?: number;
   /**
-   * "inline" (default) = embedded search-as-you-type; "dialog" = the native CRM
-   * picker (recently used, view switching, create-new) via lookupObjects. Same
-   * value Observable and onChange contract either way (G-02).
+   * "inline" (default) is embedded search-as-you-type; "dialog" is the native
+   * CRM picker (recently used, view switching, create-new) via lookupObjects.
+   * Same value Observable and onChange contract either way.
    */
   mode?: "inline" | "dialog";
   /** FetchXML `<filter>` applied to the dialog's view (dialog mode only). */
   filterXml?: string;
   /**
-   * View-driven inline search (G-03): run a saved view as the search source so
-   * admins control columns/filters. `?savedQuery={id}&$filter=contains(name,…)`.
+   * View-driven inline search: run a saved view as the search source so admins
+   * control columns/filters. `?savedQuery={id}&$filter=contains(name,...)`.
    */
   viewId?: string;
   /** Saved view by name for view-driven search; resolved via getViewByName. */
   viewName?: string;
-  /** Resolve and show the target entity's icon in inline results (G-10). */
+  /** Resolve and show the target entity's icon in inline results. */
   showIcons?: boolean;
 }
 
 /**
- * Lookup field, the target entity and its primary name/id resolve from the
+ * Lookup field. The target entity and its primary name/id resolve from the
  * attribute, and search-as-you-type runs against the host context (the
  * presentational LookupField stays unaware of it). `SmartFieldBase` loads the
  * metadata and renders the loading/error state.
  */
 export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartLookupProps> {
-  /** Owned by this smart wrapper, IT is the host for search results. */
+  /** Owned by this smart wrapper: it is the host for search results. */
   private readonly results = new Observable<IEntityReference[]>([]);
   private readonly searching = new Observable<boolean>(false);
   private debounceHandle: ReturnType<typeof setTimeout> | undefined;
@@ -81,7 +81,7 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
   private resolvedViewId: Promise<string | undefined> | undefined;
   private resolvedIcon: Promise<string | undefined> | undefined;
 
-  /** Saved view id for view-driven search (G-03), resolved once and cached. */
+  /** Saved view id for view-driven search, resolved once and cached. */
   private resolveViewId(target: string): Promise<string | undefined> {
     if (!this.props.viewId && !this.props.viewName) {
       return Promise.resolve(undefined);
@@ -97,7 +97,7 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
     return this.resolvedViewId;
   }
 
-  /** Target entity icon URL (G-10), resolved once and cached. */
+  /** Target entity icon URL, resolved once and cached. */
   private resolveIcon(target: string): Promise<string | undefined> {
     if (!this.props.showIcons) {
       return Promise.resolve(undefined);
@@ -131,7 +131,7 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
       ].filter(Boolean);
       const filter = clauses.length > 0 ? `&$filter=${clauses.join(" and ")}` : "";
       const top = this.props.top ?? 10;
-      // View-driven (G-03): run the saved view as the source; else plain select.
+      // View-driven: run the saved view as the source, else a plain select.
       const options = viewId
         ? `?savedQuery=${viewId}${filter}&$top=${top}`
         : `?$select=${idAttribute},${nameAttribute}${filter}&$top=${top}`;
@@ -177,12 +177,12 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
     };
     try {
       const result = await this.vmContext.navigation.lookupObjects(options);
-      // Empty array = cancelled, keep the current value (clear is explicit).
+      // Empty array means cancelled, so keep the current value (clearing is explicit).
       if (!this.isDisposed && result.length > 0) {
         this.commitChange(result[0]);
       }
     } catch {
-      // Dialog unavailable on this host, leave the value unchanged.
+      // Dialog unavailable on this host, so leave the value unchanged.
     }
   };
 

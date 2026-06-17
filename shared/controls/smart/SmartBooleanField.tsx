@@ -6,7 +6,7 @@ import { SmartFieldBase, type ISmartFieldProps } from "./SmartFieldBase";
 export type ISmartBooleanFieldProps = ISmartFieldProps<boolean | null>;
 
 /**
- * Two-option field, Yes/No labels come from the boolean option set.
+ * Two-option field. Yes/No labels come from the boolean option set.
  * `SmartFieldBase` loads the metadata and renders the loading/error state.
  */
 export class SmartBooleanField extends SmartFieldBase<boolean | null, ISmartBooleanFieldProps> {
