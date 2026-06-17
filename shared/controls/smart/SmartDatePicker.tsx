@@ -11,10 +11,9 @@ import {
 export type ISmartDatePickerProps = ISmartFieldProps<Date | null>;
 
 /**
- * Date block, date-only vs date-and-time resolves from attribute metadata;
- * localized calendar strings, first day of week, and display format follow the
- * user's locale (G-06). The smart tier reads the formatting from context
- * and supplies it as plain presentational props.
+ * Date / date-time field, date-only vs date+time comes from the attribute; the
+ * calendar strings, first day of week, and display format follow the user's
+ * locale. `SmartFieldBase` loads the metadata and renders the loading/error state.
  */
 export class SmartDatePicker extends SmartFieldBase<Date | null, ISmartDatePickerProps> {
   protected override usesFormatting(): boolean {

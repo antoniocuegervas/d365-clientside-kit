@@ -38,10 +38,10 @@ export interface ISmartLookupProps extends ISmartFieldProps<IEntityReference | n
 }
 
 /**
- * `<SmartLookup entity="contact" attribute="parentcustomerid" value={vm.company} />`
- * Target entity and primary name resolve from metadata; search-as-you-type
- * queries ride the host context. The presentational LookupField never knows
- * any of this happened.
+ * Lookup field, the target entity and its primary name/id resolve from the
+ * attribute, and search-as-you-type runs against the host context (the
+ * presentational LookupField stays unaware of it). `SmartFieldBase` loads the
+ * metadata and renders the loading/error state.
  */
 export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartLookupProps> {
   /** Owned by this smart wrapper, IT is the host for search results. */

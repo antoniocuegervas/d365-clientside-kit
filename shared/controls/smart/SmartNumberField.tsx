@@ -20,10 +20,11 @@ export interface ISmartNumberFieldProps extends ISmartFieldProps<number | null> 
 }
 
 /**
- * Numeric block for whole/decimal/double/money attributes, precision and
- * min/max resolve from metadata (: no hand-configured precision); decimal
- * symbol / group separator follow the user's locale (G-06); money fields
- * resolve the record's real currency symbol (G-06b).
+ * Numeric field for whole/decimal/double/money attributes. Precision and min/max
+ * come from metadata; the decimal symbol and group separator follow the user's
+ * locale. Money fields show the record's real currency symbol when
+ * `transactionCurrencyId` is supplied (else the `currencySymbol` prop, else "$").
+ * `SmartFieldBase` loads the metadata and renders the loading/error state.
  */
 export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumberFieldProps> {
   private resolvedCurrencySymbol?: string;

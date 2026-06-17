@@ -10,8 +10,9 @@ export interface ISmartTextFieldProps extends ISmartFieldProps<string | null> {
 }
 
 /**
- * `<SmartTextField entity="account" attribute="name" value={vm.name} />`
- * Resolves label, max length, and single/multiline from metadata.
+ * Text field resolved from metadata, single-line vs memo and max length come
+ * from the attribute. `SmartFieldBase` loads the metadata and renders the
+ * loading/error state; this only maps it to the control.
  */
 export class SmartTextField extends SmartFieldBase<string | null, ISmartTextFieldProps> {
   protected renderField(metadata: IAttributeMetadata): React.ReactNode {

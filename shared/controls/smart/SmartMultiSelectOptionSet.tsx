@@ -5,7 +5,10 @@ import { SmartFieldBase, type ISmartFieldProps } from "./SmartFieldBase";
 
 export type ISmartMultiSelectOptionSetProps = ISmartFieldProps<number[]>;
 
-/** Multi-select choice block, options auto-loaded from metadata. */
+/**
+ * Multi-select choice field, options load from the attribute.
+ * `SmartFieldBase` loads the metadata and renders the loading/error state.
+ */
 export class SmartMultiSelectOptionSet extends SmartFieldBase<
   number[],
   ISmartMultiSelectOptionSetProps

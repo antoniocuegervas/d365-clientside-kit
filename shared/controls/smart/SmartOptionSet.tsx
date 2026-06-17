@@ -10,8 +10,9 @@ export interface ISmartOptionSetProps extends ISmartFieldProps<number | null> {
 }
 
 /**
- * `<SmartOptionSet entity="account" attribute="industrycode" value={vm.industry} />`
- * Option list and labels auto-load from the global/local option set.
+ * Choice field, the option list and labels load from the attribute's option
+ * set; `filterOptions` lets a caller prune or reorder before display.
+ * `SmartFieldBase` loads the metadata and renders the loading/error state.
  */
 export class SmartOptionSet extends SmartFieldBase<number | null, ISmartOptionSetProps> {
   protected renderField(metadata: IAttributeMetadata): React.ReactNode {
