@@ -3,7 +3,7 @@ import type { IDateFormatInfo } from "../../context/IViewModelContext";
 
 /**
  * Smart-tier helpers that turn the context's normalized `IDateFormatInfo`
- * (G-06) into the plain presentational props `DateTimeField` accepts , 
+ * into the plain presentational props `DateTimeField` accepts:
  * localized calendar strings, first day of week, and a pattern-based date
  * formatter. Lives in the smart tier so the presentational control stays free
  * of any context type.

@@ -92,7 +92,7 @@ export class WebResourceContextV8 implements IViewModelContext {
     this.webAPI = new CdsWebApi(client);
     this.metadata = new MetadataService(client);
     this.navigation = new V8Navigation(xrm.Utility);
-    // N-03 surface, V8 fidelity is a per-method dial: utility extras degrade
+    // Platform-mirror surface; V8 fidelity is a per-method dial: utility extras degrade
     // (undefined/no-op/reject) and device capture throws "not supported".
     this.utils = utilsFromXrm(
       (message: string) => void this.navigation.openAlertDialog(message),
@@ -105,7 +105,7 @@ export class WebResourceContextV8 implements IViewModelContext {
     this.device = deviceFromSource(undefined, "CRM 8.x webresource");
 
     // Form access binds to the deepest ancestor form when the factory found
-    // one (G-09); otherwise this host's own Page.
+    // one; otherwise this host's own Page.
     const page = formPage ?? xrm.Page;
     if (XrmPageFormAccess.hasForm(page)) {
       this.formAccess = new XrmPageFormAccess(page);
@@ -166,7 +166,7 @@ export class CdsWebApi implements IWebApi {
   }
 
   fetchPage(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {
-    // Already cds-backed; the parsed annotations carry the paging info (N-04).
+    // Already cds-backed; the parsed annotations carry the paging info.
     return this.client.fetch(LibraryUtils.entitySetName(entityLogicalName), fetchXml);
   }
 
@@ -237,7 +237,7 @@ class V8Navigation implements INavigation {
 
   openErrorDialog(options: IErrorDialogOptions): Promise<void> {
     // No native error dialog on 8.x, route message+details to the v8 alert,
-    // the way the legacy shim did (N-02).
+    // the way the legacy shim did.
     const parts = [options.message, options.details].filter((part): part is string => !!part);
     const text =
       parts.join("\n\n") ||

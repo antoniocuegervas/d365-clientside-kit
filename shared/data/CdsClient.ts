@@ -8,7 +8,7 @@ import { normalizeGuid } from "../utils/EntityModel";
  * must target a different Dataverse environment than the hosting session.
  * Inside a webresource/PCF against the current org, prefer `context.webAPI`.
  *
- * AUTH SCOPE (v1, section 6.1): ambient credentials only, the same-origin CRM
+ * AUTH SCOPE (v1): ambient credentials only, the same-origin CRM
  * session, or integrated Windows auth for on-prem orgs reachable from the
  * browser. There is NO token acquisition; cross-origin cloud orgs are out of
  * scope. Do not assume arbitrary cross-org reach.
@@ -35,14 +35,14 @@ export interface IRetrieveMultipleResult {
   nextLink?: string;
   /**
    * Total matching rows for FetchXML `returntotalrecordcount='true'` requests
-   * (N-04). Capped (default 5,000), see {@link totalRecordCountLimitExceeded}.
+   *. Capped (default 5,000), see {@link totalRecordCountLimitExceeded}.
    */
   totalRecordCount?: number;
   /** True when the real total exceeds the count cap, so the total is unreliable. */
   totalRecordCountLimitExceeded?: boolean;
-  /** FetchXML `morerecords` flag, another page exists after this one (N-04). */
+  /** FetchXML `morerecords` flag, another page exists after this one. */
   moreRecords?: boolean;
-  /** FetchXML `pagingcookie` for efficient sequential paging (N-04 follow-on). */
+  /** FetchXML `pagingcookie` for efficient sequential paging. */
   pagingCookie?: string;
 }
 
@@ -212,7 +212,7 @@ export class CdsClient {
     return response.responseText ? JSON.parse(response.responseText) : undefined;
   }
 
-  /** Runs an on-demand classic workflow against one record (legacy scenarios, section 6.2). */
+  /** Runs an on-demand classic workflow against one record (legacy scenarios). */
   async executeWorkflow(workflowId: string, recordId: string): Promise<unknown> {
     return this.executeAction(
       "ExecuteWorkflow",
@@ -278,7 +278,7 @@ function parseCollection(json: string): IRetrieveMultipleResult {
     entities: payload.value ?? [],
     nextLink: payload["@odata.nextLink"],
   };
-  // FetchXML paging annotations (N-04), total via returntotalrecordcount, or
+  // FetchXML paging annotations, total via returntotalrecordcount, or
   // OData $count; more-records + cookie for sequential paging.
   const total =
     payload["@Microsoft.Dynamics.CRM.totalrecordcount"] ?? payload["@odata.count"];

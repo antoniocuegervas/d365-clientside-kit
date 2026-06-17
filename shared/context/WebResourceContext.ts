@@ -74,7 +74,7 @@ export class WebResourceContext implements IViewModelContext {
     this.orgVersion = globalContext.getVersion();
 
     // One same-origin cds-client backs both metadata and execute*/executeWorkflow
-    // (D-014) so custom actions never touch Xrm.WebApi.execute's request-object API.
+    // so custom actions never touch Xrm.WebApi.execute's request-object API.
     const client = new CdsClient({ clientUrl: this.clientUrl });
     this.cdsClient = client;
     this.webAPI = new ModernWebApi(xrm.WebApi, client);
@@ -83,7 +83,7 @@ export class WebResourceContext implements IViewModelContext {
       xrm.Navigation,
       (xrm as unknown as { Utility?: IXrmUtilityLookup }).Utility
     );
-    // Seamless platform mirror (N-03): client/device/utility extras off the
+    // Seamless platform mirror: client/device/utility extras off the
     // global context. Smart tier only.
     this.utils = utilsFromXrm(
       (message: string) => void this.navigation.openAlertDialog(message),
@@ -100,7 +100,7 @@ export class WebResourceContext implements IViewModelContext {
 
     // Webresources hosted on a form can reach the record through Xrm.Page
     // (deprecated but functional in UCI). `formPage` is the deepest ancestor
-    // form resolved by the factory (G-09); fall back to this Xrm's own Page.
+    // form resolved by the factory; fall back to this Xrm's own Page.
     const page = formPage ?? (xrm as unknown as { Page?: IXrmPageLike }).Page;
     if (XrmPageFormAccess.hasForm(page)) {
       this.formAccess = new XrmPageFormAccess(page);
@@ -175,7 +175,7 @@ class ModernWebApi implements IWebApi {
   }
 
   fetchPage(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {
-    // Rides cds-client so the FetchXML paging annotations survive (N-04).
+    // Rides cds-client so the FetchXML paging annotations survive.
     return this.client.fetch(LibraryUtils.entitySetName(entityLogicalName), fetchXml);
   }
 

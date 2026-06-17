@@ -5,7 +5,7 @@ import { TerritoryCascadeViewModel } from "./TerritoryCascadeViewModel";
 
 registerApp(
   "sample-territory-cascade",
-  createViewApp("Territory cascade, chained lookups + option set", TerritoryCascadeView, (host) => ({
+  createViewApp("Territory cascade: chained lookups + option set", TerritoryCascadeView, (host) => ({
     viewModel: new TerritoryCascadeViewModel(host.context),
   }))
 );

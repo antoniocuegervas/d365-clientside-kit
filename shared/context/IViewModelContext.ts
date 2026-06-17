@@ -9,13 +9,13 @@ import type { IEntityReference, IOptionItem } from "../utils/EntityModel";
  * GetGlobalContext(), or parent.Xrm. Presentational controls never see this
  * interface at all.
  *
- * SHAPE, "option B" (D-014 / G-17): a kit-OWNED interface whose method names
+ * SHAPE, "option B": a kit-OWNED interface whose method names
  * and signatures MIRROR `Xrm.WebApi` / `Xrm.Navigation`, so call sites read
  * like the Xrm docs while the fake context stays cast-free and compiler-
  * checked. Reads lean Xrm-faithful (annotated entities + `{ entities,
  * nextLink }`); callers extract values with the LibraryUtils helpers they
- * already know. The normalized MetadataService (D-007) and execute-over-
- * cds-client (D-014) are kept regardless of host. V8 fidelity is a per-method
+ * already know. The normalized MetadataService and execute-over-
+ * cds-client are kept regardless of host. V8 fidelity is a per-method
  * dial, the cheap, familiar methods are mirrored cheaply.
  */
 export interface IViewModelContext {
@@ -33,12 +33,12 @@ export interface IViewModelContext {
   readonly navigation: INavigation;
   readonly utils: IContextUtils;
   /**
-   * Client/form-factor surface (N-03) mirroring `GlobalContext.client`, for
+   * Client/form-factor surface mirroring `GlobalContext.client`, for
    * responsive smart controls (e.g. grid → cards on phone). Smart tier only.
    */
   readonly client: IClientContext;
   /**
-   * Device capture surface (N-03) mirroring `Xrm.Device`, mobile-capable smart
+   * Device capture surface mirroring `Xrm.Device`, mobile-capable smart
    * controls. Presentational controls never see it. Hosts that lack a capability
    * throw a clear "not supported" error.
    */
@@ -48,7 +48,7 @@ export interface IViewModelContext {
   readonly formAccess?: IFormAccess;
 
   /**
-   * Lazily resolves the user's locale formatting (G-06): date format info
+   * Lazily resolves the user's locale formatting: date format info
    * (localized day/month names + first day of week), decimal symbol, and
    * number group separator. Cached per context. Smart controls read this and
    * thread the values into presentational props; the boundary stays clean.
@@ -60,15 +60,15 @@ export interface IViewModelContext {
 export interface IUserInfo {
   id: string;
   name: string;
-  /** User's UI language LCID (e.g. 1033), when the host exposes it (G-06). */
+  /** User's UI language LCID (e.g. 1033), when the host exposes it. */
   languageId?: number;
-  /** Right-to-left UI direction (N-03), drives RTL layout where the host exposes it. */
+  /** Right-to-left UI direction, drives RTL layout where the host exposes it. */
   isRTL?: boolean;
-  /** Minutes offset from UTC for the user's timezone (N-03), when the host exposes it. */
+  /** Minutes offset from UTC for the user's timezone, when the host exposes it. */
   timeZoneOffsetMinutes?: number;
 }
 
-/** Client form factor, mirroring the platform `ClientFormFactor` enum (N-03). */
+/** Client form factor, mirroring the platform `ClientFormFactor` enum. */
 export const ClientFormFactor = {
   Unknown: 0,
   Desktop: 1,
@@ -77,7 +77,7 @@ export const ClientFormFactor = {
 } as const;
 export type ClientFormFactor = (typeof ClientFormFactor)[keyof typeof ClientFormFactor];
 
-/** Client/form-factor surface mirroring `GlobalContext.client` (N-03). */
+/** Client/form-factor surface mirroring `GlobalContext.client`. */
 export interface IClientContext {
   /** Unknown=0, Desktop=1, Tablet=2, Phone=3, for responsive controls. */
   getFormFactor(): ClientFormFactor;
@@ -88,7 +88,7 @@ export interface IClientContext {
   isOffline(): boolean;
 }
 
-/** Image/file payloads captured by `device.*` reuse the navigation file shape (N-03). */
+/** Image/file payloads captured by `device.*` reuse the navigation file shape. */
 export interface ICaptureImageOptions {
   allowEdit?: boolean;
   height?: number;
@@ -102,7 +102,7 @@ export interface IPickFileOptions {
   maximumAllowedFileSize?: number;
 }
 
-/** Geolocation result for `device.getCurrentPosition` (N-03). */
+/** Geolocation result for `device.getCurrentPosition`. */
 export interface IGeoPosition {
   coords: {
     latitude: number;
@@ -116,7 +116,7 @@ export interface IGeoPosition {
   timestamp: number;
 }
 
-/** Device capture surface mirroring `Xrm.Device` (N-03), all Promise-returning. */
+/** Device capture surface mirroring `Xrm.Device`, all Promise-returning. */
 export interface IDeviceContext {
   captureImage(options?: ICaptureImageOptions): Promise<IFileDetails | null>;
   captureAudio(): Promise<IFileDetails | null>;
@@ -126,7 +126,7 @@ export interface IDeviceContext {
   pickFile(options?: IPickFileOptions): Promise<IFileDetails[]>;
 }
 
-/** Localized date-formatting data, normalized to one shape across hosts (G-06). */
+/** Localized date-formatting data, normalized to one shape across hosts. */
 export interface IDateFormatInfo {
   /** Full weekday names, Sunday first (length 7). */
   dayNames: string[];
@@ -142,7 +142,7 @@ export interface IDateFormatInfo {
   shortDatePattern?: string;
 }
 
-/** User locale/number formatting resolved from the host (G-06). */
+/** User locale/number formatting resolved from the host. */
 export interface IFormattingInfo {
   /** Decimal separator, e.g. "." or ",". */
   decimalSymbol?: string;
@@ -151,7 +151,7 @@ export interface IFormattingInfo {
   dateFormatInfo?: IDateFormatInfo;
 }
 
-/** A transaction currency's display info (G-06b). */
+/** A transaction currency's display info. */
 export interface ICurrencyInfo {
   /** Currency symbol glyph, e.g. "$", "€". */
   symbol: string;
@@ -185,7 +185,7 @@ export interface IWebApi {
   /** Convenience for the kit's dominant query path: plain FetchXML in. */
   fetch(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult>;
   /**
-   * FetchXML query that surfaces the paging annotations (N-04), total record
+   * FetchXML query that surfaces the paging annotations, total record
    * count, more-records, paging cookie. Rides cds-client on every host (Xrm.WebApi
    * drops these annotations), so rich server-side `page`/`count` paging works
    * uniformly. Use for jump-to-page / total-count; `fetch` stays the plain path.
@@ -193,13 +193,13 @@ export interface IWebApi {
   fetchPage(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult>;
   /**
    * Follows an `@odata.nextLink` (a full collection URL) for server-side paging
-   * (G-01). Dataverse paging is forward-cookie based; rides cds-client on every
+   *. Dataverse paging is forward-cookie based; rides cds-client on every
    * host so an absolute nextLink can be re-issued (Xrm.WebApi can't take one).
    */
   retrieveMultipleByUrl(url: string): Promise<IRetrieveMultipleResult>;
   /**
-   * Executes a custom action (G-08). Unbound by default; pass `boundTo` for an
-   * action bound to a record. Rides cds-client on every host (D-014), so
+   * Executes a custom action. Unbound by default; pass `boundTo` for an
+   * action bound to a record. Rides cds-client on every host, so
    * production never touches `Xrm.WebApi.online.execute`'s request-object
    * contract. Returns the action's response body (or undefined when empty).
    */
@@ -208,12 +208,12 @@ export interface IWebApi {
     parameters?: Record<string, unknown>,
     boundTo?: { entityLogicalName: string; id: string }
   ): Promise<unknown>;
-  /** Runs an on-demand classic workflow against one record by id (G-08). */
+  /** Runs an on-demand classic workflow against one record by id. */
   executeWorkflow(workflowId: string, recordId: string): Promise<unknown>;
 }
 
 /**
- * Options for the native CRM lookup dialog (G-02), shaped to mirror
+ * Options for the native CRM lookup dialog, shaped to mirror
  * `Xrm.Utility.lookupObjects` (which is not in the public typings). Each
  * member maps 1:1 to the host call.
  */
@@ -233,7 +233,7 @@ export interface ILookupOptions {
 }
 
 /**
- * Error-dialog options mirroring `Xrm.Navigation.ErrorDialogOptions` (N-02) , 
+ * Error-dialog options mirroring `Xrm.Navigation.ErrorDialogOptions`.
  * the idiomatic CRM error surface. When `details` is set the dialog shows a
  * "Download Log File" button; when only `errorCode` is set the platform looks
  * up the message server-side.
@@ -244,7 +244,7 @@ export interface IErrorDialogOptions {
   errorCode?: number;
 }
 
-/** File payload for `openFile`, mirroring `Xrm.Navigation.FileDetails` (N-02). */
+/** File payload for `openFile`, mirroring `Xrm.Navigation.FileDetails`. */
 export interface IFileDetails {
   /** Base64-encoded file contents. */
   fileContent: string;
@@ -253,7 +253,7 @@ export interface IFileDetails {
   mimeType: string;
 }
 
-/** `openFile` options, `openMode` 1 = open in-browser, 2 = save (N-02). */
+/** `openFile` options, `openMode` 1 = open in-browser, 2 = save. */
 export interface IOpenFileOptions {
   openMode?: 1 | 2;
 }
@@ -265,7 +265,7 @@ export interface INavigationSize {
 }
 
 /**
- * Navigation options mirroring `Xrm.Navigation.NavigationOptions` (N-02).
+ * Navigation options mirroring `Xrm.Navigation.NavigationOptions`.
  * `target` 1 = inline (full page), 2 = dialog.
  */
 export interface INavigationOptions {
@@ -277,7 +277,7 @@ export interface INavigationOptions {
 }
 
 /**
- * Page inputs for the general `navigateTo` (N-02), mirroring the platform's
+ * Page inputs for the general `navigateTo`, mirroring the platform's
  * `PageInput` union. Covers the navigable page types a webresource/PCF reaches
  * for; the adapter passes them straight to the host.
  */
@@ -288,7 +288,7 @@ export type INavigateToPageInput =
   | { pageType: "dashboard"; dashboardId?: string }
   | { pageType: "webresource"; webresourceName: string; data?: string };
 
-/** Window options for raw `openWebResource` (N-02). */
+/** Window options for raw `openWebResource`. */
 export interface IWindowOptions {
   height?: number;
   width?: number;
@@ -312,32 +312,32 @@ export interface INavigation {
   openConfirmDialog(text: string, title?: string): Promise<boolean>;
   openUrl(url: string): void;
   /**
-   * Opens the native CRM lookup dialog (G-02), the full platform picker
+   * Opens the native CRM lookup dialog, the full platform picker
    * (recently used, view switching, cross-entity). Resolves the chosen
    * records (empty array on cancel). Mirrors `Xrm.Utility.lookupObjects`;
    * throws on hosts that cannot summon it.
    */
   lookupObjects(options: ILookupOptions): Promise<IEntityReference[]>;
   /**
-   * Shows the native CRM error dialog (N-02), the idiomatic error surface.
+   * Shows the native CRM error dialog, the idiomatic error surface.
    * Mirrors `Xrm.Navigation.openErrorDialog`. Modern/PCF delegate natively; V8
    * routes `message`+`details` to the v8 alert.
    */
   openErrorDialog(options: IErrorDialogOptions): Promise<void>;
   /**
-   * Opens or downloads a file blob (N-02). Mirrors `Xrm.Navigation.openFile`.
+   * Opens or downloads a file blob. Mirrors `Xrm.Navigation.openFile`.
    * Throws a clear "not supported" on hosts (V8) that lack it.
    */
   openFile(file: IFileDetails, options?: IOpenFileOptions): Promise<void>;
   /**
-   * General platform navigation (N-02), entityrecord / entitylist / custom
+   * General platform navigation, entityrecord / entitylist / custom
    * page / dashboard / webresource. Mirrors `Xrm.Navigation.navigateTo`.
    * `openClientUI` is the kit's opinionated webresource subset; this is the
    * rest. V8 maps the cases it can and throws clearly for the rest.
    */
   navigateTo(pageInput: INavigateToPageInput, options?: INavigationOptions): Promise<void>;
   /**
-   * Raw webresource open (N-02), distinct from the opinionated `openClientUI`.
+   * Raw webresource open, distinct from the opinionated `openClientUI`.
    * Mirrors `Xrm.Navigation.openWebResource`.
    */
   openWebResource(webResourceName: string, windowOptions?: IWindowOptions, data?: string): void;
@@ -347,21 +347,21 @@ export interface IContextUtils {
   /** Fire-and-forget alert, same as openAlertDialog without awaiting. */
   alert(message: string): void;
   /**
-   * Localized UI string from a RESX webresource (N-03), mirroring
+   * Localized UI string from a RESX webresource, mirroring
    * `Xrm.Utility.getResourceString`, the platform's string-localization
-   * mechanism (serves G-14). Returns undefined on hosts without resx access.
+   * mechanism. Returns undefined on hosts without resx access.
    */
   getResourceString(webResourceName: string, key: string): string | undefined;
-  /** Global busy overlay during long ViewModel operations (N-03). No-op where unsupported. */
+  /** Global busy overlay during long ViewModel operations. No-op where unsupported. */
   showProgressIndicator(message: string): void;
   closeProgressIndicator(): void;
   /**
-   * Allowed status-reason transitions for a state (N-03), mirroring
+   * Allowed status-reason transitions for a state, mirroring
    * `Xrm.Utility.getAllowedStatusTransitions`. Rejects clearly where unsupported.
    */
   getAllowedStatusTransitions(entityLogicalName: string, stateCode: number): Promise<unknown>;
   /**
-   * Refreshes the host grid after a ribbon action (N-03), mirroring
+   * Refreshes the host grid after a ribbon action, mirroring
    * `Xrm.Utility.refreshParentGrid`. No-op where unsupported.
    */
   refreshParentGrid(lookupValue: unknown): void;
@@ -423,7 +423,7 @@ export interface IEntityMetadata {
 }
 
 /**
- * One resolved grid column from a saved view's layout (N-01). For a
+ * One resolved grid column from a saved view's layout. For a
  * link-entity/aliased column, `name` is the aliased `alias.attr` key and
  * `relatedEntity` names the column's OWNING entity (so headers/types resolve
  * against the related entity, not the view's root).
@@ -449,7 +449,7 @@ export interface IViewDefinition {
   entityLogicalName: string;
   fetchXml: string;
   layoutXml: string;
-  /** Raw `layoutjson` when the view carries it (N-01); the preferred layout source. */
+  /** Raw `layoutjson` when the view carries it; the preferred layout source. */
   layoutJson?: string;
   /**
    * Columns in cell order. Preferred from `layoutjson` (carries related-entity
@@ -467,20 +467,20 @@ export interface IMetadataApi {
   /** Loads a saved view by id, or the entity's default grid view when omitted. */
   getView(entityLogicalName: string, savedQueryId?: string): Promise<IViewDefinition>;
   /**
-   * Resolves a saved (system) view by its display name for an entity (G-05).
+   * Resolves a saved (system) view by its display name for an entity.
    * Throws a readable error when no active view matches or the name is
    * ambiguous. The near-universal "open this named view in a webresource"
    * pattern that avoids hardcoding savedquery ids.
    */
   getViewByName(entityLogicalName: string, viewName: string): Promise<IViewDefinition>;
   /**
-   * Resolves a transaction currency's symbol/precision by id (G-06b), cached
+   * Resolves a transaction currency's symbol/precision by id, cached
    * per currency. Money controls supply the result to the `currencySymbol`
    * prop so a record shows its real currency, not a hardcoded glyph.
    */
   getCurrencySymbol(transactionCurrencyId: string): Promise<ICurrencyInfo>;
   /**
-   * Resolves an entity's icon URL (G-10): custom entities → their vector
+   * Resolves an entity's icon URL: custom entities → their vector
    * webresource; OOTB entities → the platform `svg_<objecttypecode>.svg`.
    * Returns undefined when no icon can be resolved. Cached per entity.
    */

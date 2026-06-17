@@ -28,7 +28,8 @@ const useStyles = makeStyles({
 });
 
 /**
- * Date / date-time field using the official Fluent v9 compat pickers (* the sanctioned exception where v9 has no native equivalent).
+ * Date / date-time field using the official Fluent v9 compat pickers (the
+ * sanctioned exception where v9 has no native equivalent).
  */
 export class DateTimeField extends ObserverComponent<IDateTimeFieldProps> {
   constructor(props: IDateTimeFieldProps) {

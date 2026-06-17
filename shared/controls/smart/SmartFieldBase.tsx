@@ -35,7 +35,7 @@ export interface ISmartFieldProps<TValue> {
 
 interface ISmartFieldState {
   metadata?: IAttributeMetadata;
-  /** User locale formatting (G-06), loaded only when the control opts in. */
+  /** User locale formatting, loaded only when the control opts in. */
   formatting?: IFormattingInfo;
   loadError?: string;
 }
@@ -63,7 +63,7 @@ export abstract class SmartFieldBase<
   }
 
   /**
-   * Override to true on controls that localize via user settings (G-06) , 
+   * Override to true on controls that localize via user settings
    * date and numeric fields. Defaults to false so other fields skip the
    * extra context call.
    */

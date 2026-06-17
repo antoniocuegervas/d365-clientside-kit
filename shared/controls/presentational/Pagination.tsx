@@ -10,7 +10,7 @@ import { ObserverComponent } from "../../reactivity/ObserverComponent";
 import { valueOf, type OrObservable } from "../../reactivity/Observable";
 
 /**
- * Pagination control (G-01 / N-04), presentational: it displays the
+ * Pagination control, presentational: it displays the
  * supplied page state and raises intent. Two renderings:
  *
  * - **simple** (default): previous / "Page N" / next, for Dataverse's

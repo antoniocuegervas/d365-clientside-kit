@@ -88,7 +88,7 @@ const Body: React.FC<ICompanySearchViewProps> = ({ viewModel: vm }) => {
       ) : (
         // 99%-native path: the entity's saved grid view, exactly as the form
         // designer defined it, impossible to embed natively in a webresource.
-        // Paged server-side (G-01) and double-click a row to open the record.
+        // Paged server-side and double-click a row to open the record.
         <SmartViewGrid
           entity="account"
           pageSize={25}

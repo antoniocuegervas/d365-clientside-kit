@@ -3,7 +3,7 @@ import { Observable } from "../../../shared/reactivity/Observable";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
 
 /**
- * Template ViewModel, the section 4.4 shape every app ViewModel follows:
+ * Template ViewModel, the shape every app ViewModel follows:
  * constructor(context) → public Observables → handler methods → dispose.
  *
  * Most fields here never touch the ViewModel at all: the smart controls in

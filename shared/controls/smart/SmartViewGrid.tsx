@@ -104,10 +104,10 @@ interface ISmartViewGridState {
 /**
  * Read-only saved-view grid: one view id (or name) in, native-looking
  * grid out. The smart tier loads the view for its layout, runs its data via
- * `?savedQuery={id}` with quick find / filters / server sort layered on top
- *, resolves headers from metadata, and feeds a presentational
- * DataGrid. An `overrideFetchXml` observable swaps the data source while
- * keeping the view's layout.
+ * `?savedQuery={id}` with quick find / filters / server sort layered on top,
+ * resolves headers from metadata, and feeds a presentational DataGrid. An
+ * `overrideFetchXml` observable swaps the data source while keeping the view's
+ * layout.
  */
 export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartViewGridState> {
   /** This wrapper is the host for grid data. */

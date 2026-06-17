@@ -9,7 +9,7 @@ import { TemplateViewModel } from "./TemplateViewModel";
  */
 registerApp(
   "template",
-  createViewApp("Template, minimal scaffold", TemplateView, (host) => ({
+  createViewApp("Template: minimal scaffold", TemplateView, (host) => ({
     viewModel: new TemplateViewModel(host.context),
   }))
 );

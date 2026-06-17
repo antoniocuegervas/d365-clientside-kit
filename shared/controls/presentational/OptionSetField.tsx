@@ -8,7 +8,7 @@ import type { ICommonFieldProps } from "./fieldProps";
 
 export interface IOptionSetFieldProps extends ICommonFieldProps {
   /**
-   * Available options, host-owned (exemplar contract). Smart wrappers
+   * Available options, host-owned (the host owns the option list). Smart wrappers
    * populate this after metadata loads; stories pass fixture arrays.
    */
   options: OrObservable<IOptionItem[]>;
@@ -22,7 +22,7 @@ export interface IOptionSetFieldProps extends ICommonFieldProps {
 
 const BLANK = "__blank__";
 
-/** Single-select option set, native parity for the standard choice field. */
+/** Single-select option set matching the standard choice field. */
 export class OptionSetField extends ObserverComponent<IOptionSetFieldProps> {
   constructor(props: IOptionSetFieldProps) {
     super(props);

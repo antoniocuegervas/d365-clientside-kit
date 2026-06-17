@@ -71,13 +71,13 @@ export interface IPcfContextLike {
   };
   /** Undocumented but stable, the only client-url source inside PCF. */
   page?: { getClientUrl?(): string };
-  /** Optional native lookup dialog, when the PCF host surfaces one (G-02). */
+  /** Optional native lookup dialog, when the PCF host surfaces one. */
   utils?: IXrmUtilityLookup;
-  /** Client/form-factor surface (N-03). */
+  /** Client/form-factor surface. */
   client?: IXrmClientLike;
-  /** Device capture surface (N-03). */
+  /** Device capture surface. */
   device?: IXrmDeviceLike;
-  /** Control resources for localized strings (N-03). */
+  /** Control resources for localized strings. */
   resources?: { getString?(id: string): string };
 }
 
@@ -121,7 +121,7 @@ export class PCFContext implements IViewModelContext {
     this.webAPI = new PcfWebApi(source.webAPI, client);
     this.metadata = new MetadataService(client);
     this.navigation = new PcfNavigation(source.navigation, source.utils);
-    // N-03 surface: client/device native to PCF; resource strings via the
+    // Platform-mirror surface: client/device native to PCF; resource strings via the
     // control's resources; the Xrm.Utility progress/status extras have no PCF
     // equivalent and degrade (no-op / reject).
     const resources = source.resources;
@@ -217,7 +217,7 @@ class PcfWebApi implements IWebApi {
   }
 
   fetchPage(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {
-    // Rides cds-client so the FetchXML paging annotations survive (N-04).
+    // Rides cds-client so the FetchXML paging annotations survive.
     return this.client.fetch(LibraryUtils.entitySetName(entityLogicalName), fetchXml);
   }
 

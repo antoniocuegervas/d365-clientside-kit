@@ -13,7 +13,7 @@ export interface ITextFieldProps extends ICommonFieldProps {
   placeholder?: string;
 }
 
-/** Single-line text, native parity for the standard text field. */
+/** Single-line text matching the standard text field. */
 export class TextField extends ObserverComponent<ITextFieldProps> {
   constructor(props: ITextFieldProps) {
     super(props);

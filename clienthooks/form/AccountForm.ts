@@ -41,7 +41,7 @@ export class AccountForm extends ClientHook {
   readonly onSave = (executionContext: Xrm.Events.EventContext): void => {
     const formContext = AccountForm.formContextOf(executionContext);
 
-    // N-07: plain field notification (warning icon + tooltip).
+    // Plain field notification (warning icon + tooltip).
     const PHONE_ID = "account-phone-recommended";
     const phone = formContext.getAttribute("telephone1")?.getValue();
     if (phone) {
@@ -55,8 +55,8 @@ export class AccountForm extends ClientHook {
       );
     }
 
-    // N-12: rich, actionable notification, a recommendation with a clickable
-    // "fix it" action. Cleared with the same N-07 helper (no separate remover).
+    // Rich, actionable notification: a recommendation with a clickable
+    // "fix it" action. Cleared with the same helper (no separate remover).
     const SITE_ID = "account-website-recommended";
     const website = formContext.getAttribute("websiteurl")?.getValue();
     if (website) {

@@ -5,10 +5,10 @@ import type { IGridRow } from "../../../shared/controls/presentational/DataGrid"
 import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
 
 /**
- * Canonical multi-query merged grid: rows from TWO FetchXML sources
- * my open opportunities and opportunities won in the last 30 days , 
- * combined into one native-looking grid. No native subgrid can union result
- * sets; the ViewModel merges, the presentational grid displays.
+ * Canonical multi-query merged grid: rows from two FetchXML sources (my open
+ * opportunities and opportunities won in the last 30 days) combined into one
+ * native-looking grid. No native subgrid can union result sets; the ViewModel
+ * merges, the presentational grid displays.
  */
 export class MergedGridViewModel {
   readonly rows = new Observable<IGridRow[]>([]);

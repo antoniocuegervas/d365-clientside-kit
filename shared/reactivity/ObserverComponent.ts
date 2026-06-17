@@ -6,7 +6,7 @@ import { isObservable, type ISubscribable, type OrObservable, type Unsubscribe }
  *
  * Subclasses call `this.observe(...)` once (constructor or componentDidMount)
  * with every Observable/ObservableEvent they render from. The base class
- * re-renders on change and tears everything down on unmount, the section 4.3 safety
+ * re-renders on change and tears everything down on unmount, the safety
  * rules are enforced by structure, not memory.
  *
  * Contract notes:

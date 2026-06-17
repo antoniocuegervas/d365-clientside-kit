@@ -11,7 +11,7 @@ export interface IEntityReference {
   logicalName: string;
   /** Primary-name display value, when known. */
   name?: string;
-  /** Entity icon URL for display (G-10); set by the smart tier when enabled. */
+  /** Entity icon URL for display; set by the smart tier when enabled. */
   iconUrl?: string;
 }
 
@@ -25,7 +25,7 @@ export interface IOptionItem {
 
 /**
  * The `Xrm.LookupValue` shape, what a form lookup attribute's `setValue`
- * expects and what `getValue` returns (N-05). Note the braced GUID Xrm uses on
+ * expects and what `getValue` returns. Note the braced GUID Xrm uses on
  * write and `entityType` (the platform's name for the logical name).
  */
 export interface IXrmLookupValue {
@@ -48,7 +48,7 @@ export function braceGuid(id: string): string {
 }
 
 /**
- * Converts a kit reference to the `Xrm.LookupValue` write shape (N-05): braced
+ * Converts a kit reference to the `Xrm.LookupValue` write shape: braced
  * GUID + `entityType`. Apps push this onto a form lookup attribute.
  */
 export function toLookupValue(reference: IEntityReference): IXrmLookupValue {
@@ -61,7 +61,7 @@ export function toLookupValue(reference: IEntityReference): IXrmLookupValue {
 
 /**
  * Converts an `Xrm.LookupValue` (or the array a form returns) back to a kit
- * `EntityReference` (N-05). Uses the first element; returns null when empty.
+ * `EntityReference`. Uses the first element; returns null when empty.
  */
 export function fromLookupValue(
   value: IXrmLookupValue | IXrmLookupValue[] | null | undefined
@@ -92,7 +92,7 @@ export class EntityReference implements IEntityReference {
     );
   }
 
-  /** This reference as an `Xrm.LookupValue` for writing to a form attribute (N-05). */
+  /** This reference as an `Xrm.LookupValue` for writing to a form attribute. */
   toLookupValue(): IXrmLookupValue {
     return toLookupValue(this);
   }

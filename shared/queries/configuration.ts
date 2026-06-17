@@ -2,7 +2,7 @@ import type { IViewModelContext } from "../context/IViewModelContext";
 import { LibraryUtils } from "../utils/LibraryUtils";
 
 /**
- * The "configuration entity" pattern (G-05): a custom table holds key/value
+ * The "configuration entity" pattern: a custom table holds key/value
  * settings (one row per key) that apps read at runtime instead of hardcoding
  * environment-specific values. Appears on nearly every D365 project.
  */

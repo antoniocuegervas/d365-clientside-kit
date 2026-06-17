@@ -24,7 +24,7 @@ export interface IStandardLookupFieldProps {
 }
 
 /**
- * Standalone, dialog-only lookup (G-02): a value display + Browse button that
+ * Standalone, dialog-only lookup: a value display + Browse button that
  * opens the native CRM picker (`lookupObjects`), no inline search box and no
  * attribute binding. Use it for cross-entity pickers or when only the full
  * platform dialog will do. For attribute-bound lookups prefer

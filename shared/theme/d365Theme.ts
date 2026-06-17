@@ -1,8 +1,8 @@
 import { webLightTheme, type Theme } from "@fluentui/react-components";
 
 /**
- * The kit's single D365-aligned Fluent v9 theme (one theme module,
- * no v8/v9 mixing).
+ * The kit's single D365-aligned Fluent v9 theme (one theme module, no v8/v9
+ * mixing).
  *
  * The refreshed Unified Interface is built on Fluent v9's own design
  * language: webLightTheme's brand ramp (#0f6cbd communication blue) and

@@ -13,7 +13,7 @@ export interface IBooleanFieldProps extends ICommonFieldProps {
   falseLabel?: string;
 }
 
-/** Two-option toggle, native parity for the UCI yes/no field. */
+/** Two-option toggle matching the UCI yes/no field. */
 export class BooleanField extends ObserverComponent<IBooleanFieldProps> {
   constructor(props: IBooleanFieldProps) {
     super(props);

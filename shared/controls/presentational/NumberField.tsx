@@ -50,7 +50,7 @@ export class NumberField extends ObserverComponent<INumberFieldProps, INumberFie
           })
         : value.toLocaleString();
     }
-    // CRM user-setting separators (G-06): format manually so the symbols match.
+    // CRM user-setting separators: format manually so the symbols match.
     const fixed = precision !== undefined ? value.toFixed(precision) : String(value);
     const negative = fixed.startsWith("-");
     const [intPart, fracPart] = (negative ? fixed.slice(1) : fixed).split(".");

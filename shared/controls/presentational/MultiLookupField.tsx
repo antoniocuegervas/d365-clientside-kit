@@ -16,7 +16,7 @@ import type { ICommonFieldProps } from "./fieldProps";
 export interface IMultiLookupFieldProps extends ICommonFieldProps {
   /** Host-owned selected references. */
   selected: Observable<IEntityReference[]>;
-  /** Host-owned search results (control never queries). */
+  /** Host-owned search results (the control never queries). */
   results: OrObservable<IEntityReference[]>;
   onSearchTextChanged?: (searchText: string) => void;
   onChange?: (selected: IEntityReference[]) => void;

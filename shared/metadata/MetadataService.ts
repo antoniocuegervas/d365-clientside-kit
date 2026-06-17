@@ -269,7 +269,7 @@ export class MetadataService implements IMetadataApi {
   }
 
   /**
-   * Resolves an entity's icon URL (G-10). Rules carried from production (the
+   * Resolves an entity's icon URL. Rules carried from production (the
    * OOTB `svg_<otc>.svg` path is a tested assumption, not documented platform
    * behavior): custom entities (logical name contains "_") → their vector
    * webresource; OOTB entities → `/_imgs/svg_<ObjectTypeCode>.svg`.
@@ -290,7 +290,7 @@ export class MetadataService implements IMetadataApi {
       : undefined;
   }
 
-  /** Resolves a transaction currency's symbol + precision by id (G-06b). */
+  /** Resolves a transaction currency's symbol + precision by id. */
   private async loadCurrencySymbol(transactionCurrencyId: string): Promise<ICurrencyInfo> {
     const raw = await this.client.retrieveRecord(
       "transactioncurrencies",
@@ -304,7 +304,7 @@ export class MetadataService implements IMetadataApi {
   }
 
   /**
-   * Resolves a system view by display name (G-05). Proven query shape: filter
+   * Resolves a system view by display name. Proven query shape: filter
    * savedqueries on name + returnedtypecode + active state; expect exactly one.
    */
   private async loadViewByName(
@@ -337,7 +337,7 @@ function toViewDefinition(
 ): IViewDefinition {
   const layoutXml = (raw.layoutxml as string) ?? "";
   const layoutJson = (raw.layoutjson as string) ?? "";
-  // Prefer layoutjson, it carries related-entity info cleanly (N-01); fall
+  // Prefer layoutjson, it carries related-entity info cleanly; fall
   // back to layoutxml when it's absent or yields no columns.
   const jsonColumns = layoutJson ? parseLayoutColumnsFromJson(layoutJson) : [];
   const columns = jsonColumns.length > 0 ? jsonColumns : parseLayoutColumns(layoutXml);
@@ -426,7 +426,7 @@ function castTypeForOptionSet(typeName: string): string {
  * Pulls ordered columns out of a savedquery layoutxml. Regex-based so it runs
  * identically in browsers, jsdom, and PCF sandboxes. Hidden cells are dropped;
  * `disablesorting` is honored. layoutxml link-entity cells use opaque composite
- * alias names, so related-entity resolution comes from layoutjson (N-01), this
+ * alias names, so related-entity resolution comes from layoutjson, this
  * path does not populate `relatedEntity`.
  */
 export function parseLayoutColumns(layoutXml: string): IViewColumn[] {
@@ -460,7 +460,7 @@ interface IRawLayoutCell {
 }
 
 /**
- * Parses the modern `layoutjson` layout (N-01). Unlike layoutxml, each cell
+ * Parses the modern `layoutjson` layout. Unlike layoutxml, each cell
  * carries `RelatedEntityName`, present only for related-entity (link-entity /
  * aliased) columns, so headers and types can resolve against the column's
  * OWNING entity. Reads `Rows[0].Cells` in order, dropping hidden cells.

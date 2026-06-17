@@ -113,7 +113,7 @@ export class CompanySearchViewModel {
       });
     } catch (error) {
       if (!this.tracker.isDisposed) {
-        // The idiomatic CRM error surface (N-02): native error chrome plus a
+        // The idiomatic CRM error surface: native error chrome plus a
         // Download Log File button when details are present.
         void this.context.navigation.openErrorDialog({
           message: "Could not save the account.",

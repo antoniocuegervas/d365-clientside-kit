@@ -24,7 +24,7 @@ export interface ILookupFieldProps extends ICommonFieldProps {
   /**
    * "inline" (default) is the search-as-you-type combobox; "dialog" shows the
    * selected value + a Browse button that raises {@link onBrowse} (the smart
-   * tier opens the native CRM picker), G-02.
+   * tier opens the native CRM picker).
    */
   mode?: "inline" | "dialog";
   /** Raised when the Browse button is clicked in dialog mode. */

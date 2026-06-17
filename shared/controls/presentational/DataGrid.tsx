@@ -56,12 +56,12 @@ export interface IDataGridProps {
   onRowClick?: (row: IGridRow) => void;
   /**
    * Row invoke (double-click / Enter), distinct from select. The smart grid
-   * defaults this to "open the record" (G-01).
+   * defaults this to "open the record".
    */
   onItemInvoked?: (row: IGridRow) => void;
   /** Host-owned selected row key for highlight; optional. */
   selectedKey?: Observable<string | null>;
-  /** Enable multi-select checkboxes (G-01). */
+  /** Enable multi-select checkboxes. */
   multiSelect?: boolean;
   /** Host-owned set of selected row keys for multi-select. */
   selectedKeys?: Observable<string[]>;

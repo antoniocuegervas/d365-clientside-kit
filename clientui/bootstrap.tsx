@@ -40,7 +40,7 @@ export async function bootstrap(options: IBootstrapOptions = {}): Promise<Root |
   }
 
   try {
-    // 2. Parse app selection: ?app= and/or CRM data payload (step 3).
+    // 2. Parse app selection: ?app= and/or CRM data payload.
     const params = LibraryUtils.parseWebResourceParams(options.search ?? win.location.search);
 
     // 3. Wait for Xrm in this window or the parent, with a visible failure.

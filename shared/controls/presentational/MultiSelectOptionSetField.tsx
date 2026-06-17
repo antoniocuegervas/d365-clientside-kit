@@ -14,7 +14,7 @@ export interface IMultiSelectOptionSetFieldProps extends ICommonFieldProps {
   placeholder?: string;
 }
 
-/** Multi-select option set, native parity for the multi-choice field. */
+/** Multi-select option set matching the multi-choice field. */
 export class MultiSelectOptionSetField extends ObserverComponent<IMultiSelectOptionSetFieldProps> {
   constructor(props: IMultiSelectOptionSetFieldProps) {
     super(props);

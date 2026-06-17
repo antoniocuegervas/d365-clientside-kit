@@ -1,7 +1,7 @@
 import type { IApp } from "./AppContract";
 
 /**
- * THE app registry (step 6), one obvious file mapping app keys to app
+ * THE app registry, one obvious file mapping app keys to app
  * modules. Apps self-register from clientui/apps/index.ts.
  */
 const apps = new Map<string, IApp>();

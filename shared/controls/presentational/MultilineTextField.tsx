@@ -14,7 +14,7 @@ export interface IMultilineTextFieldProps extends ICommonFieldProps {
   rows?: number;
 }
 
-/** Multiline text, native parity for the standard memo field. */
+/** Multiline text matching the standard memo field. */
 export class MultilineTextField extends ObserverComponent<IMultilineTextFieldProps> {
   constructor(props: IMultilineTextFieldProps) {
     super(props);

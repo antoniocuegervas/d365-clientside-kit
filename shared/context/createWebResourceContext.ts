@@ -9,7 +9,7 @@ import { WebResourceContextV8, type IXrmV8Like } from "./WebResourceContextV8";
  * window's `Xrm`, ordered deepest-first (self, then parent, then grandparent…).
  *
  * Webresources can be nested several frames deep (dialogs, embedded iframes),
- * so checking only `window` and `window.parent` misses the host Xrm (G-09).
+ * so checking only `window` and `window.parent` misses the host Xrm.
  * The walk stops at the top frame and on cross-origin boundaries, both raise
  * or short-circuit gracefully inside the try/catch.
  */
@@ -72,8 +72,8 @@ export function chooseXrm(candidates: unknown[]): unknown {
 }
 
 /**
- * The deepest ancestor whose `Xrm.Page` actually has a record form behind it , 
- * the nearest enclosing form context for a nested webresource (G-09). Returns
+ * The deepest ancestor whose `Xrm.Page` actually has a record form behind it,
+ * the nearest enclosing form context for a nested webresource. Returns
  * undefined for standalone webresources with no form in any ancestor.
  */
 export function findDeepestFormPage(candidates: unknown[]): IXrmPageLike | undefined {
