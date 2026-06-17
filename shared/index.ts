@@ -80,7 +80,7 @@ export {
   createContextFromXrm,
   findXrm,
 } from "./context/createWebResourceContext";
-export { XrmPageFormAccess, type IXrmPageLike } from "./context/XrmFormAccess";
+export { XrmPageFormAccess, type IXrmPageLike } from "./context/hostSurface";
 export {
   ViewModelContextProvider,
   ViewModelReactContext,

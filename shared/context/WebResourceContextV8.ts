@@ -18,20 +18,20 @@ import type {
   IWebApi,
   IWindowOptions,
 } from "./IViewModelContext";
-import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
-import { resolveFormatting } from "./formatting";
+import { callLookupObjects, type IXrmUtilityLookup } from "./hostSurface";
+import { resolveFormatting } from "./hostSurface";
 import {
   clientFromSource,
   deviceFromSource,
   utilsFromXrm,
   type IXrmUtilityExtras,
-} from "./contextSurface";
+} from "./hostSurface";
 import type {
   IClientContext,
   IDeviceContext,
   IFormattingInfo,
 } from "./IViewModelContext";
-import { XrmPageFormAccess, type IXrmPageLike } from "./XrmFormAccess";
+import { XrmPageFormAccess, type IXrmPageLike } from "./hostSurface";
 
 /**
  * Structural shape of the CRM 8.x client API surface this adapter relies on.

@@ -2,15 +2,15 @@ import { CdsClient, type IRetrieveMultipleResult } from "../data/CdsClient";
 import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
-import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
-import { normalizeDateFormatInfo, resolveFormatting } from "./formatting";
+import { callLookupObjects, type IXrmUtilityLookup } from "./hostSurface";
+import { normalizeDateFormatInfo, resolveFormatting } from "./hostSurface";
 import {
   clientFromSource,
   deviceFromSource,
   utilsFromXrm,
   type IXrmClientLike,
   type IXrmDeviceLike,
-} from "./contextSurface";
+} from "./hostSurface";
 import type {
   IClientContext,
   IContextUtils,

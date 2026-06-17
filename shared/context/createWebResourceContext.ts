@@ -1,6 +1,6 @@
 import type { IViewModelContext } from "./IViewModelContext";
-import type { IXrmPageLike } from "./XrmFormAccess";
-import { XrmPageFormAccess } from "./XrmFormAccess";
+import type { IXrmPageLike } from "./hostSurface";
+import { XrmPageFormAccess } from "./hostSurface";
 import { WebResourceContext } from "./WebResourceContext";
 import { WebResourceContextV8, type IXrmV8Like } from "./WebResourceContextV8";
 

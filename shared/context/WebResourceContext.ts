@@ -2,8 +2,8 @@ import { CdsClient, type IRetrieveMultipleResult } from "../data/CdsClient";
 import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
-import { callLookupObjects, type IXrmUtilityLookup } from "./lookupObjects";
-import { normalizeDateFormatInfo, resolveFormatting } from "./formatting";
+import { callLookupObjects, type IXrmUtilityLookup } from "./hostSurface";
+import { normalizeDateFormatInfo, resolveFormatting } from "./hostSurface";
 import {
   clientFromSource,
   deviceFromSource,
@@ -11,7 +11,7 @@ import {
   type IXrmClientLike,
   type IXrmDeviceLike,
   type IXrmUtilityExtras,
-} from "./contextSurface";
+} from "./hostSurface";
 import type {
   IClientContext,
   IContextUtils,
@@ -31,7 +31,7 @@ import type {
   IWebApi,
   IWindowOptions,
 } from "./IViewModelContext";
-import { XrmPageFormAccess, type IXrmPageLike } from "./XrmFormAccess";
+import { XrmPageFormAccess, type IXrmPageLike } from "./hostSurface";
 
 /**
  * WebResourceContext, IViewModelContext over a modern (v9.2+/UCI) host.
