@@ -44,14 +44,20 @@ export class ActivitiesGridViewModel {
   };
 
   private async fetchActivity(entity: string, typeLabel: string): Promise<IGridRow[]> {
-    const fetchXml =
-      `<fetch version="1.0" output-format="xml-platform" mapping="logical" top="25">` +
-      `<entity name="${entity}">` +
-      `<attribute name="subject" /><attribute name="scheduledend" />` +
-      `<attribute name="regardingobjectid" /><attribute name="statecode" /><attribute name="activityid" />` +
-      `<filter type="and"><condition attribute="statecode" operator="eq" value="0" /></filter>` +
-      `<order attribute="scheduledend" descending="false" />` +
-      `</entity></fetch>`;
+    const fetchXml = `
+      <fetch version='1.0' output-format='xml-platform' mapping='logical' top='25'>
+        <entity name='${entity}'>
+          <attribute name='subject' />
+          <attribute name='scheduledend' />
+          <attribute name='regardingobjectid' />
+          <attribute name='statecode' />
+          <attribute name='activityid' />
+          <filter type='and'>
+            <condition attribute='statecode' operator='eq' value='0' />
+          </filter>
+          <order attribute='scheduledend' descending='false' />
+        </entity>
+      </fetch>`;
     const result = await this.context.webAPI.fetch(entity, fetchXml);
     return result.entities.map((record) => ({
       // Source-prefixed keys keep merged rows unique across entities.

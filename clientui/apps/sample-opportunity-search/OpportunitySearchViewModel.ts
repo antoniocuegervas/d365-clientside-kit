@@ -33,40 +33,49 @@ export class OpportunitySearchViewModel {
     this.searching.value = true;
     try {
       const esc = LibraryUtils.escapeXml;
-      // Each filter line is a literal <condition>, included only when its field is set.
-      const filters = [
-        `<condition attribute="statecode" operator="eq" value="0" />`,
+      // Each line is a literal <condition>, included only when its field is set.
+      const conditions = [
+        `<condition attribute='statecode' operator='eq' value='0' />`,
         this.topicContains.value
-          ? `<condition attribute="name" operator="like" value="%${esc(this.topicContains.value)}%" />`
+          ? `<condition attribute='name' operator='like' value='%${esc(this.topicContains.value)}%' />`
           : "",
         this.customer.value
-          ? `<condition attribute="customerid" operator="eq" value="${esc(this.customer.value.id)}" />`
+          ? `<condition attribute='customerid' operator='eq' value='${esc(this.customer.value.id)}' />`
           : "",
         this.rating.value !== null
-          ? `<condition attribute="opportunityratingcode" operator="eq" value="${this.rating.value}" />`
+          ? `<condition attribute='opportunityratingcode' operator='eq' value='${this.rating.value}' />`
           : "",
         this.decisionMaker.value !== null
-          ? `<condition attribute="decisionmaker" operator="eq" value="${this.decisionMaker.value ? 1 : 0}" />`
+          ? `<condition attribute='decisionmaker' operator='eq' value='${this.decisionMaker.value ? 1 : 0}' />`
           : "",
         this.minValue.value !== null
-          ? `<condition attribute="estimatedvalue" operator="ge" value="${this.minValue.value}" />`
+          ? `<condition attribute='estimatedvalue' operator='ge' value='${this.minValue.value}' />`
           : "",
         this.closingAfter.value
-          ? `<condition attribute="estimatedclosedate" operator="on-or-after" value="${toDateOnly(this.closingAfter.value)}" />`
+          ? `<condition attribute='estimatedclosedate' operator='on-or-after' value='${toDateOnly(this.closingAfter.value)}' />`
           : "",
         this.closingBefore.value
-          ? `<condition attribute="estimatedclosedate" operator="on-or-before" value="${toDateOnly(this.closingBefore.value)}" />`
+          ? `<condition attribute='estimatedclosedate' operator='on-or-before' value='${toDateOnly(this.closingBefore.value)}' />`
           : "",
-      ].join("");
+      ]
+        .filter(Boolean)
+        .join("\n              ");
 
-      const fetchXml =
-        `<fetch version="1.0" output-format="xml-platform" mapping="logical" top="50">` +
-        `<entity name="opportunity">` +
-        `<attribute name="name" /><attribute name="customerid" /><attribute name="estimatedvalue" />` +
-        `<attribute name="estimatedclosedate" /><attribute name="opportunityratingcode" />` +
-        `<attribute name="opportunityid" />` +
-        `<filter type="and">${filters}</filter>` +
-        `<order attribute="estimatedclosedate" descending="false" /></entity></fetch>`;
+      const fetchXml = `
+        <fetch version='1.0' output-format='xml-platform' mapping='logical' top='50'>
+          <entity name='opportunity'>
+            <attribute name='name' />
+            <attribute name='customerid' />
+            <attribute name='estimatedvalue' />
+            <attribute name='estimatedclosedate' />
+            <attribute name='opportunityratingcode' />
+            <attribute name='opportunityid' />
+            <filter type='and'>
+              ${conditions}
+            </filter>
+            <order attribute='estimatedclosedate' descending='false' />
+          </entity>
+        </fetch>`;
 
       const result = await this.context.webAPI.fetch("opportunity", fetchXml);
       if (this.tracker.isDisposed) {

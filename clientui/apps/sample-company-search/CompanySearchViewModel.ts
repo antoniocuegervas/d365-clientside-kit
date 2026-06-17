@@ -45,15 +45,20 @@ export class CompanySearchViewModel {
     this.searching.value = true;
     this.hasSearched.value = true;
     try {
-      const fetchXml =
-        `<fetch version="1.0" output-format="xml-platform" mapping="logical" top="50">` +
-        `<entity name="account">` +
-        `<attribute name="name" /><attribute name="address1_city" />` +
-        `<attribute name="telephone1" /><attribute name="accountid" />` +
-        `<filter type="and">` +
-        `<condition attribute="name" operator="like" value="%${LibraryUtils.escapeXml(text.trim())}%" />` +
-        `<condition attribute="statecode" operator="eq" value="0" /></filter>` +
-        `<order attribute="name" descending="false" /></entity></fetch>`;
+      const fetchXml = `
+        <fetch version='1.0' output-format='xml-platform' mapping='logical' top='50'>
+          <entity name='account'>
+            <attribute name='name' />
+            <attribute name='address1_city' />
+            <attribute name='telephone1' />
+            <attribute name='accountid' />
+            <filter type='and'>
+              <condition attribute='name' operator='like' value='%${LibraryUtils.escapeXml(text.trim())}%' />
+              <condition attribute='statecode' operator='eq' value='0' />
+            </filter>
+            <order attribute='name' descending='false' />
+          </entity>
+        </fetch>`;
       const result = await this.context.webAPI.fetch("account", fetchXml);
       if (this.tracker.isDisposed) {
         return;
