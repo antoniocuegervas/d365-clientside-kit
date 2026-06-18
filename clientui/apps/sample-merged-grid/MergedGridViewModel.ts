@@ -1,17 +1,25 @@
 import type { IViewModelContext } from "../../../shared/context/IViewModelContext";
 import { Observable } from "../../../shared/reactivity/Observable";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
-import type { IGridRow } from "../../../shared/controls/presentational/DataGrid";
 import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
+
+/** One merged pipeline row in domain terms. The View maps these to grid rows. */
+export interface IPipelineRow {
+  id: string;
+  topic: string;
+  customer: string;
+  value: string;
+  source: string;
+}
 
 /**
  * Canonical multi-query merged grid: rows from two FetchXML sources (my open
  * opportunities and opportunities won in the last 30 days) combined into one
- * native-looking grid. No native subgrid can union result sets; the ViewModel
- * merges, the presentational grid displays.
+ * native-looking grid. No native subgrid can union result sets, so the
+ * ViewModel merges; the View maps the result to grid rows.
  */
 export class MergedGridViewModel {
-  readonly rows = new Observable<IGridRow[]>([]);
+  readonly results = new Observable<IPipelineRow[]>([]);
   readonly loading = new Observable<boolean>(true);
 
   private readonly tracker = new SubscriptionTracker();
@@ -58,7 +66,7 @@ export class MergedGridViewModel {
       if (this.tracker.isDisposed) {
         return;
       }
-      this.rows.value = [
+      this.results.value = [
         ...open.entities.map((record) => this.toRow(record, "My open")),
         ...recentlyWon.entities.map((record) => this.toRow(record, "Won (last 30 days)")),
       ];
@@ -69,19 +77,18 @@ export class MergedGridViewModel {
     }
   };
 
-  private toRow(record: Record<string, unknown>, source: string): IGridRow {
+  private toRow(record: Record<string, unknown>, source: string): IPipelineRow {
     return {
-      key: `${source}-${record.opportunityid}`,
+      id: String(record.opportunityid),
       topic: (record.name as string) ?? "",
       customer: LibraryUtils.formattedValue(record, "_customerid_value") ?? "",
       value: LibraryUtils.formattedValue(record, "estimatedvalue") ?? "",
       source,
-      recordId: String(record.opportunityid),
     };
   }
 
-  readonly onOpenRecord = (row: IGridRow): void => {
-    void this.context.navigation.openForm("opportunity", String(row.recordId));
+  readonly onOpenRecord = (recordId: string): void => {
+    void this.context.navigation.openForm("opportunity", recordId);
   };
 
   dispose(): void {

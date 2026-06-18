@@ -20,9 +20,29 @@ export interface IApp {
   render(host: IAppHost): React.ReactNode;
 }
 
+/** A props object that may carry a disposable ViewModel. */
+type IMaybeViewModel = { viewModel?: { dispose?: () => void } };
+
 /**
- * The one-liner for the 90% case: wire a View component and a props
- * factory (usually `host => ({ viewModel: new XyzViewModel(host.context) })`).
+ * Wraps an app's element so its `viewModel` is disposed when the app unmounts.
+ * Keeps disposal in one place (the factory owns the ViewModel's whole
+ * lifecycle) instead of every View hand-wiring componentWillUnmount.
+ */
+class AppDisposer extends React.Component<{ onUnmount: () => void; children?: React.ReactNode }> {
+  override componentWillUnmount(): void {
+    this.props.onUnmount();
+  }
+
+  override render(): React.ReactNode {
+    return this.props.children;
+  }
+}
+
+/**
+ * The one-liner for the 90% case: wire a View component and a props factory
+ * (usually `host => ({ viewModel: new XyzViewModel(host.context) })`). When the
+ * props carry a `viewModel` with a `dispose()` method, it is disposed on
+ * unmount, so app Views stay render-only and never leak their ViewModel.
  */
 export function createViewApp<P extends object>(
   title: string,
@@ -31,6 +51,13 @@ export function createViewApp<P extends object>(
 ): IApp {
   return {
     title,
-    render: (host) => React.createElement(View, getProps(host)),
+    render: (host) => {
+      const props = getProps(host);
+      return React.createElement(
+        AppDisposer,
+        { onUnmount: () => (props as IMaybeViewModel).viewModel?.dispose?.() },
+        React.createElement(View, props)
+      );
+    },
   };
 }

@@ -80,7 +80,8 @@ const Body: React.FC<ISamplesHubProps & { selectedKey: Observable<string | null>
       </div>
       <Divider />
       <div className={styles.stage}>
-        {/* key forces a fresh mount per app so ViewModels never leak across swaps */}
+        {/* key forces a fresh mount per app, so the outgoing app unmounts and
+            its ViewModel is disposed before the next one mounts */}
         {current ? <div key={currentKey}>{current.render(host)}</div> : null}
       </div>
     </div>

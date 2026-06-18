@@ -2,7 +2,7 @@ import * as React from "react";
 import { Button, Title3, makeStyles, tokens } from "@fluentui/react-components";
 import { ArrowClockwiseRegular } from "@fluentui/react-icons";
 import { ObserverComponent } from "../../../shared/reactivity/ObserverComponent";
-import { DataGrid } from "../../../shared/controls/presentational/DataGrid";
+import { DataGrid, type IGridRow } from "../../../shared/controls/presentational/DataGrid";
 import type { ActivitiesGridViewModel } from "./ActivitiesGridViewModel";
 
 export interface IActivitiesGridViewProps {
@@ -25,7 +25,7 @@ const useStyles = makeStyles({
 export class ActivitiesGridView extends ObserverComponent<IActivitiesGridViewProps> {
   constructor(props: IActivitiesGridViewProps) {
     super(props);
-    this.observe(props.viewModel.rows, props.viewModel.loading);
+    this.observe(props.viewModel.activities);
   }
 
   override render(): React.ReactNode {
@@ -35,6 +35,16 @@ export class ActivitiesGridView extends ObserverComponent<IActivitiesGridViewPro
 
 const Body: React.FC<IActivitiesGridViewProps> = ({ viewModel: vm }) => {
   const styles = useStyles();
+  const rows: IGridRow[] = vm.activities.value.map((row) => ({
+    key: `${row.entity}-${row.id}`,
+    type: row.type,
+    subject: row.subject,
+    regarding: row.regarding,
+    due: row.due,
+    status: row.status,
+    entity: row.entity,
+    recordId: row.id,
+  }));
   return (
     <div className={styles.page}>
       <div className={styles.toolbar}>
@@ -55,10 +65,10 @@ const Body: React.FC<IActivitiesGridViewProps> = ({ viewModel: vm }) => {
           { key: "due", name: "Due", width: 150 },
           { key: "status", name: "Status", width: 110 },
         ]}
-        rows={vm.rows}
+        rows={rows}
         loading={vm.loading}
         emptyMessage="No open activities."
-        onRowClick={vm.onOpenActivity}
+        onRowClick={(row) => vm.onOpenActivity(String(row.entity), String(row.recordId))}
       />
     </div>
   );

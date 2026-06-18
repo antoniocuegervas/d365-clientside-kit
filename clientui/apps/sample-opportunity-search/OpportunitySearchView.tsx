@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Button, Divider, Title3, makeStyles, tokens } from "@fluentui/react-components";
 import { ObserverComponent } from "../../../shared/reactivity/ObserverComponent";
-import { DataGrid } from "../../../shared/controls/presentational/DataGrid";
+import { DataGrid, type IGridRow } from "../../../shared/controls/presentational/DataGrid";
 import { SmartTextField } from "../../../shared/controls/smart/SmartTextField";
 import { SmartLookup } from "../../../shared/controls/smart/SmartLookup";
 import { SmartOptionSet } from "../../../shared/controls/smart/SmartOptionSet";
@@ -36,15 +36,15 @@ const useStyles = makeStyles({
 });
 
 /**
- * The View is a filter form built almost entirely from metadata-aware blocks
- * every label, option list, precision, and date format below comes from
- * Dataverse, not from this file.
+ * The View is a filter form built almost entirely from metadata-aware blocks:
+ * option lists, precision, and date formats come from Dataverse. A few labels
+ * are overridden here to phrase them as filter prompts ("Topic contains").
  */
 export class OpportunitySearchView extends ObserverComponent<IOpportunitySearchViewProps> {
   constructor(props: IOpportunitySearchViewProps) {
     super(props);
     const vm = props.viewModel;
-    this.observe(vm.rows, vm.searching, vm.resultSummary);
+    this.observe(vm.results, vm.searching, vm.resultSummary);
   }
 
   override render(): React.ReactNode {
@@ -54,6 +54,14 @@ export class OpportunitySearchView extends ObserverComponent<IOpportunitySearchV
 
 const Body: React.FC<IOpportunitySearchViewProps> = ({ viewModel: vm }) => {
   const styles = useStyles();
+  const rows: IGridRow[] = vm.results.value.map((row) => ({
+    key: row.id,
+    topic: row.topic,
+    customer: row.customer,
+    value: row.value,
+    closing: row.closing,
+    rating: row.rating,
+  }));
   return (
     <div className={styles.page}>
       <Title3>Opportunity Search</Title3>
@@ -85,10 +93,10 @@ const Body: React.FC<IOpportunitySearchViewProps> = ({ viewModel: vm }) => {
           { key: "closing", name: "Est. Close Date", width: 140 },
           { key: "rating", name: "Rating", width: 100 },
         ]}
-        rows={vm.rows}
+        rows={rows}
         loading={vm.searching}
         emptyMessage="Run a search to see opportunities."
-        onRowClick={vm.onOpenRecord}
+        onRowClick={(row) => vm.onOpenRecord(row.key)}
       />
     </div>
   );

@@ -1,14 +1,23 @@
 import type { IViewModelContext } from "../../../shared/context/IViewModelContext";
 import { Observable } from "../../../shared/reactivity/Observable";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
-import type { IGridRow } from "../../../shared/controls/presentational/DataGrid";
 import type { IEntityReference } from "../../../shared/utils/EntityModel";
 import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
 
+/** One opportunity result in domain terms. The View maps these to grid rows. */
+export interface IOpportunityRow {
+  id: string;
+  topic: string;
+  customer: string;
+  value: string;
+  closing: string;
+  rating: string;
+}
+
 /**
- * Kitchen-sink composite filter: nearly every control type in one
- * View. The ViewModel's only real job is translating filter Observables into
- * one FetchXML, the fields themselves are all metadata-aware blocks.
+ * Kitchen-sink composite filter: nearly every control type in one View. The
+ * ViewModel's only real job is translating filter Observables into one
+ * FetchXML; the fields themselves are all metadata-aware blocks.
  */
 export class OpportunitySearchViewModel {
   //#region Filter fields (bound by smart blocks in the View)
@@ -23,7 +32,7 @@ export class OpportunitySearchViewModel {
   //#endregion
 
   //#region Results
-  readonly rows = new Observable<IGridRow[]>([]);
+  readonly results = new Observable<IOpportunityRow[]>([]);
   readonly searching = new Observable<boolean>(false);
   readonly resultSummary = new Observable<string | null>(null);
   //#endregion
@@ -84,8 +93,8 @@ export class OpportunitySearchViewModel {
       if (this.tracker.isDisposed) {
         return;
       }
-      this.rows.value = result.entities.map((record) => ({
-        key: String(record.opportunityid),
+      this.results.value = result.entities.map((record) => ({
+        id: String(record.opportunityid),
         topic: (record.name as string) ?? "",
         customer: LibraryUtils.formattedValue(record, "_customerid_value") ?? "",
         value: LibraryUtils.formattedValue(record, "estimatedvalue") ?? String(record.estimatedvalue ?? ""),
@@ -108,12 +117,12 @@ export class OpportunitySearchViewModel {
     this.minValue.value = null;
     this.closingAfter.value = null;
     this.closingBefore.value = null;
-    this.rows.value = [];
+    this.results.value = [];
     this.resultSummary.value = null;
   };
 
-  readonly onOpenRecord = (row: IGridRow): void => {
-    void this.context.navigation.openForm("opportunity", row.key);
+  readonly onOpenRecord = (recordId: string): void => {
+    void this.context.navigation.openForm("opportunity", recordId);
   };
 
   dispose(): void {
@@ -121,6 +130,14 @@ export class OpportunitySearchViewModel {
   }
 }
 
+/**
+ * Date-only string for a FetchXML date condition, built from LOCAL calendar
+ * parts. Routing through toISOString() would shift the day for users east of
+ * UTC near midnight (the condition would target the wrong calendar day).
+ */
 function toDateOnly(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }

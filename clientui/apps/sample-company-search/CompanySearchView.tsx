@@ -3,7 +3,7 @@ import { Button, Divider, Title3, makeStyles, tokens } from "@fluentui/react-com
 import { ArrowClockwiseRegular } from "@fluentui/react-icons";
 import { ObserverComponent } from "../../../shared/reactivity/ObserverComponent";
 import { SearchBar } from "../../../shared/controls/presentational/SearchBar";
-import { DataGrid } from "../../../shared/controls/presentational/DataGrid";
+import { DataGrid, type IGridRow } from "../../../shared/controls/presentational/DataGrid";
 import { WaitingMessage } from "../../../shared/controls/presentational/WaitingMessage";
 import { SmartViewGrid } from "../../../shared/controls/smart/SmartViewGrid";
 import { SmartTextField } from "../../../shared/controls/smart/SmartTextField";
@@ -37,13 +37,13 @@ const useStyles = makeStyles({
 
 /**
  * View layout (top to bottom, like a form):
- *   search bar → grid (saved view until a search runs) → detail panel.
+ *   search bar, then grid (saved view until a search runs), then detail panel.
  */
 export class CompanySearchView extends ObserverComponent<ICompanySearchViewProps> {
   constructor(props: ICompanySearchViewProps) {
     super(props);
     const vm = props.viewModel;
-    this.observe(vm.hasSearched, vm.searchRows, vm.searching, vm.selectedAccountId, vm.detailLoading, vm.saveMessage);
+    this.observe(vm.hasSearched, vm.searchResults, vm.selectedAccountId, vm.detailLoading, vm.saveMessage);
   }
 
   override render(): React.ReactNode {
@@ -53,6 +53,12 @@ export class CompanySearchView extends ObserverComponent<ICompanySearchViewProps
 
 const Body: React.FC<ICompanySearchViewProps> = ({ viewModel: vm }) => {
   const styles = useStyles();
+  const rows: IGridRow[] = vm.searchResults.value.map((row) => ({
+    key: row.id,
+    name: row.name,
+    city: row.city,
+    phone: row.phone,
+  }));
   return (
     <div className={styles.page}>
       <Title3>Company Search</Title3>
@@ -79,7 +85,7 @@ const Body: React.FC<ICompanySearchViewProps> = ({ viewModel: vm }) => {
             { key: "city", name: "City", width: 160 },
             { key: "phone", name: "Main Phone", width: 160 },
           ]}
-          rows={vm.searchRows}
+          rows={rows}
           loading={vm.searching}
           emptyMessage="No accounts match your search."
           selectedKey={vm.selectedAccountId}

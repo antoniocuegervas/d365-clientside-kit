@@ -2,20 +2,27 @@ import type { IViewModelContext } from "../../../shared/context/IViewModelContex
 import { Observable } from "../../../shared/reactivity/Observable";
 import { ObservableEvent } from "../../../shared/reactivity/ObservableEvent";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
-import type { IGridRow } from "../../../shared/controls/presentational/DataGrid";
 import type { IEntityReference } from "../../../shared/utils/EntityModel";
 import { EntityReference } from "../../../shared/utils/EntityModel";
 import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
 
+/** One account search hit in domain terms. The View maps these to grid rows. */
+export interface IAccountRow {
+  id: string;
+  name: string;
+  city: string;
+  phone: string;
+}
+
 /**
- * Flagship "99% native" scenario: a saved-view account grid that the
- * platform cannot embed in a webresource, plus code-level search, refresh,
- * selection, and an editable detail panel, all looking like form controls.
+ * Flagship "99% native" scenario: a saved-view account grid that the platform
+ * cannot embed in a webresource, plus code-level search, refresh, selection,
+ * and an editable detail panel; all of it looks like form controls.
  */
 export class CompanySearchViewModel {
   //#region Search state
   readonly searchText = new Observable<string>("");
-  readonly searchRows = new Observable<IGridRow[]>([]);
+  readonly searchResults = new Observable<IAccountRow[]>([]);
   readonly searching = new Observable<boolean>(false);
   /** True once a search ran, switches the View from saved view to results. */
   readonly hasSearched = new Observable<boolean>(false);
@@ -68,8 +75,8 @@ export class CompanySearchViewModel {
       if (this.tracker.isDisposed) {
         return;
       }
-      this.searchRows.value = result.entities.map((record) => ({
-        key: String(record.accountid),
+      this.searchResults.value = result.entities.map((record) => ({
+        id: String(record.accountid),
         name: (record.name as string) ?? "",
         city: (record.address1_city as string) ?? "",
         phone: (record.telephone1 as string) ?? "",
