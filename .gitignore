@@ -1,7 +1,6 @@
 # Dependencies
 node_modules/
 
-
 # Build outputs (generated in CI/CD, never committed, section 14)
 dist/
 out/
@@ -29,4 +28,3 @@ spkl-log*
 Thumbs.db
 .vscode/
 .idea/
-
