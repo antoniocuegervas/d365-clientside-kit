@@ -15,7 +15,12 @@ export interface ILookupFieldProps extends ICommonFieldProps {
    * fires and writes here, the control NEVER queries.
    */
   results: OrObservable<IEntityReference[]>;
-  /** Raised as the user types, the host decides what (and whether) to fetch. */
+  /**
+   * Raised as the user types, and once when the picker opens (with the current
+   * text, empty for the first page). The host decides what, and whether, to
+   * fetch, so opening behaves like a dropdown for small value sets while large
+   * sets can still wait for typed input.
+   */
   onSearchTextChanged?: (searchText: string) => void;
   onChange?: (selected: IEntityReference | null) => void;
   placeholder?: string;
@@ -58,6 +63,14 @@ export class LookupField extends ObserverComponent<ILookupFieldProps, ILookupFie
     this.props.onSearchTextChanged?.(text);
   };
 
+  private readonly handleOpenChange = (_event: unknown, data: { open: boolean }): void => {
+    // Opening requests the first page (current text, empty = unfiltered) so the
+    // picker behaves like a dropdown; the host decides what (and how much) to load.
+    if (data.open) {
+      this.props.onSearchTextChanged?.(this.state.searchText ?? "");
+    }
+  };
+
   private readonly handleSelect = (
     _event: unknown,
     data: { optionValue?: string }
@@ -79,7 +92,7 @@ export class LookupField extends ObserverComponent<ILookupFieldProps, ILookupFie
   };
 
   override render(): React.ReactNode {
-    return <Body {...this.props} state={this.state} onInput={this.handleInput} onSelect={this.handleSelect} onClear={this.handleClear} />;
+    return <Body {...this.props} state={this.state} onInput={this.handleInput} onSelect={this.handleSelect} onClear={this.handleClear} onOpenChange={this.handleOpenChange} />;
   }
 }
 
@@ -89,6 +102,7 @@ const Body: React.FC<
     onInput: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onSelect: (event: unknown, data: { optionValue?: string }) => void;
     onClear: () => void;
+    onOpenChange: (event: unknown, data: { open: boolean }) => void;
   }
 > = (props) => {
   const styles = useStyles();
@@ -142,6 +156,7 @@ const Body: React.FC<
             selectedOptions={current ? [current.id] : []}
             onChange={props.onInput}
             onOptionSelect={props.onSelect}
+            onOpenChange={props.onOpenChange}
             disabled={disabled || readOnly}
             placeholder={readOnly ? undefined : placeholder ?? "Look for records"}
             freeform

@@ -164,16 +164,50 @@ describe("SmartLookup", () => {
     const combo = await screen.findByRole("combobox");
     await userEvent.type(combo, "cont");
 
+    // Opening fires a first-page search before typing, so the typed search is
+    // the latest retrieveMultipleRecords call.
     await waitFor(() => {
-      const query = calls.find((c) => c.api === "retrieveMultipleRecords");
-      expect(query).toBeDefined();
+      const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
+      expect(String(query?.args[1])).toContain("contains(name,'");
     });
-    const query = calls.find((c) => c.api === "retrieveMultipleRecords")!;
+    const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1)!;
     expect(query.args[0]).toBe("account");
     expect(String(query.args[1])).toContain("contains(name,'");
     expect(String(query.args[1])).toContain("$top=10");
 
     expect(await screen.findByText("Contoso Ltd")).toBeTruthy();
+  });
+
+  it("fetches a first page when the picker opens, before any typing", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "contact.parentcustomerid": {
+          displayName: "Company Name",
+          kind: "lookup",
+          targets: ["account"],
+        },
+      },
+      queryResults: {
+        account: [
+          { entities: [{ accountid: "a1a00000-0000-0000-0000-000000000001", name: "Contoso Ltd" }] },
+        ],
+      },
+    });
+    const value = new Observable<IEntityReference | null>(null);
+    renderWith(
+      context,
+      <SmartLookup entity="contact" attribute="parentcustomerid" value={value} searchDebounceMs={0} />
+    );
+    const combo = await screen.findByRole("combobox");
+    await userEvent.click(combo);
+
+    // No typing: the open should still fetch the first page (top, no contains).
+    await waitFor(() => {
+      const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
+      expect(query).toBeDefined();
+      expect(String(query?.args[1])).toContain("$top=10");
+      expect(String(query?.args[1])).not.toContain("contains(");
+    });
   });
 
   it("dialog mode opens the native picker and commits the chosen record (G-02)", async () => {
@@ -293,7 +327,7 @@ describe("SmartLookup", () => {
     const combo = await screen.findByRole("combobox");
     await userEvent.type(combo, "a");
     await waitFor(() => {
-      const query = calls.find((c) => c.api === "retrieveMultipleRecords");
+      const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
       expect(String(query?.args[1])).toContain("and statecode eq 0");
     });
   });

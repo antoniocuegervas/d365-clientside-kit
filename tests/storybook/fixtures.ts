@@ -59,10 +59,10 @@ export const accountColumns: IGridColumn[] = [
 ];
 
 export const accountRows: IGridRow[] = [
-  { key: "1", name: "Contoso Ltd", city: "Seattle", phone: "555-0101", revenue: "$1,200,000.00" },
-  { key: "2", name: "Fabrikam Inc", city: "Redmond", phone: "555-0102", revenue: "$840,000.00" },
-  { key: "3", name: "Adventure Works", city: "Portland", phone: "555-0103", revenue: "$2,400,000.00" },
-  { key: "4", name: "Northwind Traders", city: "Tacoma", phone: "555-0104", revenue: "$310,000.00" },
+  { key: "1", name: "Contoso Ltd", city: "Seattle", phone: "555-0101", revenue: "$1,200,000.00", industry: 6 },
+  { key: "2", name: "Fabrikam Inc", city: "Redmond", phone: "555-0102", revenue: "$840,000.00", industry: 5 },
+  { key: "3", name: "Adventure Works", city: "Portland", phone: "555-0103", revenue: "$2,400,000.00", industry: 1 },
+  { key: "4", name: "Northwind Traders", city: "Tacoma", phone: "555-0104", revenue: "$310,000.00", industry: 4 },
 ];
 
 /**
