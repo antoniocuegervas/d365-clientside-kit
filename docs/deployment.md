@@ -4,10 +4,10 @@
 
 | Artifact | Webresource / target |
 |---|---|
-| `dist/clientui/<prefix>clientui.html` | HTML webresource — the single shell entry |
+| `dist/clientui/<prefix>clientui.html` | HTML webresource, the single shell entry |
 | `dist/clientui/<prefix>clientui.js` | Script webresource the shell loads |
 | `dist/clienthooks/<prefix>clienthooks.js` | Library webresource for form/ribbon/grid registration |
-| `pcfs/<Control>/out/controls` | PCF — pack into a solution (`pac solution`) |
+| `pcfs/<Control>/out/controls` | PCF, pack into a solution (`pac solution`) |
 
 The publisher prefix is configurable: `PUBLISHER_PREFIX=contoso_ npm run build`
 (default `new_`). Never hardcode a customer prefix in source.
@@ -28,7 +28,7 @@ $env:SPKL_CONNECTION = "AuthType=OAuth;Url=https://org.crm.dynamics.com;..."
 
 `deploy.ps1` builds with the requested prefix and runs
 `spkl.exe webresources` non-interactively. **Never commit** connection
-strings, SPKL logs, or `connection.local.json` — .gitignore already covers
+strings, SPKL logs, or `connection.local.json`, .gitignore already covers
 them; keep it that way.
 
 ## Source maps
@@ -42,7 +42,7 @@ Dataverse caches webresources aggressively. After publishing:
 - model-driven apps generally pick up published changes on reload;
 - if a form still serves a stale bundle, bump the webresource (republish) or
   hard-reload with cache disabled while testing;
-- avoid renaming the bundle per release — keep one stable name and rely on
+- avoid renaming the bundle per release, keep one stable name and rely on
   publish + reload, so ribbon/form registrations never go stale.
 
 ## CI

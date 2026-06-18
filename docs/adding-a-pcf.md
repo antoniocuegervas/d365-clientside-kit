@@ -1,7 +1,7 @@
 # Adding a PCF
 
 Each PCF is its own npm package under `pcfs/` (a pcf-scripts requirement),
-importing `shared/` **as source** via relative paths — no publishing step.
+importing `shared/` **as source** via relative paths, no publishing step.
 
 ## 1. Scaffold
 
@@ -17,17 +17,17 @@ Then align the project with the kit toolchain (copy from `pcfs/KitOptionSet`):
   add `@types/react`/`@types/react-dom`.
 - `tsconfig.json` `compilerOptions`: `"jsx": "react-jsx"`,
   `"esModuleInterop": true`, `"skipLibCheck": true`.
-- v1 PCFs **bundle their own React/Fluent** — do not use `--framework react`
-  (platform libraries are a future optimization, see decisions.md).
+- v1 PCFs **bundle their own React/Fluent**, do not use `--framework react`
+  (platform libraries are a future optimization, see internal/decisions.md).
 
 ## 2. Pick the integration pattern
 
-**Pattern 1 — presentational via PCF root** (see `pcfs/KitOptionSet`): the
+**Pattern 1, presentational via PCF root** (see `pcfs/KitOptionSet`): the
 root owns Observables, maps PCF parameters into them on every `updateView`,
 renders a CRM-agnostic control, and pushes changes out via
 `notifyOutputChanged` + `getOutputs`.
 
-**Pattern 2 — smart + provider** (see `pcfs/KitTooltip`): the root creates one
+**Pattern 2, smart + provider** (see `pcfs/KitTooltip`): the root creates one
 `PCFContext` in `init`, wraps the tree in `ViewModelContextProvider`, and a
 `SmartComponent` child uses the same `IViewModelContext` contract as
 webresources (metadata, Web API, navigation).

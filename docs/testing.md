@@ -12,7 +12,7 @@
 
 ```bash
 npm run test            # unit tests (excludes smoke)
-npm run build           # required before smoke — smoke loads dist/ bundles
+npm run build           # required before smoke, smoke loads dist/ bundles
 npm run smoke           # modern + legacy host mocks against built artifacts
 npm run storybook       # dev server on :6006
 npm run build-storybook # CI gate
@@ -23,11 +23,11 @@ PCFs: `cd pcfs/<Control> && npm run build`.
 
 ## Test infrastructure (reuse, don't reinvent)
 
-- `tests/mocks/XrmMock.ts` — `createModernXrmMock` / `createV8XrmMock`,
+- `tests/mocks/XrmMock.ts`, `createModernXrmMock` / `createV8XrmMock`,
   recording mocks shared by unit and smoke tests.
-- `tests/mocks/FakeXhr.ts` — scriptable XMLHttpRequest server for cds-client
+- `tests/mocks/FakeXhr.ts`, scriptable XMLHttpRequest server for cds-client
   and MetadataService tests.
-- `tests/mocks/fakeViewModelContext.ts` — in-memory `IViewModelContext` with
+- `tests/mocks/fakeViewModelContext.ts`, in-memory `IViewModelContext` with
   scriptable attribute metadata, views, and query results; use for smart
   controls and ViewModels.
 
@@ -35,11 +35,11 @@ PCFs: `cd pcfs/<Control> && npm run build`.
 
 - Test paths mirror production paths; **no co-located** `*.test.tsx` or
   `*.stories.tsx` next to sources.
-- Storybook stories use fixture data only — if a story needs CRM data, it
+- Storybook stories use fixture data only, if a story needs CRM data, it
   arrives as a plain value, exactly like a ViewModel would supply it. Zero
   CRM mocks in stories is a hard rule (§17.1.3).
 - Hooks get smoke/DI coverage (registry shape + handler behavior), not
-  exhaustive business-logic suites — they are templates.
+  exhaustive business-logic suites, they are templates.
 
 ## Manual sandbox checklist (human acceptance)
 

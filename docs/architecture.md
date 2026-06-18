@@ -19,7 +19,7 @@ flowchart TB
         PCFC["PCFContext"]
     end
 
-    subgraph kit [shared/ — portable kit]
+    subgraph kit [shared/, portable kit]
         Reactivity["Observable · ObservableEvent · SubscriptionTracker"]
         Smart["Smart controls (entity + attribute → metadata)"]
         Pres["Presentational controls (values in, events out)"]
@@ -30,9 +30,9 @@ flowchart TB
     end
 
     subgraph delivery [Delivery surfaces]
-        ClientUI["clientui/ — shell + apps (one HTML, ?app= registry)"]
-        Hooks["clienthooks/ — CrmClientSide UMD bundle"]
-        PCFs["pcfs/ — independent PCF projects"]
+        ClientUI["clientui/, shell + apps (one HTML, ?app= registry)"]
+        Hooks["clienthooks/, CrmClientSide UMD bundle"]
+        PCFs["pcfs/, independent PCF projects"]
     end
 
     ModernWR --> WRC
@@ -50,16 +50,16 @@ flowchart TB
     Meta --> Cds
 ```
 
-## The three-layer contract (§5.2 of the spec — non-negotiable)
+## The three-layer contract (§5.2 of the spec, non-negotiable)
 
 | Layer | Knows CRM? | Queries? | Role |
 |-------|-----------|----------|------|
-| **Presentational** | Never — no context, no entity names | Never | Native-parity UI; renders supplied Observables; raises events |
+| **Presentational** | Never, no context, no entity names | Never | Native-parity UI; renders supplied Observables; raises events |
 | **Smart (metadata-aware)** | Yes, via `IViewModelContext` | Metadata + standard fetches | `entity` + `attribute` in, resolved presentational child out |
-| **ViewModel** | Yes | Anything — merges, multi-query pipelines | Owns Observables and app rules; binds presentational controls |
+| **ViewModel** | Yes | Anything, merges, multi-query pipelines | Owns Observables and app rules; binds presentational controls |
 
 Presentational purity is enforced by an ESLint `no-restricted-imports` rule
-scoped to `shared/controls/presentational/` — not by convention.
+scoped to `shared/controls/presentational/`, not by convention.
 
 ## Repository topology
 

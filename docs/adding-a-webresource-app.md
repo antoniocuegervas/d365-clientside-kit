@@ -6,7 +6,7 @@ Time budget: minutes for the scaffold, the rest is your actual requirement.
 
 ```text
 clientui/apps/<app-key>/
-├── app.ts              # registration — copy from template/
+├── app.ts              # registration, copy from template/
 ├── <Name>View.tsx      # form-like layout of kit controls
 └── <Name>ViewModel.ts  # Observables + handlers (omit for trivial apps)
 ```
@@ -56,5 +56,5 @@ apps and standalone pages render without it.
 - Standard fields → Smart controls (`entity` + `attribute` + value Observable).
 - Custom data (merged queries, computed rows) → ViewModel fetch → presentational
   `DataGrid`/`PersonaList`/etc.
-- The View never executes queries and never receives context — if you're
+- The View never executes queries and never receives context, if you're
   tempted, that logic belongs in the ViewModel or a smart control.

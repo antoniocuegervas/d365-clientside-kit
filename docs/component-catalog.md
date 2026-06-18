@@ -14,18 +14,18 @@ rebuild spec §1.3.
 | Option set | `OptionSetField` | `SmartOptionSet` |
 | Multi-select option set | `MultiSelectOptionSetField` | `SmartMultiSelectOptionSet` |
 | Lookup (single) | `LookupField` | `SmartLookup` |
-| Lookup (multi) | `MultiLookupField` | — (ViewModel supplies results) |
+| Lookup (multi) | `MultiLookupField` | (ViewModel supplies results) |
 | Date / date-time | `DateTimeField` | `SmartDatePicker` |
 | Whole / decimal / float | `NumberField` | `SmartNumberField` |
 | Currency | `CurrencyField` | `SmartNumberField` (money kind) |
 | Boolean (two options) | `BooleanField` | `SmartBooleanField` |
-| Rich text | — deferred (see decisions.md) | — |
+| Rich text | deferred (see internal/decisions.md) | n/a |
 
-## Beyond fields — the functional-flexibility layer
+## Beyond fields, the functional-flexibility layer
 
 | Control | Tier | Native limitation it bypasses |
 |---|---|---|
-| `DataGrid` | Presentational | Displays ANY supplied rows — merged queries, computed joins, multi-entity lists |
+| `DataGrid` | Presentational | Displays ANY supplied rows, merged queries, computed joins, multi-entity lists |
 | `SmartViewGrid` | Smart | A saved view inside a webresource, from one `viewId` (or the default view) |
 | `SelectionTree` | Presentational | Hierarchical multi-select |
 | `PersonaList` | Presentational | Custom people layouts |
@@ -43,5 +43,5 @@ rebuild spec §1.3.
    `filterOptions`, `onChange`), before writing a ViewModel pipeline.
 
 Presentational controls accept `T | Observable<T>` for display inputs and
-require host-owned `Observable`s for values — both the options list and the
+require host-owned `Observable`s for values, both the options list and the
 selected value belong to the host (§4.2 exemplar contract).

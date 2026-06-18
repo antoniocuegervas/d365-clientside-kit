@@ -2,7 +2,7 @@
 
 The kit is designed so **coding agents generate good apps** and **citizen
 developers can read them afterwards**. Views composed of declarative
-metadata-aware blocks are a small, well-typed prompt target — far harder to
+metadata-aware blocks are a small, well-typed prompt target, far harder to
 hallucinate than hand-wired FetchXML and option-list plumbing.
 
 ## The workflow
@@ -28,12 +28,12 @@ hallucinate than hand-wired FetchXML and option-list plumbing.
 ## Patterns agents should default to
 
 - **Smart controls first**: `<SmartTextField entity="account" attribute="name"
-  value={vm.name} />` — never hand-build option lists, labels, precision, or
+  value={vm.name} />`, never hand-build option lists, labels, precision, or
   date formats for standard fields.
 - **Presentational + ViewModel only when data is custom** (merged queries,
   multi-entity lists): ViewModel fetches and normalizes into an
   `Observable<IGridRow[]>`; `DataGrid` displays it.
-- **One ViewModel shape** (see architectural-stance.md) — constructors take
+- **One ViewModel shape** (see architectural-stance.md), constructors take
   `IViewModelContext`, handlers are arrow properties, async callbacks check
   `tracker.isDisposed`.
 - **Views contain no entity names on presentational controls.** If an entity

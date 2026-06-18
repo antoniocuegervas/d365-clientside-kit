@@ -2,7 +2,7 @@
 
 Hooks are form/ribbon/editable-grid handlers shipped in the `CrmClientSide`
 UMD bundle (`dist/clienthooks/<prefix>clienthooks.js`). They are **templates**
-— webresource app logic lives in clientui ViewModels, never here.
+webresource app logic lives in clientui ViewModels, never here.
 
 ## 1. Write the hook class
 
@@ -12,7 +12,7 @@ import * as LibraryUtils from "../../shared/utils/LibraryUtils";
 import { ClientHook } from "../shared/ClientHook";
 
 export class ContactForm extends ClientHook {
-  // Arrow property — CRM calls handlers unbound.
+  // Arrow property, CRM calls handlers unbound.
   readonly onLoad = (executionContext: Xrm.Events.EventContext): void => {
     const formContext = ContactForm.formContextOf(executionContext);
     LibraryUtils.setFieldsRequired(formContext, ["emailaddress1"], "required");
@@ -50,10 +50,10 @@ Reusable, entity-agnostic hooks get non-entity keys (`CrmClientSide.LockedGrid`)
 4. Editable grids: register on grid events (`OnRecordSelect`) the same way.
 
 CRM loads libraries before firing events, so Xrm is always present by the
-time a handler runs — that ordering is the contract the lazy context relies on.
+time a handler runs, that ordering is the contract the lazy context relies on.
 
 ## 4. Verify
 
-Add assertions to `tests/smoke/clienthooks.smoke.test.ts` — the smoke run
+Add assertions to `tests/smoke/clienthooks.smoke.test.ts`, the smoke run
 loads the production bundle and calls your hook against a fake form context
 on both modern and legacy Xrm mocks.

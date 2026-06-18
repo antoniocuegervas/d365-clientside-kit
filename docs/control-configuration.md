@@ -1,4 +1,4 @@
-# Control Configuration Reference — Metadata-Aware Controls
+# Control Configuration Reference, Metadata-Aware Controls
 
 The form-designer mapping: each smart control needs `entity` + `attribute` +
 a value `Observable`; everything else resolves from Dataverse metadata and
@@ -8,9 +8,9 @@ every resolved default can be overridden by a prop.
 
 | Param | Required | Resolves automatically when omitted |
 |---|---|---|
-| `entity` | ✔ | — |
-| `attribute` | ✔ | — |
-| `value` (Observable) | ✔ | — (host-owned; control writes changes into it and raises `onChange`) |
+| `entity` | ✔ | - |
+| `attribute` | ✔ | - |
+| `value` (Observable) | ✔ | (host-owned; control writes changes into it and raises `onChange`) |
 | `label` | | Attribute display name |
 | `required` | | Attribute requirement level (Application/System required) |
 | `disabled` / `readOnly` | | off |
@@ -39,7 +39,7 @@ Extra:
 
 | Prop | Purpose |
 |---|---|
-| `currencySymbol` | Force the money prefix — highest priority |
+| `currencySymbol` | Force the money prefix, highest priority |
 | `transactionCurrencyId` | Resolve the record's real currency symbol from `transactioncurrency` (G-06b); used when `currencySymbol` is omitted. Falls back to `$` |
 
 ### SmartDatePicker
@@ -55,15 +55,15 @@ Extra props:
 | Prop | Purpose |
 |---|---|
 | `targetEntity` | Pick one target on Customer/Owner polymorphic lookups |
-| `filter` | OData `$filter` clause ANDed into every inline search — the "one extra filter step" scenario; can change between renders (cascades) |
+| `filter` | OData `$filter` clause ANDed into every inline search, the "one extra filter step" scenario; can change between renders (cascades) |
 | `top` | Result count (default 10) |
 | `searchDebounceMs` | Default 250; 0 for tests |
-| `mode` | `"inline"` (default search box) or `"dialog"` (native CRM picker via lookupObjects, same value contract) — G-02 |
+| `mode` | `"inline"` (default search box) or `"dialog"` (native CRM picker via lookupObjects, same value contract), G-02 |
 | `filterXml` | FetchXML `<filter>` for the dialog's view (dialog mode) |
-| `viewId` / `viewName` | View-driven inline search — run a saved view as the source (G-03) |
+| `viewId` / `viewName` | View-driven inline search, run a saved view as the source (G-03) |
 | `showIcons` | Resolve + show the target entity's icon in results (G-10) |
 
-**StandardLookupField** — standalone, dialog-only lookup (button → native picker,
+**StandardLookupField**, standalone, dialog-only lookup (button → native picker,
 no inline box, no attribute binding): `value`, `entityTypes`, `label`, `filters`
 (per-entity FetchXML), `onChange`. Use for cross-entity pickers; prefer
 `SmartLookup mode="dialog"` for attribute-bound lookups.
@@ -71,7 +71,7 @@ no inline box, no attribute binding): `value`, `entityTypes`, `label`, `filters`
 ### SmartViewGrid
 Auto: layout/columns from the savedquery's `layoutjson` (preferred) or
 `layoutxml`, headers + types resolved against each column's owning entity
-(related entity for link-entity/aliased columns — N-01), formatted cell values,
+(related entity for link-entity/aliased columns, N-01), formatted cell values,
 type-aware lookup cells (clickable links that openForm the target), row keys
 from the primary id. Data runs via `?savedQuery={id}` (T-01) so quick find /
 filters / server sort layer on as OData options. Activity views (`activitypointer`)
@@ -87,10 +87,10 @@ open the real activity type on row invoke (N-08).
 | `filters` (Observable) | Declarative eq/ne filters, re-queried server-side |
 | `orderBy` (Observable) + `serverSort` | Server-side `$orderby`; header clicks update it |
 | `pageSize` | Server-side paging with a Pagination control |
-| `pagination` | `"simple"` (default, forward-cookie next/prev) or `"rich"` (jump-to-page combobox + first/last + "X–Y of N" via FetchXML `page`/`count`) — N-04. Requires `pageSize` |
-| `onPageChange(n)` | Raised on every page change; the controlled hook for `overrideFetchXml` + rich (host re-supplies the page) — N-04 |
-| `pageCount` / `totalRecordCount` (Observable) | Host-supplied totals for the `overrideFetchXml` + rich case (the grid computes them on the saved-view path) — N-04 |
-| `currentPage` (Observable) | Host-owned current page; the grid writes its page changes here — N-04 |
+| `pagination` | `"simple"` (default, forward-cookie next/prev) or `"rich"` (jump-to-page combobox + first/last + "X–Y of N" via FetchXML `page`/`count`), N-04. Requires `pageSize` |
+| `onPageChange(n)` | Raised on every page change; the controlled hook for `overrideFetchXml` + rich (host re-supplies the page), N-04 |
+| `pageCount` / `totalRecordCount` (Observable) | Host-supplied totals for the `overrideFetchXml` + rich case (the grid computes them on the saved-view path), N-04 |
+| `currentPage` (Observable) | Host-owned current page; the grid writes its page changes here, N-04 |
 | `overrideFetchXml` (Observable) | Host supplies the query; view supplies the layout |
 | `refresh` (ObservableEvent) | Publish to re-run the query |
 | `onRecordSelected(id, row)` / `selectedRecordId` | Single-select click + highlight |
@@ -100,7 +100,7 @@ open the real activity type on row invoke (N-08).
 | `emptyMessage` | Empty-state text |
 
 Note: link-entity (aliased / dotted) columns can't be filtered or sorted
-through the savedQuery layer — those clauses are dropped (a platform boundary).
+through the savedQuery layer, those clauses are dropped (a platform boundary).
 
 ## What you should never hand-configure for standard fields
 
