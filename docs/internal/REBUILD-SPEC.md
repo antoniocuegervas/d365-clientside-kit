@@ -62,14 +62,14 @@ Build a **portable client-side kit** for Microsoft Dynamics 365 / Dataverse cust
 | **Native shell, flexible core** | Controls must be visually indistinguishable from native model-driven UI, but functionally unconstrained, used precisely when native controls cannot do the job (merged query grids, multi-entity activity lists, custom lookup filtering, etc.). Appearance follows D365; data and behavior follow the developer's intent. |
 | **Metadata-aware controls are declarative code blocks** | Smart controls should drop into a View with a handful of parameters (entity, attribute, view, label override, disabled), the same mental model as adding a field to a D365 form in the form designer, except expressed as React. The control owns metadata resolution and wiring; the app owns layout and composition. |
 | **Native D365 visual fidelity is a first-class goal** | Earlier D365 customization often prioritized function over form. This kit targets parity with the Unified Interface **as it looks today**, the refreshed model-driven visual language built on Fluent UI v9, not the classic or v7/v8-era look. |
-| **Close enough to ship in a day** | The kit exists to defeat the usual false choice: cram the requirement into standard D365 configuration, or spend a week on a clunky POC. Metadata-aware blocks + native-looking presentational controls should make **~1-day delivery** realistic for requirements that are 99% standard but need code-level control. |
+| **Close enough to ship in a day** | The kit exists to defeat the usual false choice: cram the requirement into standard D365 configuration, or spend a week on a clunky POC. Metadata-aware blocks + native-looking presentational controls should make **~1-day delivery** realistic for requirements that are 90% standard but need code-level control. |
 | **MVVM for intermittent React, not hooks for daily React** | Most D365 projects ship **10–20 webresources/PCFs total**, not continuous React products. Without daily reps, hooks and modern composition become **re-learning tax**, two days to regain mindset for a minor change. View + ViewModel + Observables optimizes for **come-back-and-fix-it** maintenance, not React conference aesthetics. |
 | **Prompt-friendly, citizen-dev legible** | Metadata-aware blocks and form-layout Views are easy for **coding agents to generate** and for **citizen developers to read after prompting**, aligned with Power Platform's React-generation direction and a post–Power Fx model-driven world. |
 
 
 ### 1.3 When to use kit controls vs native platform controls
 
-The kit is **not only for exotic UI**. Its highest-impact use case is the gap between "what the platform almost does" and "what the user actually needs", when the requirement is **99% native** but standard D365 leaves no clean path.
+The kit is **not only for exotic UI**. Its highest-impact use case is the gap between "what the platform almost does" and "what the user actually needs", when the requirement is **90% native** but standard D365 leaves no clean path.
 
 #### The problem this kit solves
 
@@ -91,7 +91,7 @@ In normal D365 development, when the standard doesn't allow **exactly** what is 
 | Reason | Example |
 | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **1. Native host can't host what you need** | You need a subgrid-like grid **inside a webresource** with the same look as the form, but you cannot embed a standard CRM grid in HTML and drive it from your code |
-| **2. Requirement is ~99% native, interaction isn't** | Saved-view grid with one custom row action, lookup with one extra filter step, optionset with dynamic option pruning, standard controls are close but not programmable |
+| **2. Requirement is ~90% native, interaction isn't** | Saved-view grid with one custom row action, lookup with one extra filter step, optionset with dynamic option pruning, standard controls are close but not programmable |
 | **3. Data model doesn't fit one native control** | Merged queries, multi-activity-type lists, cross-entity pickers, visually standard, data source non-standard |
 
 
@@ -114,7 +114,7 @@ In normal D365 development, when the standard doesn't allow **exactly** what is 
 - **Metadata-aware controls are the fast path** when the field behavior is standard but the **host is React** (webresource), you get form-designer simplicity without rebuilding option lists, formats, or labels by hand.
 - **ViewModel + presentational** is the surgical path when data is custom (merged queries, multi-activity lists), ViewModel fetches and supplies values; presentational keeps UCI appearance without knowing CRM exists.
 - **Neither tier should look custom.** Users should not perceive a quality drop versus native UI. A week-long clunky POC is a failure mode this kit replaces; a one-day solution that looks native is the success mode.
-- **Optimize for the "ahh, standard doesn't allow exactly that" moment**, APIs, samples, and docs should make the 99%-native case faster than the exotic case. Exotic merged grids matter; everyday "I need a grid in a webresource that behaves like the form" matters more.
+- **Optimize for the "ahh, standard doesn't allow exactly that" moment**, APIs, samples, and docs should make the 90%-native case faster than the exotic case. Exotic merged grids matter; everyday "I need a grid in a webresource that behaves like the form" matters more.
 
 ### 1.4 What this is NOT
 
@@ -149,7 +149,7 @@ This kit **deliberately** uses View + ViewModel + Observable rather than hooks-c
 | **ViewModel holds logic; View mostly declares controls** | Opening `CompanySearchViewModel.ts` tells you where data and rules live, same mental model as form scripts |
 | **Observables = "when this changes, update"** | Maps to event-driven CRM thinking without learning hook rules of capture |
 | **Class components with explicit lifecycle** | PCF roots and CRM event handlers are already class-shaped; fewer paradigm switches |
-| **Metadata-aware controls minimize ViewModel code** | Smart blocks keep ViewModels thin for the 99%-native case; ViewModels grow mainly when behavior is genuinely custom |
+| **Metadata-aware controls minimize ViewModel code** | Smart blocks keep ViewModels thin for the 90%-native case; ViewModels grow mainly when behavior is genuinely custom |
 
 
 #### Large ViewModels, acknowledged, managed
@@ -175,11 +175,11 @@ For many model-driven D365 requirements, **this is the product Microsoft should 
 
 Canvas apps solved citizen development with **Power Fx and a parallel runtime**. Model-driven apps already have entities, forms, views, security, and metadata. The gap was always **custom UI that still feels native** when configuration hits its limit. This kit fills that gap with **React + metadata-aware blocks**, not a second app paradigm.
 
-#### Alignment with Power Platform's direction
+#### Positioning relative to canvas and custom pages
 
-Microsoft is moving toward **coding agents and prompt-driven generation of React** for Power Platform (canvas evolving toward generated code rather than low-code formulas). **Power Fx was a detour** for teams whose data and UX already live in model-driven Dataverse, a proprietary language and runtime when the platform already speaks entities, attributes, and views.
+Stated plainly so contributors understand the design's reason to exist: this kit reflects a conviction that model-driven teams are under-served when configuration hits its limit. The sanctioned answers (embedded canvas, now custom pages) bring a second paradigm, Power Fx, a separate runtime, layout-first authoring, to teams whose entities, security, and UX already live in model-driven Dataverse. This kit takes the other path: custom UI that stays native by speaking the attributes and views the platform already exposes, in React rather than a second language.
 
-This kit is **aligned with a React-output future**:
+This is a design stance, not a prediction about where the platform is heading. Custom pages are actively invested in and are the right tool for many cases (standalone apps, multi-source data, genuine citizen development). The claim here is narrower: when the requirement is native model-driven UI that configuration cannot quite express, a metadata-aware React control fits better than embedding a parallel app. Contributors should not refactor the kit toward a canvas or Power Fx model on the assumption that platform direction settles the question. That tradeoff is deliberate.
 
 
 | Power Platform trend | This kit's position |
@@ -813,7 +813,7 @@ Use **standard Dataverse entities only** (`account`, `contact`, `opportunity`, `
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **template** | Minimal scaffold, new dev starting point |
 | **samples hub** | Single webresource hosting a selector that swaps between sample apps (demonstrates dynamic app switching without separate deployments) |
-| **sample-company-search** | **99%-native flagship**, saved-view grid and lookups in a webresource that look and behave like form controls, with code-level refresh/selection (the "can't embed a standard subgrid" scenario) |
+| **sample-company-search** | **90%-native flagship**, saved-view grid and lookups in a webresource that look and behave like form controls, with code-level refresh/selection (the "can't embed a standard subgrid" scenario) |
 | **sample-opportunity-search** | Composite filter form using nearly every control type, the "kitchen sink" demo |
 | **sample-activities-grid** | **Multi-activity-type merged list**, tasks, phone calls, appointments in one native-looking grid with shared columns and sort |
 | **sample-merged-grid** | **Multi-query merged grid**, rows from two or more FetchXML sources combined (canonical "native subgrid can't do this" demo) |

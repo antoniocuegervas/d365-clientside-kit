@@ -581,3 +581,36 @@ Applied codebase-wide in `2be679b` (voice + citations + flourish, 67 files, 0 em
 dashes / 0 citations remaining, verified green). The `banner -> #region` conversion
 (the last sub-item) was **in progress and uncommitted** at handover; see the
 handover notes.
+
+## D-037, MVVM/Observables not revisited despite hooks pushback (rationale for a fixed choice)
+
+Recorded because "why not hooks" is the recurring review challenge and spec section 16.2
+lists the MVVM/Observable model as fixed, do not deviate. This entry is the
+standing rebuttal so it isn't re-argued from scratch each pass, not a reopening.
+The full stance lives in docs/ (Architectural stance, spec section 13); this is the
+short pushback log.
+
+Two load-bearing points:
+
+1. Complexity-ceiling as guardrail. Making form-designer-shaped Views + thin
+   ViewModels the idiom puts a deliberate ceiling on per-app complexity. If a
+   requirement is so large that a competent programmer or coding agent can't generate it
+   cleanly against a `*View.tsx` + `*ViewModel.ts` pair, that is the signal the
+   requirement has left the kit's band (the 99%-native, ship-in-a-day zone, spec
+   section 1.3), not a signal to reach for hooks. This turns the usual "MVVM doesn't
+   scale to complex SPAs" critique into a feature: the kit is not for complex
+   SPAs, and the readability ceiling is how you find that out early and cheaply.
+
+2. Empirical, not aesthetic. The owner built the kit both ways (class + MVVM and
+   functional + hooks) and measured the return cost. After 1-2 months on other
+   work, regaining the hook mindset was prohibitive even for highly competent CRM
+   devs, who hit the same wall; the MVVM version was re-legible on a guided
+   walkthrough even for non-devs. This is the intermittent-React cadence of spec
+   section 1.5 confirmed in practice, not a style preference.
+
+Revisit trigger: the premise changes, not the fashion. Reopen only if (a) the
+team becomes a daily-React shop, which breaks the cadence assumption, or (b)
+agent generation of MVVM proves materially worse than agent generation of hooks
+when measured against the sample apps (spec section 17.2 #5), which would undercut
+the prompt-friendly claim in spec section 1.6. React-first reviewer distaste alone is
+explicitly not a trigger; spec section 1.5 already anticipates it.
