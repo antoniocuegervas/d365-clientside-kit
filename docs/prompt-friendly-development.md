@@ -21,10 +21,12 @@ hallucinate than hand-wired FetchXML and option-list plumbing.
 |---|---|
 | Standard fields on a custom surface | `clientui/apps/template/` |
 | Saved-view grid + selection + edit panel | `clientui/apps/sample-company-search/` |
+| Master grid driving an editable detail form | `clientui/apps/sample-master-detail/` |
 | Filter form over an entity | `clientui/apps/sample-opportunity-search/` |
 | Dependent lookups | `clientui/apps/sample-territory-cascade/` |
 | Rows merged from several queries | `clientui/apps/sample-merged-grid/` |
 | Mixed activity types in one list | `clientui/apps/sample-activities-grid/` |
+| Multi-step gated wizard with an in-memory draft | `clientui/apps/sample-new-account-wizard/` |
 
 ## Patterns agents should default to
 
