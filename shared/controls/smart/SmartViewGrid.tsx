@@ -171,14 +171,13 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     return this.richMode() && !this.props.overrideFetchXml;
   }
 
-  override componentWillUnmount(): void {
+  protected override onUnmount(): void {
     for (const unsubscribe of this.subscriptions) {
       unsubscribe();
     }
     if (this.quickFindTimer) {
       clearTimeout(this.quickFindTimer);
     }
-    super.componentWillUnmount();
   }
 
   private track(unsubscribe: Unsubscribe | undefined): void {

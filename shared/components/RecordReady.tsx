@@ -34,11 +34,10 @@ export class RecordReady extends SmartComponent<IRecordReadyProps, IRecordReadyS
     this.timer = setInterval(() => this.check(), this.props.pollMs ?? 500);
   }
 
-  override componentWillUnmount(): void {
+  protected override onUnmount(): void {
     if (this.timer) {
       clearInterval(this.timer);
     }
-    super.componentWillUnmount();
   }
 
   private check(): void {

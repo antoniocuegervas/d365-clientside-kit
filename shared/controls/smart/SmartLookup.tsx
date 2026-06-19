@@ -50,11 +50,10 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
   private debounceHandle: ReturnType<typeof setTimeout> | undefined;
   private searchSequence = 0;
 
-  override componentWillUnmount(): void {
+  protected override onUnmount(): void {
     if (this.debounceHandle !== undefined) {
       clearTimeout(this.debounceHandle);
     }
-    super.componentWillUnmount();
   }
 
   private resolveTarget(metadata: IAttributeMetadata): string | undefined {

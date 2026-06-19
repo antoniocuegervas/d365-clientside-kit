@@ -16,8 +16,11 @@ import { isObservable, type ISubscribable, type OrObservable, type Unsubscribe }
  *   field whose `value` prop changes) calls `reobserve(...)` from
  *   componentDidUpdate to re-subscribe, so it never keeps listening to the old
  *   one. SmartFieldBase does this for you.
- * - A subclass that defines its own componentWillUnmount MUST call
- *   `super.componentWillUnmount()`.
+ * - A subclass that needs its own teardown (timers, debounce handles, manually
+ *   tracked subscriptions) overrides `onUnmount()`, NOT `componentWillUnmount`.
+ *   The base owns `componentWillUnmount`: it disposes the observer
+ *   subscriptions, then calls `onUnmount`. There is no `super` call to forget,
+ *   so the base teardown can never be skipped by overriding the wrong method.
  */
 export abstract class ObserverComponent<P = object, S = object> extends React.Component<P, S> {
   private observerSubscriptions: Unsubscribe[] = [];
@@ -77,5 +80,16 @@ export abstract class ObserverComponent<P = object, S = object> extends React.Co
       unsubscribe();
     }
     this.observerSubscriptions = [];
+    this.onUnmount();
+  }
+
+  /**
+   * Teardown hook for subclasses: clear timers, debounce handles, and any
+   * manually tracked subscriptions here. Runs after the base has disposed the
+   * observer subscriptions. Override this instead of `componentWillUnmount`, so
+   * the base teardown can never be skipped.
+   */
+  protected onUnmount(): void {
+    // no-op by default
   }
 }
