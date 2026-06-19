@@ -4,6 +4,16 @@ export default {
   roots: ["<rootDir>/tests"],
   testMatch: ["**/*.test.ts", "**/*.test.tsx"],
   passWithNoTests: true,
+  // For `npm run coverage`: instrument every first-party source file, so files
+  // no test touches still show up (Jest otherwise only reports imported ones).
+  // Generated and type-only files are excluded so the numbers reflect real code.
+  collectCoverageFrom: [
+    "shared/**/*.{ts,tsx}",
+    "clientui/**/*.{ts,tsx}",
+    "clienthooks/**/*.{ts,tsx}",
+    "!**/*.d.ts",
+    "!**/generated/**",
+  ],
   transform: {
     "^.+\\.tsx?$": [
       "ts-jest",

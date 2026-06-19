@@ -10,6 +10,7 @@
     "build": "webpack --mode production",
     "build:dev": "webpack --mode development",
     "test": "jest --testPathIgnorePatterns tests/smoke",
+    "coverage": "jest --testPathIgnorePatterns tests/smoke --coverage",
     "smoke": "jest tests/smoke",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
