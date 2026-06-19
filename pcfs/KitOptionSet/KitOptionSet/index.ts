@@ -10,7 +10,7 @@ import type { IOptionItem } from "../../../shared/utils/EntityModel";
 /**
  * Sample PCF, PATTERN 1: presentational control via the PCF root.
  *
- * The root owns the Observables (it is the host, section 4.2), maps PCF parameters
+ * The root owns the Observables (it is the host), maps PCF parameters
  * into them on every updateView, and renders the CRM-agnostic
  * OptionSetField. No context provider, no metadata calls, the option list
  * comes straight from the bound column's PCF parameter attributes.

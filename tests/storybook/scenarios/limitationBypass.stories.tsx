@@ -9,7 +9,7 @@ import {
 } from "../fixtures";
 
 /**
- * The canonical "why not native" demos (step 3, section 17.1.4).
+ * The canonical "why not native" demos.
  *
  * Side-by-side review checklist: compare against a native read-only subgrid
  * on a UCI form, header weight/color, row height, hover, sort indicators

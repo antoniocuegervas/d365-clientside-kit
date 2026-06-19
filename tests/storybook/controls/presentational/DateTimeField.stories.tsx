@@ -55,7 +55,7 @@ export const WithError: Story = {
   ),
 };
 export const LocalizedCalendar: Story = {
-  name: "Localized strings + first day Monday (G-06)",
+  name: "Localized strings + first day Monday",
   render: () => (
     <DateTimeField
       label="Est. Close Date"

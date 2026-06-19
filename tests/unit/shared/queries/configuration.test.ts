@@ -1,7 +1,7 @@
 import { getConfigurationParameter } from "../../../../shared/queries/configuration";
 import { createFakeViewModelContext } from "../../../mocks/fakeViewModelContext";
 
-describe("getConfigurationParameter (G-05)", () => {
+describe("getConfigurationParameter", () => {
   const options = {
     entity: "new_configuration",
     nameField: "new_name",

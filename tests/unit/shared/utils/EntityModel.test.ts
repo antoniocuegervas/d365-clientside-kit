@@ -50,7 +50,7 @@ describe("EntityReference", () => {
   });
 });
 
-describe("Xrm.LookupValue round-trip (N-05)", () => {
+describe("Xrm.LookupValue round-trip", () => {
   it("braceGuid wraps a normalized guid in braces", () => {
     expect(braceGuid("AAA00000-0000-0000-0000-000000000001")).toBe(
       "{aaa00000-0000-0000-0000-000000000001}"

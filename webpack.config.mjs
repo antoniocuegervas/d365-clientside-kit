@@ -4,7 +4,7 @@ import HtmlWebpackPlugin from "html-webpack-plugin";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// section 11.2: configurable publisher prefix, never hardcoded to a customer.
+// Configurable publisher prefix, never hardcoded to a customer.
 const prefix = process.env.PUBLISHER_PREFIX ?? "new_";
 
 /** Shared loader/resolve settings for both bundles. */

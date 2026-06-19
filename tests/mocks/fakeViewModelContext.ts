@@ -31,27 +31,27 @@ export interface IFakeContextOptions {
   formatting?: IFormattingInfo;
   /** User UI language LCID surfaced on context.user.languageId. */
   languageId?: number;
-  /** RTL flag surfaced on context.user.isRTL (N-03). */
+  /** RTL flag surfaced on context.user.isRTL. */
   isRTL?: boolean;
-  /** Timezone offset surfaced on context.user.timeZoneOffsetMinutes (N-03). */
+  /** Timezone offset surfaced on context.user.timeZoneOffsetMinutes. */
   timeZoneOffsetMinutes?: number;
-  /** Localized strings returned by utils.getResourceString, keyed by key (N-03). */
+  /** Localized strings returned by utils.getResourceString, keyed by key. */
   resourceStrings?: Record<string, string>;
-  /** Result of utils.getAllowedStatusTransitions (N-03). */
+  /** Result of utils.getAllowedStatusTransitions. */
   allowedStatusTransitions?: unknown;
-  /** Form factor returned by client.getFormFactor (N-03). Default 1 (Desktop). */
+  /** Form factor returned by client.getFormFactor. Default 1 (Desktop). */
   formFactor?: number;
-  /** Client kind returned by client.getClient (N-03). */
+  /** Client kind returned by client.getClient. */
   clientKind?: string;
-  /** Offline flag returned by client.isOffline (N-03). */
+  /** Offline flag returned by client.isOffline. */
   isOffline?: boolean;
-  /** File returned by device capture methods (N-03). */
+  /** File returned by device capture methods. */
   deviceFile?: IFileDetails | null;
-  /** Files returned by device.pickFile (N-03). */
+  /** Files returned by device.pickFile. */
   pickedFiles?: IFileDetails[];
-  /** Barcode returned by device.getBarcodeValue (N-03). */
+  /** Barcode returned by device.getBarcodeValue. */
   barcodeValue?: string | null;
-  /** Position returned by device.getCurrentPosition (N-03). */
+  /** Position returned by device.getCurrentPosition. */
   geoPosition?: IGeoPosition | null;
   /** Currency info returned by getCurrencySymbol, keyed by currency id. */
   currencies?: Record<string, ICurrencyInfo>;

@@ -96,7 +96,7 @@ describe("CdsClient", () => {
       expect(result.nextLink).toContain("$skiptoken=x");
     });
 
-    it("surfaces FetchXML paging annotations (total, more-records, cookie), N-04", async () => {
+    it("surfaces FetchXML paging annotations (total, more-records, cookie)", async () => {
       server.respondAlways({
         status: 200,
         responseText: JSON.stringify({
@@ -114,7 +114,7 @@ describe("CdsClient", () => {
       expect(result.pagingCookie).toBe("<cookie/>");
     });
 
-    it("flags an over-cap total and ignores the -1 sentinel, N-04", async () => {
+    it("flags an over-cap total and ignores the -1 sentinel", async () => {
       server.respondAlways({
         status: 200,
         responseText: JSON.stringify({

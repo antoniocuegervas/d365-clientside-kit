@@ -77,7 +77,7 @@ describe("LibraryUtils field manipulation", () => {
     expect(controls.get("name")!.setDisabled).toHaveBeenCalledWith(false);
   });
 
-  it("set/clearFieldNotification target the attribute's controls (N-07)", () => {
+  it("set/clearFieldNotification target the attribute's controls", () => {
     const { formContext, controls } = makeFakeForm(["telephone1", "name"]);
     FormContextUtils.setFieldNotification(formContext, "telephone1", "Required", "phone-required");
     expect(controls.get("telephone1")!.setNotification).toHaveBeenCalledWith(
@@ -90,14 +90,14 @@ describe("LibraryUtils field manipulation", () => {
     expect(controls.get("telephone1")!.clearNotification).toHaveBeenCalledWith("phone-required");
   });
 
-  it("setFieldNotification is a no-op for a field absent from the form (N-07)", () => {
+  it("setFieldNotification is a no-op for a field absent from the form", () => {
     const { formContext } = makeFakeForm(["name"]);
     expect(() =>
       FormContextUtils.setFieldNotification(formContext, "not_on_form", "x", "id")
     ).not.toThrow();
   });
 
-  it("addFieldNotification passes rich options to the attribute's controls (N-12)", () => {
+  it("addFieldNotification passes rich options to the attribute's controls", () => {
     const { formContext, controls } = makeFakeForm(["websiteurl", "name"]);
     const action = jest.fn();
     const options = {
@@ -111,7 +111,7 @@ describe("LibraryUtils field manipulation", () => {
     expect(controls.get("name")!.addNotification).not.toHaveBeenCalled();
   });
 
-  it("addFieldNotification is cleared by clearFieldNotification, no separate remover (N-12)", () => {
+  it("addFieldNotification is cleared by clearFieldNotification, no separate remover", () => {
     const { formContext, controls } = makeFakeForm(["websiteurl"]);
     FormContextUtils.addFieldNotification(formContext, "websiteurl", {
       messages: ["x"],
@@ -121,7 +121,7 @@ describe("LibraryUtils field manipulation", () => {
     expect(controls.get("websiteurl")!.clearNotification).toHaveBeenCalledWith("site-rec");
   });
 
-  it("addFieldNotification skips controls without rich-notification support (N-12)", () => {
+  it("addFieldNotification skips controls without rich-notification support", () => {
     const { formContext, controls } = makeFakeForm(["websiteurl"]);
     // Editable-grid-style control without addNotification.
     (controls.get("websiteurl") as { addNotification?: unknown }).addNotification = undefined;
@@ -133,7 +133,7 @@ describe("LibraryUtils field manipulation", () => {
     ).not.toThrow();
   });
 
-  it("set/clearFormNotification delegate to the form ui (N-07)", () => {
+  it("set/clearFormNotification delegate to the form ui", () => {
     const { formContext, setFormNotification, clearFormNotification } = makeFakeForm([]);
     expect(FormContextUtils.setFormNotification(formContext, "Heads up", "WARNING", "warn-1")).toBe(true);
     expect(setFormNotification).toHaveBeenCalledWith("Heads up", "WARNING", "warn-1");

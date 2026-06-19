@@ -42,7 +42,7 @@ export const Interactive: Story = {
   render: () => <Pagination {...make(1, true)} />,
 };
 
-/** Rich mode (N-04): jump-to-page combobox, first/last, and an "X–Y of N" label. */
+/** Rich mode: jump-to-page combobox, first/last, and an "X–Y of N" label. */
 const makeRich = (initialPage: number, pageCount: number, pageSize: number, total: number) => {
   const page = new Observable(initialPage);
   const go = (n: number) => {

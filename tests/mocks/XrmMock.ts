@@ -26,27 +26,27 @@ interface ICommonMockOptions {
   confirmResult?: boolean;
   /** Records the native lookup dialog (Xrm.Utility.lookupObjects) resolves with. */
   lookupResult?: Array<{ id: string; name?: string; entityType: string }>;
-  /** User UI language LCID surfaced on userSettings (G-06). */
+  /** User UI language LCID surfaced on userSettings. */
   languageId?: number;
-  /** Raw host date-format object surfaced on userSettings.dateFormattingInfo (G-06). */
+  /** Raw host date-format object surfaced on userSettings.dateFormattingInfo. */
   dateFormattingInfo?: Record<string, unknown>;
-  /** RTL flag on userSettings (N-03). */
+  /** RTL flag on userSettings. */
   isRTL?: boolean;
-  /** Timezone offset returned by userSettings.getTimeZoneOffsetMinutes (N-03). */
+  /** Timezone offset returned by userSettings.getTimeZoneOffsetMinutes. */
   timeZoneOffsetMinutes?: number;
-  /** Form factor returned by client.getFormFactor (N-03). Default 1 (Desktop). */
+  /** Form factor returned by client.getFormFactor. Default 1 (Desktop). */
   formFactor?: number;
-  /** Client kind returned by client.getClient (N-03). */
+  /** Client kind returned by client.getClient. */
   clientKind?: string;
-  /** Offline flag returned by client.isOffline (N-03). */
+  /** Offline flag returned by client.isOffline. */
   isOffline?: boolean;
-  /** Localized strings returned by Utility.getResourceString (N-03). */
+  /** Localized strings returned by Utility.getResourceString. */
   resourceStrings?: Record<string, string>;
-  /** Result of Utility.getAllowedStatusTransitions (N-03). */
+  /** Result of Utility.getAllowedStatusTransitions. */
   allowedStatusTransitions?: unknown;
-  /** Barcode returned by Device.getBarcodeValue (N-03). */
+  /** Barcode returned by Device.getBarcodeValue. */
   barcodeValue?: string;
-  /** File returned by Device.captureImage (N-03). */
+  /** File returned by Device.captureImage. */
   deviceFile?: unknown;
 }
 
@@ -143,7 +143,7 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
           isRTL: options.isRTL,
           getTimeZoneOffsetMinutes: () => options.timeZoneOffsetMinutes ?? 0,
         },
-        // N-03 client/form-factor surface.
+        // client/form-factor surface.
         client: {
           getFormFactor: () => options.formFactor ?? 1,
           getClient: () => options.clientKind ?? "Web",
@@ -155,7 +155,7 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
         record("Utility.lookupObjects", lookupOptions);
         return options.lookupResult ?? [];
       },
-      // N-03 utility extras.
+      // utility extras.
       getResourceString: (webResourceName: string, key: string) => {
         record("Utility.getResourceString", webResourceName, key);
         return options.resourceStrings?.[key] ?? "";
@@ -168,7 +168,7 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
       },
       refreshParentGrid: (lookupValue: unknown) => record("Utility.refreshParentGrid", lookupValue),
     },
-    // N-03 device capture surface.
+    // device capture surface.
     Device: {
       getBarcodeValue: async () => {
         record("Device.getBarcodeValue");

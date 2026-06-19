@@ -12,7 +12,7 @@ export default meta;
 type Story = StoryObj<typeof OptionSetField>;
 
 /**
- * section 4.2 exemplar contract: BOTH the options list and the selected value are
+ * Exemplar contract: BOTH the options list and the selected value are
  * host-owned observables. Stories own them just like a smart wrapper would.
  */
 const make = (initial: number | null) => {

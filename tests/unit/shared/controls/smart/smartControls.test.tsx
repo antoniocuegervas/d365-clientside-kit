@@ -210,7 +210,7 @@ describe("SmartLookup", () => {
     });
   });
 
-  it("dialog mode opens the native picker and commits the chosen record (G-02)", async () => {
+  it("dialog mode opens the native picker and commits the chosen record", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
         "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
@@ -232,7 +232,7 @@ describe("SmartLookup", () => {
     expect((dialog.args[0] as { entityTypes?: string[] }).entityTypes).toEqual(["account"]);
   });
 
-  it("view-driven search runs the saved view as the source (G-03)", async () => {
+  it("view-driven search runs the saved view as the source", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
         "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
@@ -261,7 +261,7 @@ describe("SmartLookup", () => {
     expect(String(last.args[1])).toContain("?savedQuery=99990000-0000-0000-0000-000000000009");
   });
 
-  it("attaches the resolved entity icon to inline results (G-10)", async () => {
+  it("attaches the resolved entity icon to inline results", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
         "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
@@ -292,7 +292,7 @@ describe("SmartLookup", () => {
     });
   });
 
-  it("StandardLookupField opens the dialog and stores the picked record (G-02)", async () => {
+  it("StandardLookupField opens the dialog and stores the picked record", async () => {
     const { context, calls } = createFakeViewModelContext({
       lookupResults: [
         { id: "a1a00000-0000-0000-0000-000000000001", logicalName: "account", name: "Contoso Ltd" },
@@ -333,7 +333,7 @@ describe("SmartLookup", () => {
   });
 });
 
-describe("SmartNumberField locale + currency (G-06 / G-06b)", () => {
+describe("SmartNumberField locale + currency", () => {
   it("formats with the user's decimal symbol and group separator", async () => {
     const { context } = createFakeViewModelContext({
       attributes: {
@@ -353,7 +353,7 @@ describe("SmartNumberField locale + currency (G-06 / G-06b)", () => {
     });
   });
 
-  it("resolves the record's currency symbol from transactionCurrencyId (G-06b)", async () => {
+  it("resolves the record's currency symbol from transactionCurrencyId", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
         "opportunity.estimatedvalue": { displayName: "Est. Value", kind: "money", precision: 2 },
@@ -446,7 +446,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(await screen.findByText("Fabrikam Inc")).toBeTruthy();
   });
 
-  it("pages server-side via nextLink and caches visited pages (G-01)", async () => {
+  it("pages server-side via nextLink and caches visited pages", async () => {
     const { context, calls } = createFakeViewModelContext({
       ...viewSetup,
       queryResults: {
@@ -484,7 +484,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(calls.filter((c) => c.api === "retrieveMultipleByUrl").length).toBe(1);
   });
 
-  it("rich pagination jumps server-side via FetchXML page/count with a total (N-04)", async () => {
+  it("rich pagination jumps server-side via FetchXML page/count with a total", async () => {
     const { context, calls } = createFakeViewModelContext({
       ...viewSetup,
       queryResults: {
@@ -522,7 +522,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(String(pagedFetch.args[1])).toContain('page="2" count="2"');
   });
 
-  it("rich pagination degrades to next/prev when the total is over the cap (N-04)", async () => {
+  it("rich pagination degrades to next/prev when the total is over the cap", async () => {
     const { context } = createFakeViewModelContext({
       ...viewSetup,
       queryResults: {
@@ -546,7 +546,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect((screen.getByLabelText("Next page") as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("rich + overrideFetchXml is controlled: raises onPageChange, host owns the data (N-04)", async () => {
+  it("rich + overrideFetchXml is controlled: raises onPageChange, host owns the data", async () => {
     const { context, calls } = createFakeViewModelContext({
       ...viewSetup,
       queryResults: {
@@ -589,7 +589,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(selected).toEqual(["a1a00000-0000-0000-0000-000000000001"]);
   });
 
-  it("opens the record's form on row invoke (double-click) by default (G-01)", async () => {
+  it("opens the record's form on row invoke (double-click) by default", async () => {
     const { context, calls } = createFakeViewModelContext(viewSetup);
     renderWith(context, <SmartViewGrid entity="account" />);
     await userEvent.dblClick(await screen.findByText("Contoso Ltd"));
@@ -597,7 +597,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(open?.args).toEqual(["account", "a1a00000-0000-0000-0000-000000000001"]);
   });
 
-  it("multi-select tracks selected record ids (G-01)", async () => {
+  it("multi-select tracks selected record ids", async () => {
     const { context } = createFakeViewModelContext(viewSetup);
     const selectedRecordIds = new Observable<string[]>([]);
     renderWith(
@@ -609,7 +609,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(selectedRecordIds.value).toEqual(["a1a00000-0000-0000-0000-000000000001"]);
   });
 
-  it("renders lookup columns as clickable links that openForm the target (G-01)", async () => {
+  it("renders lookup columns as clickable links that openForm the target", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
         "account.name": { displayName: "Account Name", kind: "text" },
@@ -649,7 +649,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     ]);
   });
 
-  it("resolves a link-entity column against its owning entity (N-01)", async () => {
+  it("resolves a link-entity column against its owning entity", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
         "account.name": { displayName: "Account Name", kind: "text" },
@@ -705,7 +705,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     ).toBe(true);
   });
 
-  it("runs the saved view by id via ?savedQuery= (T-01)", async () => {
+  it("runs the saved view by id via ?savedQuery=", async () => {
     const { context, calls } = createFakeViewModelContext(viewSetup);
     renderWith(context, <SmartViewGrid entity="account" />);
     await screen.findByText("Contoso Ltd");
@@ -715,7 +715,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(String(query!.args[1])).toContain("?savedQuery=");
   });
 
-  it("composes quick find into the saved-query $filter (G-01)", async () => {
+  it("composes quick find into the saved-query $filter", async () => {
     const { context, calls } = createFakeViewModelContext(viewSetup);
     const quickFind = new Observable("cont");
     renderWith(context, <SmartViewGrid entity="account" quickFind={quickFind} />);
@@ -725,7 +725,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(String(query.args[1])).toContain("$filter=contains(name,'cont')");
   });
 
-  it("applies declarative filters server-side (G-01)", async () => {
+  it("applies declarative filters server-side", async () => {
     const { context, calls } = createFakeViewModelContext(viewSetup);
     const filters = new Observable<ISmartViewGridFilter[]>([
       { attribute: "statecode", value: 0 },
@@ -736,7 +736,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(String(query.args[1])).toContain("$filter=statecode eq 0");
   });
 
-  it("server sort: a header click updates orderBy and re-queries with $orderby (G-01)", async () => {
+  it("server sort: a header click updates orderBy and re-queries with $orderby", async () => {
     const { context, calls } = createFakeViewModelContext(viewSetup);
     const orderBy = new Observable<ISortSpec | null>(null);
     renderWith(context, <SmartViewGrid entity="account" orderBy={orderBy} serverSort />);
@@ -749,7 +749,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     });
   });
 
-  it("overrideFetchXml swaps the data source to host FetchXML, keeping layout (G-01)", async () => {
+  it("overrideFetchXml swaps the data source to host FetchXML, keeping layout", async () => {
     const { context, calls } = createFakeViewModelContext(viewSetup);
     const override = new Observable<string | null>("<fetch><entity name='account'/></fetch>");
     renderWith(context, <SmartViewGrid entity="account" overrideFetchXml={override} />);
@@ -759,7 +759,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     });
   });
 
-  it("resolves the view by name when viewName is given (G-05)", async () => {
+  it("resolves the view by name when viewName is given", async () => {
     const { context, calls } = createFakeViewModelContext({
       ...viewSetup,
       views: {
@@ -778,7 +778,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     ]);
   });
 
-  it("dynamic column resolves from the first non-empty source field (G-16)", async () => {
+  it("dynamic column resolves from the first non-empty source field", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: { "opportunity.name": { displayName: "Topic", kind: "text" } },
       views: {
@@ -832,7 +832,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(await screen.findByText("Free Text Reviewer")).toBeTruthy();
   });
 
-  it("activity invoke opens the real activity type, not activitypointer (N-08)", async () => {
+  it("activity invoke opens the real activity type, not activitypointer", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
         "activitypointer.subject": { displayName: "Subject", kind: "text" },
@@ -871,7 +871,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     ]);
   });
 
-  it("activity invoke errors readably when activitytypecode is absent (N-08)", async () => {
+  it("activity invoke errors readably when activitytypecode is absent", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: { "activitypointer.subject": { displayName: "Subject", kind: "text" } },
       entities: { activitypointer: { primaryIdAttribute: "activityid" } },

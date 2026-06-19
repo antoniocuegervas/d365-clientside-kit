@@ -5,11 +5,11 @@ import { NumberField } from "../../../../../shared/controls/presentational/Numbe
 import { Observable } from "../../../../../shared/reactivity/Observable";
 
 /**
- * NumberField has genuine parse/format logic, so it gets a unit test per D-017
+ * NumberField has genuine parse/format logic, so it gets a unit test
  * (presentational stories carry the rest). These cover the CRM-settings
- * separators added in G-06.
+ * separators.
  */
-describe("NumberField separators (G-06)", () => {
+describe("NumberField separators", () => {
   it("formats at rest with the supplied decimal symbol and group separator", () => {
     const value = new Observable<number | null>(1234567.5);
     render(

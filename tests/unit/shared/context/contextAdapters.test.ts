@@ -35,7 +35,7 @@ describe("createWebResourceContext factory", () => {
     expect(() => createWebResourceContext(fakeWindow)).toThrow(/Xrm is not available/);
   });
 
-  it("walks past multiple ancestor frames to find Xrm (G-09 deep nesting)", () => {
+  it("walks past multiple ancestor frames to find Xrm (deep nesting)", () => {
     const { xrm } = createModernXrmMock();
     // self -> dialog frame -> form frame (carries Xrm) -> top
     const top = { Xrm: xrm } as unknown as Window;
@@ -56,7 +56,7 @@ describe("createWebResourceContext factory", () => {
     expect(findXrm(self)).toBe(modern);
   });
 
-  it("binds formAccess to the deepest ancestor form (G-09)", () => {
+  it("binds formAccess to the deepest ancestor form", () => {
     // The hosting form is two frames up; the standalone Xrm in between has none.
     const formHost = createModernXrmMock({
       formRecord: {
@@ -195,7 +195,7 @@ describe("WebResourceContext (modern)", () => {
     expect((call!.args[0] as { entityTypes?: string[] }).entityTypes).toEqual(["account"]);
   });
 
-  it("exposes the client/device/utility/userSettings mirror surface (N-03)", async () => {
+  it("exposes the client/device/utility/userSettings mirror surface", async () => {
     const { xrm, calls } = createModernXrmMock({
       formFactor: 3,
       clientKind: "Mobile",
@@ -225,7 +225,7 @@ describe("WebResourceContext (modern)", () => {
     await expect(context.device.getBarcodeValue()).resolves.toBe("012345");
   });
 
-  it("fetchPage rides cds-client so paging annotations survive (N-04)", async () => {
+  it("fetchPage rides cds-client so paging annotations survive", async () => {
     const server = new FakeXhrServer();
     server.install();
     try {
@@ -250,7 +250,7 @@ describe("WebResourceContext (modern)", () => {
     }
   });
 
-  it("delegates openErrorDialog / openFile / navigateTo / openWebResource natively (N-02)", async () => {
+  it("delegates openErrorDialog / openFile / navigateTo / openWebResource natively", async () => {
     const { xrm, calls } = createModernXrmMock();
     const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
 
@@ -280,7 +280,7 @@ describe("WebResourceContext (modern)", () => {
     expect(wrCall.args).toEqual(["new_page.html", { width: 400 }, "payload"]);
   });
 
-  it("surfaces languageId and resolves formatting from userSettings + the usersettings entity (G-06)", async () => {
+  it("surfaces languageId and resolves formatting from userSettings + the usersettings entity", async () => {
     const server = new FakeXhrServer();
     server.install();
     try {
@@ -339,7 +339,7 @@ describe("WebResourceContext (modern)", () => {
     expect(context.formAccess).toBeUndefined();
   });
 
-  it("setAttributeValue converts an EntityReference to the Xrm lookup array (N-05)", () => {
+  it("setAttributeValue converts an EntityReference to the Xrm lookup array", () => {
     const { xrm, calls } = createModernXrmMock({
       formRecord: {
         id: "ddd00000-0000-0000-0000-000000000004",
@@ -358,7 +358,7 @@ describe("WebResourceContext (modern)", () => {
     ]);
   });
 
-  it("setAttributeValue passes plain values through unchanged (N-05)", () => {
+  it("setAttributeValue passes plain values through unchanged", () => {
     const { xrm, calls } = createModernXrmMock({
       formRecord: {
         id: "ddd00000-0000-0000-0000-000000000004",
@@ -473,7 +473,7 @@ describe("WebResourceContextV8 shim matrix", () => {
     ]);
   });
 
-  it("N-03 surface degrades on 8.x: device throws, status transitions reject, client defaults", async () => {
+  it("surface degrades on 8.x: device throws, status transitions reject, client defaults", async () => {
     const { context } = makeContext();
     expect(context.client.getFormFactor()).toBe(0); // Unknown (no 8.x client slice)
     expect(context.client.getClient()).toBe("Web");
@@ -486,21 +486,21 @@ describe("WebResourceContextV8 shim matrix", () => {
     expect(context.utils.getResourceString("w", "k")).toBeUndefined();
   });
 
-  it("openErrorDialog routes message+details to the v8 alert (N-02)", async () => {
+  it("openErrorDialog routes message+details to the v8 alert", async () => {
     const { context, calls } = makeContext();
     await context.navigation.openErrorDialog({ message: "Save failed", details: "stack trace" });
     const alert = calls.find((c) => c.api === "Utility.alertDialog")!;
     expect(alert.args[0]).toBe("Save failed\n\nstack trace");
   });
 
-  it("openFile throws a clear not-supported error on 8.x (N-02)", async () => {
+  it("openFile throws a clear not-supported error on 8.x", async () => {
     const { context } = makeContext();
     await expect(
       context.navigation.openFile({ fileContent: "AAA", fileName: "r.txt", fileSize: 3, mimeType: "text/plain" })
     ).rejects.toThrow(/not supported on the CRM 8.x host/);
   });
 
-  it("navigateTo maps webresource/entityrecord and throws for the rest (N-02)", async () => {
+  it("navigateTo maps webresource/entityrecord and throws for the rest", async () => {
     const { context, calls } = makeContext();
     await context.navigation.navigateTo({ pageType: "webresource", webresourceName: "new_p.html", data: "x" });
     expect(calls).toContainEqual({ api: "Utility.openWebResource", args: ["new_p.html", "x", undefined, undefined] });
@@ -646,7 +646,7 @@ describe("PCFContext", () => {
     });
   });
 
-  it("maps client/device/resources from the PCF context; degrades the rest (N-03)", async () => {
+  it("maps client/device/resources from the PCF context; degrades the rest", async () => {
     const { source } = makeSource();
     source.client = { getFormFactor: () => 2, getClient: () => "Web", isOffline: () => false };
     source.device = { getBarcodeValue: () => Promise.resolve("999") };
@@ -665,7 +665,7 @@ describe("PCFContext", () => {
     );
   });
 
-  it("delegates openErrorDialog / openFile / navigateTo natively (N-02)", async () => {
+  it("delegates openErrorDialog / openFile / navigateTo natively", async () => {
     const { source, calls } = makeSource();
     const context = new PCFContext(source);
 

@@ -247,7 +247,7 @@ describe("MetadataService", () => {
       ]);
     });
 
-    it("prefers layoutjson and carries related-entity columns (N-01)", async () => {
+    it("prefers layoutjson and carries related-entity columns", async () => {
       const layoutJson = JSON.stringify({
         Rows: [
           {
@@ -309,7 +309,7 @@ describe("MetadataService", () => {
     });
   });
 
-  describe("getCurrencySymbol (G-06b)", () => {
+  describe("getCurrencySymbol", () => {
     it("resolves the currency symbol/precision and caches per id", async () => {
       server.respondWith((request) =>
         request.url.includes("transactioncurrencies(")
@@ -332,7 +332,7 @@ describe("MetadataService", () => {
     });
   });
 
-  describe("getEntityIconUrl (G-10)", () => {
+  describe("getEntityIconUrl", () => {
     it("OOTB entity → platform svg by object type code", async () => {
       server.respondAlways({
         status: 200,
@@ -358,7 +358,7 @@ describe("MetadataService", () => {
     });
   });
 
-  describe("getViewByName (G-05)", () => {
+  describe("getViewByName", () => {
     const layoutXml =
       '<grid><row id="accountid"><cell name="name" width="300" /></row></grid>';
 
@@ -425,7 +425,7 @@ describe("parseLayoutColumns", () => {
     expect(parseLayoutColumns("")).toEqual([]);
   });
 
-  it("drops hidden cells and flags disablesorting (N-01)", () => {
+  it("drops hidden cells and flags disablesorting", () => {
     const columns = parseLayoutColumns(
       '<row><cell name="name" width="200"/>' +
         '<cell name="secret" width="80" ishidden="1"/>' +
@@ -438,7 +438,7 @@ describe("parseLayoutColumns", () => {
   });
 });
 
-describe("parseLayoutColumnsFromJson (N-01)", () => {
+describe("parseLayoutColumnsFromJson", () => {
   it("reads Rows[0].Cells in order with related-entity + width", () => {
     const layoutJson = JSON.stringify({
       Rows: [

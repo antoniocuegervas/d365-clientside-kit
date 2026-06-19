@@ -13,7 +13,7 @@ import {
 // These helpers are inlined into SmartViewGrid (so the grid reads as one file)
 // and exported there for these unit tests, see the round-3 refactor decision.
 
-describe("savedQuery composition (G-01 / T-01)", () => {
+describe("savedQuery composition", () => {
   describe("composeFilterExpression", () => {
     it("single-field quick find", () => {
       expect(
@@ -99,7 +99,7 @@ describe("savedQuery composition (G-01 / T-01)", () => {
   });
 });
 
-describe("FetchXML paging mutation (N-04)", () => {
+describe("FetchXML paging mutation", () => {
   describe("setFetchPaging", () => {
     it("injects page/count onto the root <fetch>", () => {
       const out = setFetchPaging("<fetch><entity name='account'></entity></fetch>", {
@@ -187,7 +187,7 @@ describe("FetchXML paging mutation (N-04)", () => {
   });
 });
 
-describe("Web API cell readers (N-01 / G-01)", () => {
+describe("Web API cell readers", () => {
   describe("lookupCell", () => {
     const record = {
       _primarycontactid_value: "c1c00000-0000-0000-0000-000000000001",
@@ -209,7 +209,7 @@ describe("Web API cell readers (N-01 / G-01)", () => {
     });
   });
 
-  describe("splitAliasedColumn (N-01)", () => {
+  describe("splitAliasedColumn", () => {
     it("splits an alias.attr column on the first dot", () => {
       expect(splitAliasedColumn("pc.emailaddress1")).toEqual({
         alias: "pc",
@@ -222,7 +222,7 @@ describe("Web API cell readers (N-01 / G-01)", () => {
     });
   });
 
-  describe("aliasedLookupCell (N-01)", () => {
+  describe("aliasedLookupCell", () => {
     const record = {
       "pc.parentcustomerid": "a1a00000-0000-0000-0000-000000000001",
       "pc.parentcustomerid@OData.Community.Display.V1.FormattedValue": "Contoso Ltd",

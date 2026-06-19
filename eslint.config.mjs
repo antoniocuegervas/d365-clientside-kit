@@ -28,7 +28,7 @@ export default tseslint.config(
     },
   },
   {
-    // section 5.2 hard rule: presentational controls are CRM-agnostic. Values in,
+    // Hard rule: presentational controls are CRM-agnostic. Values in,
     // events out. This rule is the enforcement mechanism, not code review.
     files: [
       "shared/controls/presentational/**/*.{ts,tsx}",
