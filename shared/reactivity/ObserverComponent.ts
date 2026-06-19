@@ -10,8 +10,12 @@ import { isObservable, type ISubscribable, type OrObservable, type Unsubscribe }
  * rules are enforced by structure, not memory.
  *
  * Contract notes:
- * - Observable props must be identity-stable for the component's lifetime
- *   (hosts own them; they don't get recreated per render).
+ * - Observable props are usually identity-stable for the component's lifetime
+ *   (hosts own them; they don't get recreated per render). A control that can be
+ *   reused at the same tree position with a DIFFERENT bound Observable (e.g. a
+ *   field whose `value` prop changes) calls `reobserve(...)` from
+ *   componentDidUpdate to re-subscribe, so it never keeps listening to the old
+ *   one. SmartFieldBase does this for you.
  * - A subclass that defines its own componentWillUnmount MUST call
  *   `super.componentWillUnmount()`.
  */
@@ -49,6 +53,22 @@ export abstract class ObserverComponent<P = object, S = object> extends React.Co
       });
       this.observerSubscriptions.push(unsubscribe);
     }
+  }
+
+  /**
+   * Drops the current subscriptions and subscribes to a fresh set, for a
+   * component reused at the same tree position whose Observable props changed
+   * identity. Call from componentDidUpdate with the component's full source set.
+   * Plain controls that bind stable props never need this.
+   */
+  protected reobserve(
+    ...sources: Array<OrObservable<unknown> | ISubscribable | undefined | null>
+  ): void {
+    for (const unsubscribe of this.observerSubscriptions) {
+      unsubscribe();
+    }
+    this.observerSubscriptions = [];
+    this.observe(...sources);
   }
 
   override componentWillUnmount(): void {

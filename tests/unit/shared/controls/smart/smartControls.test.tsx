@@ -1,5 +1,5 @@
 import * as React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ViewModelContextProvider } from "../../../../../shared/context/ViewModelContextProvider";
 import { Observable } from "../../../../../shared/reactivity/Observable";
@@ -87,6 +87,45 @@ describe("SmartTextField (declarative block)", () => {
     const value = new Observable<string | null>(null);
     renderWith(context, <SmartTextField entity="account" attribute="missing" value={value} />);
     expect(await screen.findByText(/Could not load metadata for account.missing/)).toBeTruthy();
+  });
+});
+
+describe("SmartFieldBase reuse resilience", () => {
+  it("rebinds metadata and value subscription when props change on a reused instance", async () => {
+    const { context } = createFakeViewModelContext({
+      attributes: {
+        "account.name": { displayName: "Account Name", kind: "text" },
+        "contact.firstname": { displayName: "First Name", kind: "text" },
+      },
+    });
+    const accountName = new Observable<string | null>("Contoso");
+    const firstName = new Observable<string | null>(null);
+    const { rerender } = render(
+      <ViewModelContextProvider context={context}>
+        <SmartTextField entity="account" attribute="name" value={accountName} />
+      </ViewModelContextProvider>
+    );
+    expect(await screen.findByText("Account Name")).toBeTruthy();
+
+    // Same control type at the same position: React reuses the instance, now
+    // pointed at a different attribute and a different value Observable.
+    rerender(
+      <ViewModelContextProvider context={context}>
+        <SmartTextField entity="contact" attribute="firstname" value={firstName} />
+      </ViewModelContextProvider>
+    );
+
+    // Metadata rebinds: the label follows the new attribute.
+    expect(await screen.findByText("First Name")).toBeTruthy();
+    expect(screen.queryByText("Account Name")).toBeNull();
+
+    // Value subscription rebinds: an external edit to the NEW observable renders,
+    // and the old observable is left untouched.
+    await act(async () => {
+      firstName.value = "Jane";
+    });
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Jane");
+    expect(accountName.value).toBe("Contoso");
   });
 });
 

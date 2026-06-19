@@ -63,6 +63,27 @@ export abstract class SmartFieldBase<
   }
 
   /**
+   * Resilience for reuse: React keeps one control instance when the same
+   * control type stays at the same tree position (e.g. a field that swaps
+   * entity/attribute across wizard steps, or rebinds its value Observable).
+   * Metadata loads and the value subscription are established on mount, so on
+   * such a change we reload metadata and re-subscribe here rather than silently
+   * showing the previous attribute's label and ignoring edits.
+   */
+  override componentDidUpdate(prevProps: TProps): void {
+    if (prevProps.entity !== this.props.entity || prevProps.attribute !== this.props.attribute) {
+      this.setState({ metadata: undefined, loadError: undefined });
+      void this.loadMetadata();
+      if (this.usesFormatting()) {
+        void this.loadFormatting();
+      }
+    }
+    if (prevProps.value !== this.props.value || prevProps.errorMessage !== this.props.errorMessage) {
+      this.reobserve(this.props.value, this.props.errorMessage);
+    }
+  }
+
+  /**
    * Override to true on controls that localize via user settings
    * date and numeric fields. Defaults to false so other fields skip the
    * extra context call.
