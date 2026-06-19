@@ -39,7 +39,14 @@ const clientui = {
       template: path.resolve(__dirname, "clientui/html/clientui.html"),
       filename: `${prefix}clientui.html`,
       inject: false,
-      templateParameters: { scriptName: `${prefix}clientui.js` },
+      // Keep one stable bundle name (Dataverse webresources keep their name across
+      // releases) but stamp the script URL with a cache-busting token, so a
+      // republished bundle is a different URL the browser/app cache must refetch.
+      // The token is the compilation hash, so it changes only when the bundle does.
+      templateParameters: (compilation) => ({
+        scriptName: `${prefix}clientui.js`,
+        cacheBust: compilation.hash,
+      }),
     }),
   ],
 };
