@@ -13,9 +13,10 @@ pcfs/*/generated/
 # Test artifacts
 coverage/
 
-# Deployment secrets and logs
+# Deployment secrets, restored tooling, and logs
 deployment/*.local.*
 deployment/connection*.json
+deployment/packages/
 *.log
 spkl-log*
 
