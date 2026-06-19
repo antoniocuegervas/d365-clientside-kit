@@ -530,8 +530,8 @@ with examples rather than reverting to legacy-usage gating.
 # Maintainability pass decisions (legibility / authored voice)
 
 A pass focused on making the kit legible and maintainable for a solo, intermittent
-maintainer (and publishable), steering the code away from generated defaults
-back toward the owner's style. These entries record the binding style choices.
+maintainer (and publishable), steering the code away from generated defaults back
+toward the owner's style. These entries record the binding style choices.
 
 ## D-035, Legibility refactors: de-hop, where-you-expect, literal queries
 
