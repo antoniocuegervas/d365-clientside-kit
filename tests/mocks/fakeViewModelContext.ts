@@ -125,8 +125,8 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
         await maybeDelay();
         return {};
       },
-      retrieveMultipleRecords: async (entity, opts) => {
-        record("retrieveMultipleRecords", entity, opts);
+      retrieveMultipleRecords: async (entity, opts, maxPageSize) => {
+        record("retrieveMultipleRecords", entity, opts, maxPageSize);
         await maybeDelay();
         return nextQueryResult(entity);
       },

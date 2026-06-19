@@ -120,13 +120,25 @@ export class CdsClient {
    * Retrieves multiple records with a raw OData query string ("?$select=...&$top=...").
    * For FetchXML use {@link fetch}, which adds the long-query batch fallback.
    */
-  async retrieveMultiple(entitySet: string, query?: string): Promise<IRetrieveMultipleResult> {
-    return this.retrieveMultipleByUrl(`${this.apiUrl}${entitySet}${query ?? ""}`);
+  async retrieveMultiple(
+    entitySet: string,
+    query?: string,
+    maxPageSize?: number
+  ): Promise<IRetrieveMultipleResult> {
+    // Server-side paging is driven by the odata.maxpagesize preference, NOT by
+    // $top (which caps the result and suppresses @odata.nextLink). Send the page
+    // size as a Prefer directive so the response carries the next page's link.
+    const extraHeaders =
+      maxPageSize !== undefined ? { Prefer: `odata.maxpagesize=${maxPageSize}` } : undefined;
+    return this.retrieveMultipleByUrl(`${this.apiUrl}${entitySet}${query ?? ""}`, extraHeaders);
   }
 
   /** Follows an @odata.nextLink (or any absolute Web API collection URL). */
-  async retrieveMultipleByUrl(url: string): Promise<IRetrieveMultipleResult> {
-    const response = await this.request("GET", url);
+  async retrieveMultipleByUrl(
+    url: string,
+    extraHeaders?: Record<string, string>
+  ): Promise<IRetrieveMultipleResult> {
+    const response = await this.request("GET", url, undefined, extraHeaders);
     return parseCollection(response.responseText);
   }
 
@@ -243,13 +255,26 @@ export class CdsClient {
       xhr.setRequestHeader("Accept", "application/json");
       xhr.setRequestHeader("OData-MaxVersion", "4.0");
       xhr.setRequestHeader("OData-Version", "4.0");
+      // Compose a single Prefer header: annotations on every GET, plus any
+      // caller-supplied directive (for example odata.maxpagesize). Setting it
+      // once avoids relying on the transport's header-combining behavior.
+      const preferParts: string[] = [];
       if (method === "GET") {
-        xhr.setRequestHeader("Prefer", 'odata.include-annotations="*"');
+        preferParts.push('odata.include-annotations="*"');
+      }
+      if (extraHeaders?.["Prefer"]) {
+        preferParts.push(extraHeaders["Prefer"]);
+      }
+      if (preferParts.length > 0) {
+        xhr.setRequestHeader("Prefer", preferParts.join(","));
       }
       if (body !== undefined && !extraHeaders?.["Content-Type"]) {
         xhr.setRequestHeader("Content-Type", "application/json; charset=utf-8");
       }
       for (const [name, value] of Object.entries(extraHeaders ?? {})) {
+        if (name === "Prefer") {
+          continue;
+        }
         xhr.setRequestHeader(name, value);
       }
       xhr.onload = () => {

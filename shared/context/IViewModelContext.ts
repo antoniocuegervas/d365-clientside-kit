@@ -177,10 +177,17 @@ export interface IWebApi {
     id: string,
     options?: string
   ): Promise<Record<string, unknown>>;
-  /** `options`: "?fetchXml=<urlencoded>" or a raw OData query string. */
+  /**
+   * `options`: "?fetchXml=<urlencoded>" or a raw OData query string.
+   * `maxPageSize` sets the odata.maxpagesize preference for server-side paging.
+   * Do not page with $top: it caps the result and suppresses the
+   * `@odata.nextLink` paging relies on. The result's nextLink follows to the
+   * next page.
+   */
   retrieveMultipleRecords(
     entityLogicalName: string,
-    options?: string
+    options?: string,
+    maxPageSize?: number
   ): Promise<IRetrieveMultipleResult>;
   /** Convenience for the kit's dominant query path: plain FetchXML in. */
   fetch(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult>;

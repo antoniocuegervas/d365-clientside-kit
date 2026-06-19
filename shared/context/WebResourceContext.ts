@@ -159,9 +159,10 @@ class ModernWebApi implements IWebApi {
 
   async retrieveMultipleRecords(
     entityLogicalName: string,
-    options?: string
+    options?: string,
+    maxPageSize?: number
   ): Promise<IRetrieveMultipleResult> {
-    const result = await this.api.retrieveMultipleRecords(entityLogicalName, options);
+    const result = await this.api.retrieveMultipleRecords(entityLogicalName, options, maxPageSize);
     return {
       entities: result.entities as Array<Record<string, unknown>>,
       nextLink: (result as { nextLink?: string }).nextLink,

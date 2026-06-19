@@ -335,12 +335,14 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
 
   /** Composes `?savedQuery=…` with quick find / filters / `$orderby` / `$top`. */
   private buildQueryOptions(view: IViewDefinition): string {
+    // Page size rides the odata.maxpagesize preference (see loadRows), NOT
+    // $top: $top caps the result and suppresses the nextLink simple paging
+    // follows, leaving the grid stuck on page one.
     return buildSavedQueryOptions(view.id, {
       quickFindText: this.props.quickFind?.value,
       quickFindFields: this.effectiveQuickFindFields(),
       filters: this.props.filters?.value,
       orderBy: this.props.orderBy?.value,
-      top: this.props.pageSize,
     });
   }
 
@@ -391,7 +393,8 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         ? await this.vmContext.webAPI.fetch(view.entityLogicalName, override)
         : await this.vmContext.webAPI.retrieveMultipleRecords(
             view.entityLogicalName,
-            this.buildQueryOptions(view)
+            this.buildQueryOptions(view),
+            this.props.pageSize
           );
       if (this.isDisposed) {
         return;

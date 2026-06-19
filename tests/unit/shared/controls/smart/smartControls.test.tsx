@@ -512,6 +512,12 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(await screen.findByText("Contoso Ltd")).toBeTruthy();
     expect(screen.getByLabelText("Current page").textContent).toContain("1");
 
+    // The page size travels as odata.maxpagesize (3rd arg), not $top: $top would
+    // cap the result and drop the nextLink the grid pages on.
+    const firstQuery = calls.find((c) => c.api === "retrieveMultipleRecords")!;
+    expect(firstQuery.args[2]).toBe(2);
+    expect(String(firstQuery.args[1])).not.toContain("$top");
+
     await userEvent.click(screen.getByLabelText("Next page"));
     expect(await screen.findByText("Adventure Works")).toBeTruthy();
     expect(screen.getByLabelText("Current page").textContent).toContain("2");

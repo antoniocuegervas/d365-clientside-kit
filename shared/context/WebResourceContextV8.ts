@@ -151,7 +151,8 @@ export class CdsWebApi implements IWebApi {
 
   retrieveMultipleRecords(
     entityLogicalName: string,
-    options?: string
+    options?: string,
+    maxPageSize?: number
   ): Promise<IRetrieveMultipleResult> {
     const entitySet = LibraryUtils.entitySetName(entityLogicalName);
     // Honor the Xrm.WebApi-style "?fetchXml=" channel so call sites stay portable.
@@ -159,7 +160,7 @@ export class CdsWebApi implements IWebApi {
       const fetchXml = decodeURIComponent(options.slice("?fetchXml=".length));
       return this.client.fetch(entitySet, fetchXml);
     }
-    return this.client.retrieveMultiple(entitySet, options);
+    return this.client.retrieveMultiple(entitySet, options, maxPageSize);
   }
 
   fetch(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {

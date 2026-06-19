@@ -96,6 +96,16 @@ describe("CdsClient", () => {
       expect(result.nextLink).toContain("$skiptoken=x");
     });
 
+    it("retrieveMultiple requests server-side paging via the odata.maxpagesize Prefer", async () => {
+      server.respondAlways({ status: 200, responseText: JSON.stringify({ value: [] }) });
+      await makeClient().retrieveMultiple("accounts", "?$select=name", 10);
+      const prefer = server.lastRequest.headers["Prefer"];
+      // Combined into one Prefer value: annotations plus the page size.
+      expect(prefer).toContain("odata.maxpagesize=10");
+      expect(prefer).toContain('odata.include-annotations="*"');
+      expect(server.lastRequest.url).not.toContain("$top");
+    });
+
     it("surfaces FetchXML paging annotations (total, more-records, cookie)", async () => {
       server.respondAlways({
         status: 200,
