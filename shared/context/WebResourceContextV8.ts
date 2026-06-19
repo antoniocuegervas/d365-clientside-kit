@@ -3,11 +3,16 @@ import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
 import type {
+  IAlertStrings,
   IClientUILaunchOptions,
+  IConfirmStrings,
   IContextUtils,
+  IDialogSizeOptions,
+  IEntityFormOptions,
   IErrorDialogOptions,
   IFileDetails,
   IFormAccess,
+  IFormParameters,
   ILookupOptions,
   IMetadataApi,
   INavigateToPageInput,
@@ -19,7 +24,13 @@ import type {
   IWebApi,
   IWindowOptions,
 } from "./IViewModelContext";
-import { callLookupObjects, type IXrmUtilityLookup } from "./hostSurface";
+import {
+  callLookupObjects,
+  resolveAlertArgs,
+  resolveConfirmArgs,
+  resolveOpenFormArgs,
+  type IXrmUtilityLookup,
+} from "./hostSurface";
 import { resolveFormatting } from "./hostSurface";
 import {
   clientFromSource,
@@ -196,8 +207,16 @@ export class CdsWebApi implements IWebApi {
 class V8Navigation implements INavigation {
   constructor(private readonly utility: IXrmV8Like["Utility"]) {}
 
-  async openForm(entityLogicalName: string, id?: string): Promise<void> {
-    this.utility.openEntityForm(entityLogicalName, id ? normalizeGuid(id) : undefined);
+  async openForm(entityLogicalName: string, id?: string): Promise<void>;
+  async openForm(options: IEntityFormOptions, formParameters?: IFormParameters): Promise<void>;
+  async openForm(
+    entityOrOptions: string | IEntityFormOptions,
+    idOrParams?: string | IFormParameters
+  ): Promise<void> {
+    // 8.x maps the entityName/entityId subset; form/quick-create/BPF options and
+    // formParameters are not expressible through the deprecated openEntityForm.
+    const { options } = resolveOpenFormArgs(entityOrOptions, idOrParams);
+    this.utility.openEntityForm(options.entityName, options.entityId);
   }
 
   async openClientUI(
@@ -216,21 +235,35 @@ class V8Navigation implements INavigation {
     );
   }
 
-  openAlertDialog(text: string, _title?: string): Promise<void> {
-    return new Promise((resolve) => this.utility.alertDialog(text, resolve));
+  openAlertDialog(text: string, title?: string): Promise<void>;
+  openAlertDialog(strings: IAlertStrings, options?: IDialogSizeOptions): Promise<void>;
+  openAlertDialog(
+    textOrStrings: string | IAlertStrings,
+    titleOrOptions?: string | IDialogSizeOptions
+  ): Promise<void> {
+    // Text-only on 8.x: the callback dialog has no title, button labels, or size.
+    const { strings } = resolveAlertArgs(textOrStrings, titleOrOptions);
+    return new Promise((resolve) => this.utility.alertDialog(strings.text, resolve));
   }
 
-  openConfirmDialog(text: string, _title?: string): Promise<boolean> {
+  openConfirmDialog(text: string, title?: string): Promise<boolean>;
+  openConfirmDialog(strings: IConfirmStrings, options?: IDialogSizeOptions): Promise<boolean>;
+  openConfirmDialog(
+    textOrStrings: string | IConfirmStrings,
+    titleOrOptions?: string | IDialogSizeOptions
+  ): Promise<boolean> {
+    const { strings } = resolveConfirmArgs(textOrStrings, titleOrOptions);
     return new Promise((resolve) =>
       this.utility.confirmDialog(
-        text,
+        strings.text,
         () => resolve(true),
         () => resolve(false)
       )
     );
   }
 
-  openUrl(url: string): void {
+  openUrl(url: string, _options?: IDialogSizeOptions): void {
+    // The popup window cannot be sized through window.open's portable subset here.
     window.open(url, "_blank");
   }
 

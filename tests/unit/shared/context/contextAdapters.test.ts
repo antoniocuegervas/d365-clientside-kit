@@ -300,6 +300,118 @@ describe("WebResourceContext (modern)", () => {
     expect(wrCall.args).toEqual(["new_page.html", { width: 400 }, "payload"]);
   });
 
+  it("openForm forwards the full entityFormOptions and formParameters to Xrm.Navigation", async () => {
+    const { xrm, calls } = createModernXrmMock();
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    await context.navigation.openForm(
+      {
+        entityName: "account",
+        entityId: "{AAA00000-0000-0000-0000-000000000001}",
+        useQuickCreateForm: true,
+        formId: "bbb00000-0000-0000-0000-000000000002",
+        openInNewWindow: true,
+        windowPosition: 2,
+      },
+      { name: "Seeded", telephone1: "555" }
+    );
+    const call = calls.find((c) => c.api === "Navigation.openForm")!;
+    expect(call.args[0]).toEqual({
+      entityName: "account",
+      entityId: "aaa00000-0000-0000-0000-000000000001",
+      useQuickCreateForm: true,
+      formId: "bbb00000-0000-0000-0000-000000000002",
+      openInNewWindow: true,
+      windowPosition: 2,
+    });
+    expect(call.args[1]).toEqual({ name: "Seeded", telephone1: "555" });
+  });
+
+  it("openForm convenience overload still passes entity + normalized id", async () => {
+    const { xrm, calls } = createModernXrmMock();
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    await context.navigation.openForm("account", "{CCC00000-0000-0000-0000-000000000003}");
+    const call = calls.find((c) => c.api === "Navigation.openForm")!;
+    expect(call.args[0]).toEqual({
+      entityName: "account",
+      entityId: "ccc00000-0000-0000-0000-000000000003",
+    });
+    expect(call.args[1]).toBeUndefined();
+  });
+
+  it("openAlertDialog forwards full strings and dialog size", async () => {
+    const { xrm, calls } = createModernXrmMock();
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    await context.navigation.openAlertDialog(
+      { text: "Saved", title: "Done", confirmButtonLabel: "Got it" },
+      { height: 200, width: 400 }
+    );
+    const call = calls.find((c) => c.api === "Navigation.openAlertDialog")!;
+    expect(call.args[0]).toEqual({ text: "Saved", title: "Done", confirmButtonLabel: "Got it" });
+    expect(call.args[1]).toEqual({ height: 200, width: 400 });
+  });
+
+  it("openConfirmDialog forwards subtitle, button labels, and size", async () => {
+    const { xrm, calls } = createModernXrmMock();
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    await context.navigation.openConfirmDialog(
+      { text: "Delete?", subtitle: "This cannot be undone", cancelButtonLabel: "Keep" },
+      { height: 150, width: 350 }
+    );
+    const call = calls.find((c) => c.api === "Navigation.openConfirmDialog")!;
+    expect(call.args[0]).toEqual({
+      text: "Delete?",
+      subtitle: "This cannot be undone",
+      cancelButtonLabel: "Keep",
+    });
+    expect(call.args[1]).toEqual({ height: 150, width: 350 });
+  });
+
+  it("openUrl forwards the size options to Xrm.Navigation", () => {
+    const { xrm, calls } = createModernXrmMock();
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    context.navigation.openUrl("https://example.com", { height: 600, width: 800 });
+    const call = calls.find((c) => c.api === "Navigation.openUrl")!;
+    expect(call.args).toEqual(["https://example.com", { height: 600, width: 800 }]);
+  });
+
+  it("openWebResource forwards openInNewWindow in the window options", () => {
+    const { xrm, calls } = createModernXrmMock();
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    context.navigation.openWebResource(
+      "new_page.html",
+      { width: 400, height: 300, openInNewWindow: true },
+      "payload"
+    );
+    const call = calls.find((c) => c.api === "Navigation.openWebResource")!;
+    expect(call.args).toEqual([
+      "new_page.html",
+      { width: 400, height: 300, openInNewWindow: true },
+      "payload",
+    ]);
+  });
+
+  it("navigateTo forwards the rounded-out entityrecord page input", async () => {
+    const { xrm, calls } = createModernXrmMock();
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    await context.navigation.navigateTo({
+      pageType: "entityrecord",
+      entityName: "account",
+      formId: "bbb00000-0000-0000-0000-000000000002",
+      createFromEntity: { entityType: "contact", id: "ccc00000-0000-0000-0000-000000000003" },
+      isCrossEntityNavigate: true,
+      tabName: "DETAILS",
+    });
+    const call = calls.find((c) => c.api === "Navigation.navigateTo")!;
+    expect(call.args[0]).toEqual({
+      pageType: "entityrecord",
+      entityName: "account",
+      formId: "bbb00000-0000-0000-0000-000000000002",
+      createFromEntity: { entityType: "contact", id: "ccc00000-0000-0000-0000-000000000003" },
+      isCrossEntityNavigate: true,
+      tabName: "DETAILS",
+    });
+  });
+
   it("surfaces languageId and resolves formatting from userSettings + the usersettings entity", async () => {
     const server = new FakeXhrServer();
     server.install();
@@ -430,6 +542,32 @@ describe("WebResourceContextV8 shim matrix", () => {
       api: "Utility.openEntityForm",
       args: ["account", "eee00000-0000-0000-0000-000000000005"],
     });
+  });
+
+  it("maps the full openForm options to the openEntityForm subset (entity + id)", async () => {
+    const { context, calls } = makeContext();
+    await context.navigation.openForm(
+      {
+        entityName: "account",
+        entityId: "{EEE00000-0000-0000-0000-000000000005}",
+        useQuickCreateForm: true,
+        formId: "bbb00000-0000-0000-0000-000000000002",
+      },
+      { name: "ignored on 8.x" }
+    );
+    expect(calls).toContainEqual({
+      api: "Utility.openEntityForm",
+      args: ["account", "eee00000-0000-0000-0000-000000000005"],
+    });
+  });
+
+  it("keeps the full alert strings text-only on the v8 callback dialog", async () => {
+    const { context, calls } = makeContext();
+    await context.navigation.openAlertDialog(
+      { text: "heads up", title: "Notice", confirmButtonLabel: "OK" },
+      { height: 100, width: 200 }
+    );
+    expect(calls.find((c) => c.api === "Utility.alertDialog")?.args[0]).toBe("heads up");
   });
 
   it("maps alert/confirm to the v8 callback dialogs", async () => {
@@ -580,19 +718,19 @@ describe("PCFContext", () => {
       },
       userSettings: { userId: "{ABCDABCD-0000-0000-0000-000000000008}", userName: "Pcf User" },
       navigation: {
-        openForm: async (options) => {
-          calls.push({ api: "openForm", args: [options] });
+        openForm: async (options, formParameters) => {
+          calls.push({ api: "openForm", args: [options, formParameters] });
           return {};
         },
-        openAlertDialog: async (strings) => {
-          calls.push({ api: "openAlertDialog", args: [strings] });
+        openAlertDialog: async (strings, alertOptions) => {
+          calls.push({ api: "openAlertDialog", args: [strings, alertOptions] });
           return {};
         },
-        openConfirmDialog: async (strings) => {
-          calls.push({ api: "openConfirmDialog", args: [strings] });
+        openConfirmDialog: async (strings, confirmOptions) => {
+          calls.push({ api: "openConfirmDialog", args: [strings, confirmOptions] });
           return { confirmed: true };
         },
-        openUrl: (url) => calls.push({ api: "openUrl", args: [url] }),
+        openUrl: (url, openUrlOptions) => calls.push({ api: "openUrl", args: [url, openUrlOptions] }),
         openWebResource: (...args) => calls.push({ api: "openWebResource", args }),
         openErrorDialog: async (errorOptions) => {
           calls.push({ api: "openErrorDialog", args: [errorOptions] });
@@ -683,6 +821,29 @@ describe("PCFContext", () => {
     await expect(context.utils.getAllowedStatusTransitions("incident", 0)).rejects.toThrow(
       /not available in the PCF host/
     );
+  });
+
+  it("forwards full openForm options + formParameters and openUrl size options", async () => {
+    const { source, calls } = makeSource();
+    const context = new PCFContext(source);
+
+    await context.navigation.openForm(
+      { entityName: "contact", entityId: "{CCC00000-0000-0000-0000-000000000003}", useQuickCreateForm: true },
+      { lastname: "Doe" }
+    );
+    const formCall = calls.find((c) => c.api === "openForm")!;
+    expect(formCall.args[0]).toEqual({
+      entityName: "contact",
+      entityId: "ccc00000-0000-0000-0000-000000000003",
+      useQuickCreateForm: true,
+    });
+    expect(formCall.args[1]).toEqual({ lastname: "Doe" });
+
+    context.navigation.openUrl("https://example.com", { height: 500, width: 700 });
+    expect(calls.find((c) => c.api === "openUrl")?.args).toEqual([
+      "https://example.com",
+      { height: 500, width: 700 },
+    ]);
   });
 
   it("delegates openErrorDialog / openFile / navigateTo natively", async () => {

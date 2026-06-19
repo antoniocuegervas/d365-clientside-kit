@@ -1,5 +1,5 @@
 import type { IRetrieveMultipleResult } from "../data/CdsClient";
-import type { IEntityReference, IOptionItem } from "../utils/EntityModel";
+import type { IEntityReference, IOptionItem, IXrmLookupValue } from "../utils/EntityModel";
 
 /**
  * IViewModelContext, everything shared React code may need from its host.
@@ -272,6 +272,76 @@ export interface INavigationSize {
 }
 
 /**
+ * Height/width (pixels) for the alert/confirm dialogs and `openUrl`, mirroring
+ * `Xrm.Navigation.DialogSizeOptions`.
+ */
+export interface IDialogSizeOptions {
+  height: number;
+  width: number;
+}
+
+/**
+ * Strings for the native alert dialog, mirroring `Xrm.Navigation.AlertStrings`.
+ * The convenience `openAlertDialog(text, title?)` overload covers the common
+ * call; pass this object when you also need a custom confirm button label.
+ */
+export interface IAlertStrings {
+  text: string;
+  title?: string;
+  confirmButtonLabel?: string;
+}
+
+/**
+ * Strings for the native confirm dialog, mirroring
+ * `Xrm.Navigation.ConfirmStrings`. Adds `subtitle` and both button labels over
+ * the convenience `openConfirmDialog(text, title?)` overload.
+ */
+export interface IConfirmStrings {
+  text: string;
+  title?: string;
+  subtitle?: string;
+  confirmButtonLabel?: string;
+  cancelButtonLabel?: string;
+}
+
+/**
+ * Full form-open options mirroring `Xrm.Navigation.EntityFormOptions`. Every
+ * field maps 1:1 to the native object. The convenience
+ * `openForm(entityLogicalName, id?)` overload covers the common open; pass this
+ * object for quick-create, a specific form, BPF stage, or a new-window open.
+ * The legacy (V8) host maps `entityName`/`entityId` only.
+ */
+export interface IEntityFormOptions {
+  entityName: string;
+  entityId?: string;
+  /** Open a specific form instance by id. */
+  formId?: string;
+  /** Open the quick-create form instead of the main form. */
+  useQuickCreateForm?: boolean;
+  openInNewWindow?: boolean;
+  /** 1 center, 2 side. */
+  windowPosition?: 1 | 2;
+  height?: number;
+  width?: number;
+  /** Show the command bar (default true when omitted). */
+  cmdbar?: boolean;
+  /** "on" | "off" | "entity", controls the navigation bar. */
+  navBar?: "on" | "off" | "entity";
+  /** Seed default values from a mapped record (a lookup reference). */
+  createFromEntity?: IXrmLookupValue;
+  /** Business process flow to display. */
+  processId?: string;
+  /** Business process flow instance to display. */
+  processInstanceId?: string;
+  /** Selected BPF stage id. */
+  selectedStageId?: string;
+  isCrossEntityNavigate?: boolean;
+}
+
+/** Field prefill / custom form parameters, mirroring `Xrm.Utility.OpenParameters`. */
+export type IFormParameters = Record<string, string>;
+
+/**
  * Navigation options mirroring `Xrm.Navigation.NavigationOptions`.
  * `target` 1 = inline (full page), 2 = dialog.
  */
@@ -303,20 +373,70 @@ export interface IClientUILaunchOptions {
  * for; the adapter passes them straight to the host.
  */
 export type INavigateToPageInput =
-  | { pageType: "entityrecord"; entityName: string; entityId?: string; formType?: number; data?: Record<string, unknown> }
-  | { pageType: "entitylist"; entityName: string; viewId?: string; viewType?: number }
+  | {
+      pageType: "entityrecord";
+      entityName: string;
+      entityId?: string;
+      /** Seed default values from a mapped record. */
+      createFromEntity?: IXrmLookupValue;
+      /** Extra parameters passed to the form. */
+      data?: Record<string, unknown>;
+      /** Open a specific form instance by id. */
+      formId?: string;
+      isCrossEntityNavigate?: boolean;
+      isOfflineSyncError?: boolean;
+      processId?: string;
+      processInstanceId?: string;
+      selectedStageId?: string;
+      relationship?: INavigationRelationship;
+      /** Focus a tab of the form on open. */
+      tabName?: string;
+    }
+  | {
+      pageType: "entitylist";
+      entityName: string;
+      viewId?: string;
+      /** "savedquery" (system view) or "userquery" (personal view). */
+      viewType?: "savedquery" | "userquery";
+    }
   | { pageType: "custom"; name: string; entityName?: string; recordId?: string }
   | { pageType: "dashboard"; dashboardId?: string }
   | { pageType: "webresource"; webresourceName: string; data?: string };
 
-/** Window options for raw `openWebResource`. */
+/**
+ * Relationship descriptor for an `entityrecord` navigation, mirroring
+ * `Xrm.Navigation.Relationship`, used to show related records on the target form.
+ */
+export interface INavigationRelationship {
+  attributeName: string;
+  name: string;
+  navigationPropertyName?: string;
+  /** 0 OneToMany, 1 ManyToMany. */
+  relationshipType?: 0 | 1;
+  /** 1 Referencing, 2 AssociationEntity. */
+  roleType?: 1 | 2;
+}
+
+/**
+ * Window options for raw `openWebResource`, mirroring
+ * `Xrm.Navigation.OpenWebresourceOptions`.
+ */
 export interface IWindowOptions {
   height?: number;
   width?: number;
+  /** Open the web resource in a new browser window. */
+  openInNewWindow?: boolean;
 }
 
 export interface INavigation {
+  /** Convenience open: main form for an entity, optionally a record by id. */
   openForm(entityLogicalName: string, id?: string): Promise<void>;
+  /**
+   * Full form open mirroring `Xrm.Navigation.openForm`: quick-create, a
+   * specific form, BPF stage, new-window, plus `formParameters` field prefill.
+   * The legacy (V8) host maps `entityName`/`entityId` only.
+   */
+  openForm(options: IEntityFormOptions, formParameters?: IFormParameters): Promise<void>;
   /**
    * Opens the unified clientui shell webresource with an app key + payload,
    * as a centered modal dialog (default) or a side pane. Pass the deployed
@@ -330,10 +450,22 @@ export interface INavigation {
     payload?: Record<string, unknown>,
     options?: IClientUILaunchOptions
   ): Promise<void>;
+  /** Convenience alert: a message and optional title. */
   openAlertDialog(text: string, title?: string): Promise<void>;
-  /** Resolves true when the user confirmed. */
+  /**
+   * Full alert mirroring `Xrm.Navigation.openAlertDialog`: custom confirm
+   * button label plus dialog size. V8 keeps text-only (size/labels ignored).
+   */
+  openAlertDialog(strings: IAlertStrings, options?: IDialogSizeOptions): Promise<void>;
+  /** Convenience confirm: resolves true when the user confirmed. */
   openConfirmDialog(text: string, title?: string): Promise<boolean>;
-  openUrl(url: string): void;
+  /**
+   * Full confirm mirroring `Xrm.Navigation.openConfirmDialog`: subtitle, both
+   * button labels, dialog size. V8 keeps text-only (size/labels ignored).
+   */
+  openConfirmDialog(strings: IConfirmStrings, options?: IDialogSizeOptions): Promise<boolean>;
+  /** Opens a URL. `options` sizes the window where the host honors it. */
+  openUrl(url: string, options?: IDialogSizeOptions): void;
   /**
    * Opens the native CRM lookup dialog, the full platform picker
    * (recently used, view switching, cross-entity). Resolves the chosen

@@ -180,23 +180,24 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
       },
     },
     Navigation: {
-      openForm: async (formOptions: unknown) => {
-        record("Navigation.openForm", formOptions);
+      openForm: async (formOptions: unknown, formParameters?: unknown) => {
+        record("Navigation.openForm", formOptions, formParameters);
         return {};
       },
       navigateTo: async (pageInput: unknown, navigationOptions: unknown) => {
         record("Navigation.navigateTo", pageInput, navigationOptions);
         return {};
       },
-      openAlertDialog: async (strings: unknown) => {
-        record("Navigation.openAlertDialog", strings);
+      openAlertDialog: async (strings: unknown, alertOptions?: unknown) => {
+        record("Navigation.openAlertDialog", strings, alertOptions);
         return {};
       },
-      openConfirmDialog: async (strings: unknown) => {
-        record("Navigation.openConfirmDialog", strings);
+      openConfirmDialog: async (strings: unknown, confirmOptions?: unknown) => {
+        record("Navigation.openConfirmDialog", strings, confirmOptions);
         return { confirmed: options.confirmResult ?? true };
       },
-      openUrl: (url: string) => record("Navigation.openUrl", url),
+      openUrl: (url: string, openUrlOptions?: unknown) =>
+        record("Navigation.openUrl", url, openUrlOptions),
       openErrorDialog: async (errorOptions: unknown) => {
         record("Navigation.openErrorDialog", errorOptions);
         return {};

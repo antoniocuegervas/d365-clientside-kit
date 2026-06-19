@@ -7,20 +7,28 @@ import { normalizeDateFormatInfo, resolveFormatting } from "./hostSurface";
 import {
   clientFromSource,
   deviceFromSource,
+  resolveAlertArgs,
+  resolveConfirmArgs,
+  resolveOpenFormArgs,
   utilsFromXrm,
   type IXrmClientLike,
   type IXrmDeviceLike,
   type IXrmUtilityExtras,
 } from "./hostSurface";
 import type {
+  IAlertStrings,
   IClientContext,
   IClientUILaunchOptions,
+  IConfirmStrings,
   IContextUtils,
   IDeviceContext,
+  IDialogSizeOptions,
+  IEntityFormOptions,
   IErrorDialogOptions,
   IFileDetails,
   IFormAccess,
   IFormattingInfo,
+  IFormParameters,
   ILookupOptions,
   IMetadataApi,
   INavigateToPageInput,
@@ -208,11 +216,17 @@ class ModernNavigation implements INavigation {
     private readonly utility: IXrmUtilityLookup | undefined
   ) {}
 
-  async openForm(entityLogicalName: string, id?: string): Promise<void> {
-    await this.navigation.openForm({
-      entityName: entityLogicalName,
-      entityId: id ? normalizeGuid(id) : undefined,
-    });
+  async openForm(entityLogicalName: string, id?: string): Promise<void>;
+  async openForm(options: IEntityFormOptions, formParameters?: IFormParameters): Promise<void>;
+  async openForm(
+    entityOrOptions: string | IEntityFormOptions,
+    idOrParams?: string | IFormParameters
+  ): Promise<void> {
+    const { options, formParameters } = resolveOpenFormArgs(entityOrOptions, idOrParams);
+    await this.navigation.openForm(
+      options as unknown as Parameters<Xrm.Navigation["openForm"]>[0],
+      formParameters as unknown as Parameters<Xrm.Navigation["openForm"]>[1]
+    );
   }
 
   async openClientUI(
@@ -237,17 +251,29 @@ class ModernNavigation implements INavigation {
     );
   }
 
-  async openAlertDialog(text: string, title?: string): Promise<void> {
-    await this.navigation.openAlertDialog({ text, title });
+  async openAlertDialog(text: string, title?: string): Promise<void>;
+  async openAlertDialog(strings: IAlertStrings, options?: IDialogSizeOptions): Promise<void>;
+  async openAlertDialog(
+    textOrStrings: string | IAlertStrings,
+    titleOrOptions?: string | IDialogSizeOptions
+  ): Promise<void> {
+    const { strings, options } = resolveAlertArgs(textOrStrings, titleOrOptions);
+    await this.navigation.openAlertDialog(strings, options);
   }
 
-  async openConfirmDialog(text: string, title?: string): Promise<boolean> {
-    const result = await this.navigation.openConfirmDialog({ text, title });
+  async openConfirmDialog(text: string, title?: string): Promise<boolean>;
+  async openConfirmDialog(strings: IConfirmStrings, options?: IDialogSizeOptions): Promise<boolean>;
+  async openConfirmDialog(
+    textOrStrings: string | IConfirmStrings,
+    titleOrOptions?: string | IDialogSizeOptions
+  ): Promise<boolean> {
+    const { strings, options } = resolveConfirmArgs(textOrStrings, titleOrOptions);
+    const result = await this.navigation.openConfirmDialog(strings, options);
     return !!result.confirmed;
   }
 
-  openUrl(url: string): void {
-    this.navigation.openUrl(url);
+  openUrl(url: string, options?: IDialogSizeOptions): void {
+    this.navigation.openUrl(url, options);
   }
 
   lookupObjects(options: ILookupOptions): Promise<IEntityReference[]> {

@@ -7,18 +7,26 @@ import { normalizeDateFormatInfo, resolveFormatting } from "./hostSurface";
 import {
   clientFromSource,
   deviceFromSource,
+  resolveAlertArgs,
+  resolveConfirmArgs,
+  resolveOpenFormArgs,
   utilsFromXrm,
   type IXrmClientLike,
   type IXrmDeviceLike,
 } from "./hostSurface";
 import type {
+  IAlertStrings,
   IClientContext,
   IClientUILaunchOptions,
+  IConfirmStrings,
   IContextUtils,
   IDeviceContext,
+  IDialogSizeOptions,
+  IEntityFormOptions,
   IErrorDialogOptions,
   IFileDetails,
   IFormattingInfo,
+  IFormParameters,
   ILookupOptions,
   IMetadataApi,
   INavigateToPageInput,
@@ -61,10 +69,13 @@ export interface IPcfContextLike {
     getTimeZoneOffsetMinutes?(): number;
   };
   navigation: {
-    openForm(options: { entityName: string; entityId?: string }): PromiseLike<unknown>;
-    openAlertDialog(strings: { text: string; title?: string }): PromiseLike<unknown>;
-    openConfirmDialog(strings: { text: string; title?: string }): PromiseLike<{ confirmed: boolean }>;
-    openUrl(url: string): void;
+    openForm(options: IEntityFormOptions, formParameters?: IFormParameters): PromiseLike<unknown>;
+    openAlertDialog(strings: IAlertStrings, options?: IDialogSizeOptions): PromiseLike<unknown>;
+    openConfirmDialog(
+      strings: IConfirmStrings,
+      options?: IDialogSizeOptions
+    ): PromiseLike<{ confirmed: boolean }>;
+    openUrl(url: string, options?: IDialogSizeOptions): void;
     openWebResource(name: string, options?: unknown, data?: string): void;
     openErrorDialog(options: IErrorDialogOptions): PromiseLike<unknown>;
     openFile(file: IFileDetails, options?: IOpenFileOptions): PromiseLike<unknown>;
@@ -250,11 +261,14 @@ class PcfNavigation implements INavigation {
     private readonly utils: IXrmUtilityLookup | undefined
   ) {}
 
-  async openForm(entityLogicalName: string, id?: string): Promise<void> {
-    await this.navigation.openForm({
-      entityName: entityLogicalName,
-      entityId: id ? normalizeGuid(id) : undefined,
-    });
+  async openForm(entityLogicalName: string, id?: string): Promise<void>;
+  async openForm(options: IEntityFormOptions, formParameters?: IFormParameters): Promise<void>;
+  async openForm(
+    entityOrOptions: string | IEntityFormOptions,
+    idOrParams?: string | IFormParameters
+  ): Promise<void> {
+    const { options, formParameters } = resolveOpenFormArgs(entityOrOptions, idOrParams);
+    await this.navigation.openForm(options, formParameters);
   }
 
   async openClientUI(
@@ -272,17 +286,29 @@ class PcfNavigation implements INavigation {
     );
   }
 
-  async openAlertDialog(text: string, title?: string): Promise<void> {
-    await this.navigation.openAlertDialog({ text, title });
+  async openAlertDialog(text: string, title?: string): Promise<void>;
+  async openAlertDialog(strings: IAlertStrings, options?: IDialogSizeOptions): Promise<void>;
+  async openAlertDialog(
+    textOrStrings: string | IAlertStrings,
+    titleOrOptions?: string | IDialogSizeOptions
+  ): Promise<void> {
+    const { strings, options } = resolveAlertArgs(textOrStrings, titleOrOptions);
+    await this.navigation.openAlertDialog(strings, options);
   }
 
-  async openConfirmDialog(text: string, title?: string): Promise<boolean> {
-    const result = await this.navigation.openConfirmDialog({ text, title });
+  async openConfirmDialog(text: string, title?: string): Promise<boolean>;
+  async openConfirmDialog(strings: IConfirmStrings, options?: IDialogSizeOptions): Promise<boolean>;
+  async openConfirmDialog(
+    textOrStrings: string | IConfirmStrings,
+    titleOrOptions?: string | IDialogSizeOptions
+  ): Promise<boolean> {
+    const { strings, options } = resolveConfirmArgs(textOrStrings, titleOrOptions);
+    const result = await this.navigation.openConfirmDialog(strings, options);
     return !!result.confirmed;
   }
 
-  openUrl(url: string): void {
-    this.navigation.openUrl(url);
+  openUrl(url: string, options?: IDialogSizeOptions): void {
+    this.navigation.openUrl(url, options);
   }
 
   lookupObjects(options: ILookupOptions): Promise<IEntityReference[]> {

@@ -18,13 +18,18 @@ import {
 } from "../utils/EntityModel";
 import {
   ClientFormFactor,
+  type IAlertStrings,
   type IClientContext,
+  type IConfirmStrings,
   type IContextUtils,
   type IDateFormatInfo,
   type IDeviceContext,
+  type IDialogSizeOptions,
+  type IEntityFormOptions,
   type IFileDetails,
   type IFormAccess,
   type IFormattingInfo,
+  type IFormParameters,
   type IGeoPosition,
   type ILookupOptions,
 } from "./IViewModelContext";
@@ -296,6 +301,76 @@ export async function resolveFormatting(input: {
     }
   }
   return { decimalSymbol, numberSeparator, dateFormatInfo: input.dateFormatInfo };
+}
+
+//#endregion
+
+//#region Dialog argument normalization
+
+/**
+ * Resolves the convenience `(text, title?)` and full `(strings, options?)`
+ * overloads of `openAlertDialog` into one native-shaped strings object plus
+ * optional size options. The first argument's type discriminates the form.
+ */
+export function resolveAlertArgs(
+  textOrStrings: string | IAlertStrings,
+  titleOrOptions?: string | IDialogSizeOptions
+): { strings: IAlertStrings; options?: IDialogSizeOptions } {
+  if (typeof textOrStrings === "string") {
+    return {
+      strings: {
+        text: textOrStrings,
+        title: typeof titleOrOptions === "string" ? titleOrOptions : undefined,
+      },
+    };
+  }
+  return {
+    strings: textOrStrings,
+    options: typeof titleOrOptions === "object" ? titleOrOptions : undefined,
+  };
+}
+
+/**
+ * Resolves the convenience `(entityLogicalName, id?)` and full
+ * `(options, formParameters?)` overloads of `openForm` into one native-shaped
+ * options object plus optional form parameters, normalizing `entityId`.
+ */
+export function resolveOpenFormArgs(
+  entityOrOptions: string | IEntityFormOptions,
+  idOrParams?: string | IFormParameters
+): { options: IEntityFormOptions; formParameters?: IFormParameters } {
+  if (typeof entityOrOptions === "string") {
+    const id = typeof idOrParams === "string" ? idOrParams : undefined;
+    return {
+      options: { entityName: entityOrOptions, entityId: id ? normalizeGuid(id) : undefined },
+    };
+  }
+  return {
+    options: {
+      ...entityOrOptions,
+      entityId: entityOrOptions.entityId ? normalizeGuid(entityOrOptions.entityId) : undefined,
+    },
+    formParameters: typeof idOrParams === "object" ? idOrParams : undefined,
+  };
+}
+
+/** As {@link resolveAlertArgs}, for `openConfirmDialog`. */
+export function resolveConfirmArgs(
+  textOrStrings: string | IConfirmStrings,
+  titleOrOptions?: string | IDialogSizeOptions
+): { strings: IConfirmStrings; options?: IDialogSizeOptions } {
+  if (typeof textOrStrings === "string") {
+    return {
+      strings: {
+        text: textOrStrings,
+        title: typeof titleOrOptions === "string" ? titleOrOptions : undefined,
+      },
+    };
+  }
+  return {
+    strings: textOrStrings,
+    options: typeof titleOrOptions === "object" ? titleOrOptions : undefined,
+  };
 }
 
 //#endregion
