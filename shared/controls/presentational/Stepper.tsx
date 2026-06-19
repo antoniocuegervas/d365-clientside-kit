@@ -108,7 +108,13 @@ const Body: React.FC<IStepperProps> = (props) => {
         })}
       </div>
 
-      <div className={styles.body}>{children}</div>
+      {/* Key by step so each step's body is a fresh mount. Smart controls load
+          metadata and subscribe to their value Observable on mount, so reusing
+          one instance across steps (same control type at the same position)
+          would leave it bound to the previous step's attribute and Observable. */}
+      <div key={current} className={styles.body}>
+        {children}
+      </div>
 
       <div className={styles.footer}>
         <Button appearance="secondary" onClick={onBack} disabled={isFirst || busy}>
