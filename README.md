@@ -172,6 +172,9 @@ npm run verify        # lint + typecheck + build + tests + smoke + storybook
 npm run storybook     # browse the controls with fixture data
 ```
 
+Browse the controls live in the hosted Storybook:
+https://antoniocuegervas.github.io/d365-clientside-kit/
+
 Sample apps live in `clientui/apps/`. Start with `template` (the scaffold to copy),
 `sample-company-search` (the flagship 90%-native case: a saved-view grid and editable
 lookups in a webresource that behave like form controls), and `sample-master-detail`
