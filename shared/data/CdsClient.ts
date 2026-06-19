@@ -236,7 +236,7 @@ export class CdsClient {
   }
 
   /** Runs an on-demand classic workflow against one record (legacy scenarios). */
-  async executeWorkflow(workflowId: string, recordId: string): Promise<unknown> {
+  async executeClassicWorkflow(workflowId: string, recordId: string): Promise<unknown> {
     return this.executeAction(
       "ExecuteWorkflow",
       { EntityId: normalizeGuid(recordId) },

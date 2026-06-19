@@ -239,8 +239,8 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
         await maybeDelay();
         return options.actionResults?.[actionName];
       },
-      executeWorkflow: async (workflowId, recordId) => {
-        record("executeWorkflow", workflowId, recordId);
+      executeClassicWorkflow: async (workflowId, recordId) => {
+        record("executeClassicWorkflow", workflowId, recordId);
         await maybeDelay();
         return undefined;
       },

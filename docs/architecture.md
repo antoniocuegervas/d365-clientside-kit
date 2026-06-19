@@ -91,7 +91,7 @@ Each adapted surface threads every native parameter through to the host call:
   (full strings + dialog size), `openUrl` size options, `openWebResource`
   `openInNewWindow`, and the complete `navigateTo` page-input union.
 - **webAPI**: CRUD with `{ entityType, id }` write results, the ergonomic
-  `executeAction`/`executeWorkflow`, and the generic `execute`/`executeMultiple`
+  `executeAction`/`executeClassicWorkflow`, and the generic `execute`/`executeMultiple`
   request-object contract.
 - **client / device / utility**: `isNetworkAvailable`, the native device option
   fields, and optional `getAllowedStatusTransitions` state code.

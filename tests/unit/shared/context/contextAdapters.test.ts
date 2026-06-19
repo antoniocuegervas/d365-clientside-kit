@@ -174,14 +174,14 @@ describe("WebResourceContext (modern)", () => {
     }
   });
 
-  it("executeWorkflow posts ExecuteWorkflow with the record EntityId", async () => {
+  it("executeClassicWorkflow posts ExecuteWorkflow with the record EntityId", async () => {
     const server = new FakeXhrServer();
     server.install();
     try {
       server.respondAlways({ status: 200, responseText: "{}" });
       const { xrm } = createModernXrmMock({ clientUrl: "https://org.crm.dynamics.com" });
       const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
-      await context.webAPI.executeWorkflow(
+      await context.webAPI.executeClassicWorkflow(
         "bbb00000-0000-0000-0000-000000000002",
         "ccc00000-0000-0000-0000-000000000003"
       );

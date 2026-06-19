@@ -208,9 +208,9 @@ describe("CdsClient", () => {
       );
     });
 
-    it("executeWorkflow posts ExecuteWorkflow bound to the workflow record", async () => {
+    it("executeClassicWorkflow posts ExecuteWorkflow bound to the workflow record", async () => {
       server.respondAlways({ status: 200, responseText: "{}" });
-      await makeClient().executeWorkflow(
+      await makeClient().executeClassicWorkflow(
         "11100000-0000-0000-0000-000000000001",
         "{22200000-0000-0000-0000-000000000002}"
       );

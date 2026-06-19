@@ -186,7 +186,7 @@ something closer to option B than the narrow "C" originally considered.
 Realizing option B therefore meant **completing** the mirrored surface and
 documenting the contract, not a wholesale rename/migration:
 
-- `IWebApi.executeAction(name, params, boundTo?)` + `executeWorkflow(id, recordId)`
+- `IWebApi.executeAction(name, params, boundTo?)` + `executeClassicWorkflow(id, recordId)`
   (folds **G-08**), every adapter delegates to the cds-client implementations
   that already existed (D-014: production never touches `Xrm.WebApi.execute`'s
   request-object contract). Deliberately **not** named `execute` to avoid

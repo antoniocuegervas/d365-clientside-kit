@@ -424,8 +424,12 @@ export interface IWebApi {
     parameters?: Record<string, unknown>,
     boundTo?: { entityLogicalName: string; id: string }
   ): Promise<unknown>;
-  /** Runs an on-demand classic workflow against one record by id. Ergonomic, built on executeAction. */
-  executeWorkflow(workflowId: string, recordId: string): Promise<unknown>;
+  /**
+   * Runs an on-demand classic (Dataverse background/real-time) workflow against
+   * one record by id. Named "classic" to distinguish it from Copilot Studio
+   * workflows, which are unrelated. Ergonomic, built on executeAction.
+   */
+  executeClassicWorkflow(workflowId: string, recordId: string): Promise<unknown>;
   /**
    * Runs a single action, function, or CRUD request object, the standard generic
    * path mirroring `Xrm.WebApi.online.execute`. Returns a fetch-like response

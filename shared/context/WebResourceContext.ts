@@ -96,7 +96,7 @@ export class WebResourceContext implements IViewModelContext {
       "modern webresource"
     );
 
-    // One same-origin cds-client backs both metadata and execute*/executeWorkflow
+    // One same-origin cds-client backs both metadata and execute*/executeClassicWorkflow
     // so custom actions never touch Xrm.WebApi.execute's request-object API.
     const client = new CdsClient({ clientUrl: this.clientUrl });
     this.cdsClient = client;
@@ -227,8 +227,8 @@ class ModernWebApi implements IWebApi {
     );
   }
 
-  executeWorkflow(workflowId: string, recordId: string): Promise<unknown> {
-    return this.client.executeWorkflow(workflowId, recordId);
+  executeClassicWorkflow(workflowId: string, recordId: string): Promise<unknown> {
+    return this.client.executeClassicWorkflow(workflowId, recordId);
   }
 
   async execute(request: IWebApiRequest): Promise<IExecuteResponse> {

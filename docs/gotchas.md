@@ -15,7 +15,7 @@ current Dataverse instance, and those calls route straight to
 |--------|--------------------|-----|-----------|
 | `createRecord` / `updateRecord` / `deleteRecord` / `retrieveRecord` / `retrieveMultipleRecords` | native | native | cds-client |
 | `fetchPage`, `retrieveMultipleByUrl` | cds-client | cds-client | cds-client |
-| `executeAction`, `executeWorkflow` | cds-client | cds-client | cds-client |
+| `executeAction`, `executeClassicWorkflow` | cds-client | cds-client | cds-client |
 | `execute`, `executeMultiple` | native | cds-client | cds-client |
 
 Why the non-obvious rows:
@@ -23,7 +23,7 @@ Why the non-obvious rows:
 - `fetchPage` / `retrieveMultipleByUrl` ride cds-client everywhere because
   `Xrm.WebApi` drops the FetchXML paging annotations and cannot re-issue an
   absolute `@odata.nextLink`.
-- `executeAction` / `executeWorkflow` ride cds-client everywhere so app code
+- `executeAction` / `executeClassicWorkflow` ride cds-client everywhere so app code
   never has to hand-build the `Xrm.WebApi.online.execute` request-object
   contract for the common "run this action" case.
 - `execute` / `executeMultiple` use the native execute on modern (full
@@ -66,7 +66,8 @@ receives an already-pluralized entity set, while `execute` takes a logical name
 it pluralizes itself. Forcing one through the other would add plumbing that earns
 nothing.
 
-`executeWorkflow` is a thin ergonomic call built on `executeAction`.
+`executeClassicWorkflow` is a thin ergonomic call built on `executeAction`. It is
+named "classic" to set it apart from Copilot Studio workflows, which are unrelated.
 
 ## V8 (CRM 8.x) is best-effort, never a silent no-op
 

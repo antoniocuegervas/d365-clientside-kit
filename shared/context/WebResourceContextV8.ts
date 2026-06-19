@@ -246,8 +246,8 @@ export class CdsWebApi implements IWebApi {
     );
   }
 
-  executeWorkflow(workflowId: string, recordId: string): Promise<unknown> {
-    return this.client.executeWorkflow(workflowId, recordId);
+  executeClassicWorkflow(workflowId: string, recordId: string): Promise<unknown> {
+    return this.client.executeClassicWorkflow(workflowId, recordId);
   }
 
   execute(request: IWebApiRequest): Promise<IExecuteResponse> {
