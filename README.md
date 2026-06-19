@@ -209,6 +209,17 @@ tests, and a Storybook build). It has been deployed to and exercised against a l
 Dataverse v9 org using standard entities. It is a foundation built to be extended, not a
 finished product with a long track record.
 
+## Contributing and reuse
+
+This repo is meant to be built on. To start your own D365 client-side project,
+use it as a template (the "Use this template" button, or copy the repo) and own
+your copy from there; a template copy has no upstream link, so it will not pull
+kit updates automatically. To contribute a fix to the kit itself, fork and open
+a pull request against `master` (a template-derived copy shares no history and
+cannot open a clean PR). The architecture (MVVM, Observables, class components)
+and the authoring rules are intentional and enforced, so read
+[CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
 ## License
 
 Released under the Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
