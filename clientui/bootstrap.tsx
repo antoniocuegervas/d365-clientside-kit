@@ -4,7 +4,7 @@ import { FluentProvider } from "@fluentui/react-components";
 import { createContextFromXrm } from "../shared/context/createWebResourceContext";
 import { findXrm } from "../shared/context/createWebResourceContext";
 import { ViewModelContextProvider } from "../shared/context/ViewModelContextProvider";
-import { d365Theme } from "../shared/theme/d365Theme";
+import { resolveKitTheme } from "../shared/theme/d365Theme";
 import { LibraryUtils } from "../shared/utils/LibraryUtils";
 import { getApp, listApps } from "./registry";
 import type { IAppHost } from "./AppContract";
@@ -61,10 +61,12 @@ export async function bootstrap(options: IBootstrapOptions = {}): Promise<Root |
     }
 
     // 6. Render inside the kit theme + context provider; React owns the rest.
+    //    The theme tracks the user's D365 high-contrast setting when present.
     const host: IAppHost = { context, params, container };
+    const theme = resolveKitTheme(context.globalContext.userSettings.isHighContrastEnabled);
     const root = createRoot(container);
     root.render(
-      <FluentProvider theme={d365Theme} style={{ height: "100%" }}>
+      <FluentProvider theme={theme} style={{ height: "100%" }}>
         <ViewModelContextProvider context={context}>{app.render(host)}</ViewModelContextProvider>
       </FluentProvider>
     );

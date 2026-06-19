@@ -95,7 +95,7 @@ export {
 } from "./metadata/MetadataService";
 
 // Theme (single D365-aligned Fluent v9 theme module)
-export { d365Theme } from "./theme/d365Theme";
+export { d365Theme, resolveKitTheme } from "./theme/d365Theme";
 
 // Presentational controls (CRM-agnostic, values in / events out)
 export type { ICommonFieldProps } from "./controls/presentational/fieldProps";
