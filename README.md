@@ -36,6 +36,7 @@ the data shape leaves no clean standard path.
 | A subgrid bound to one relationship | A grid whose rows come from merged or normalized result sets |
 | Single-entity activity subgrids | Activity lists spanning multiple activity types with unified columns and sort |
 | Out-of-box lookup behavior | Lookups with custom search, saved-query overrides, or multi-step filtering |
+| A standard guided process | A multi-step, gated wizard with an in-memory draft committed at the end, where Power Pages is overkill and a business process flow does not fit (record already on one, or large data volume) |
 | "Good enough" standard config | Requirements where users will notice if you compromise |
 
 It is also the wrong tool for a full SPA. The kit's unit of work is a form-shaped View

@@ -16,6 +16,7 @@ import "./sample-master-detail/app";
 //#region Samples: composition tier
 import "./sample-opportunity-search/app";
 import "./sample-territory-cascade/app";
+import "./sample-new-account-wizard/app";
 //#endregion
 
 //#region Samples: exotic-data tier (limitation bypass)
