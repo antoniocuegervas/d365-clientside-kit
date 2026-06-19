@@ -93,6 +93,17 @@ Examples: `navigateTo` beyond entityrecord/webresource, `openFile`, the current
 app properties on `globalContext`, and the newer `formContext` members. Treat a
 rejection as "this host can't do it", not as a bug.
 
+## Entity icon URLs rest on a path convention, not a documented API
+
+`metadata.getEntityIconUrl` resolves an entity's icon two ways: a custom entity
+(logical name contains "_") points at its `IconVectorName` webresource, an OOTB
+entity points at `/_imgs/svg_<ObjectTypeCode>.svg`. The OOTB path is a tested
+convention carried from production, not a documented platform contract, so a
+platform change could start returning a 404. Treat the icon URL as best-effort:
+fine for a decorative glyph, not something to hard-depend on. The method returns
+`undefined` when it cannot resolve a name, but a resolved-but-stale URL is still
+possible.
+
 ## `formContext` is the full mirror; `formAccess` is a facade
 
 `context.formContext` is the full form object model (data, ui, attributes,

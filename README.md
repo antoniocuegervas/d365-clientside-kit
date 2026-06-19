@@ -195,6 +195,7 @@ The public guides in `docs/`, in a sensible reading order:
 5. [docs/adding-a-pcf.md](docs/adding-a-pcf.md) and [docs/adding-a-client-hook.md](docs/adding-a-client-hook.md): the other delivery surfaces
 6. [docs/prompt-friendly-development.md](docs/prompt-friendly-development.md): generating apps with coding agents
 7. [docs/testing.md](docs/testing.md) and [docs/deployment.md](docs/deployment.md): verify and publish
+8. [docs/gotchas.md](docs/gotchas.md): sharp edges that are not obvious from the type signatures
 
 The full design document and decision log live in
 [docs/internal/](docs/internal/) for anyone curious about the reasoning behind the
