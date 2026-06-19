@@ -445,8 +445,11 @@ export interface IWebApi {
    */
   execute(request: IWebApiRequest): Promise<IExecuteResponse>;
   /**
-   * Executes multiple requests, mirroring `Xrm.WebApi.online.executeMultiple`.
-   * The modern host delegates natively; the cds-client hosts run them in order.
+   * Executes multiple requests in one round-trip, mirroring
+   * `Xrm.WebApi.online.executeMultiple`. The modern host delegates natively; the
+   * cds-client hosts send a single $batch. Operations are independent (one
+   * failing does not roll back the others), matching native's flat-array form;
+   * the responses come back in request order, each with its own `ok`/status.
    */
   executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]>;
 }

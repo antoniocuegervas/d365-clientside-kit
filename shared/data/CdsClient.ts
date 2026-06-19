@@ -194,14 +194,12 @@ export class CdsClient {
     const response = await this.request("POST", `${this.apiUrl}$batch`, body, {
       "Content-Type": `multipart/mixed;boundary=${boundary}`,
     });
-    // The multipart response wraps exactly one JSON payload, slice it out.
-    const text = response.responseText;
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if (start < 0 || end < 0) {
-      throw new CdsClientError(response.status, "Malformed $batch response", text);
+    // The multipart response wraps exactly one part: parse it and read its body.
+    const [part] = parseBatchResponse(response.responseText);
+    if (!part) {
+      throw new CdsClientError(response.status, "Malformed $batch response", response.responseText);
     }
-    return parseCollection(text.slice(start, end + 1));
+    return parseCollection(part.body);
   }
 
   //#endregion
@@ -267,13 +265,55 @@ export class CdsClient {
     return makeExecuteResponse(xhr.status, xhr.statusText, xhr.responseText);
   }
 
-  /** Executes requests in order, mirroring `executeMultiple`. */
+  /**
+   * Executes several requests in one round-trip, mirroring `executeMultiple`.
+   * Each operation is sent as an independent top-level part of a single $batch,
+   * so one failing does not roll the others back. This matches native
+   * `Xrm.WebApi.online.executeMultiple` given a flat array of requests; the
+   * native transactional form (a change set that rolls back as a unit) takes a
+   * nested array, which the kit's flat `IWebApiRequest[]` does not express.
+   * Responses come back in request order, each with its own `ok`/status.
+   */
   async executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]> {
-    const responses: IExecuteResponse[] = [];
-    for (const request of requests) {
-      responses.push(await this.execute(request));
+    if (requests.length === 0) {
+      return [];
     }
-    return responses;
+    const boundary = LibraryUtils.newBatchBoundary();
+    const body = this.buildBatchBody(requests, boundary);
+    // send (not request): the $batch envelope returns 200 even when individual
+    // operations fail, so a non-2xx here is a transport/protocol failure, while
+    // each operation's real outcome rides its own part status.
+    const response = await this.send("POST", `${this.apiUrl}$batch`, body, {
+      "Content-Type": `multipart/mixed;boundary=${boundary}`,
+    });
+    if (response.status < 200 || response.status >= 300) {
+      throw new CdsClientError(response.status, extractErrorMessage(response), response.responseText);
+    }
+    return parseBatchResponse(response.responseText).map((part) =>
+      makeExecuteResponse(part.status, part.statusText, part.body)
+    );
+  }
+
+  /** Encodes a set of execute requests as a multipart/mixed $batch body. */
+  private buildBatchBody(requests: IWebApiRequest[], boundary: string): string {
+    const lines: string[] = [];
+    for (const request of requests) {
+      const { method, url, body } = this.buildExecuteRequest(request);
+      lines.push(
+        `--${boundary}`,
+        "Content-Type: application/http",
+        "Content-Transfer-Encoding: binary",
+        "",
+        `${method} ${url} HTTP/1.1`,
+        "Accept: application/json"
+      );
+      if (body !== undefined) {
+        lines.push("Content-Type: application/json; charset=utf-8");
+      }
+      lines.push("", body ?? "");
+    }
+    lines.push(`--${boundary}--`, "");
+    return lines.join("\r\n");
   }
 
   /** Resolves an execute request object into the HTTP method, URL, and body. */
@@ -420,7 +460,9 @@ function collectExecuteParameters(request: IWebApiRequest): Record<string, unkno
 /** Serializes a function parameter value for the OData alias query syntax. */
 function formatFunctionParameterValue(value: unknown): string {
   if (typeof value === "string") {
-    return `'${value}'`;
+    // Single quotes are doubled per OData string-literal rules so a value
+    // containing one cannot break out of (or inject into) the query.
+    return `'${LibraryUtils.escapeODataString(value)}'`;
   }
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
@@ -465,6 +507,49 @@ export function makeExecuteResponse(
     json: async () => (text ? (JSON.parse(text) as unknown) : undefined),
     text: async () => text,
   };
+}
+
+/** One operation's outcome, parsed from a multipart/mixed $batch response. */
+interface IBatchResponsePart {
+  status: number;
+  statusText: string;
+  body: string;
+}
+
+/**
+ * Parses a multipart/mixed $batch response into its parts, in request order.
+ * The boundary is read from the response's own opening delimiter (its first
+ * line), so this needs no Content-Type header and serves both the single-GET
+ * FetchXML fallback and the multi-operation executeMultiple batch. Each part
+ * wraps an application/http response: a status line, inner headers, a blank
+ * line, then the body. Segments without a status line (preamble, the closing
+ * `--boundary--`) are skipped.
+ */
+function parseBatchResponse(responseText: string): IBatchResponsePart[] {
+  const text = responseText.replace(/^\s+/, "");
+  const delimiter = /^(--\S+?)(?:--)?\s*$/m.exec(text.split(/\r?\n/, 1)[0] ?? "")?.[1];
+  if (!delimiter) {
+    return [];
+  }
+  const parts: IBatchResponsePart[] = [];
+  for (const segment of text.split(delimiter)) {
+    const status = /HTTP\/[\d.]+ (\d{3})([^\r\n]*)/.exec(segment);
+    if (!status) {
+      continue;
+    }
+    parts.push({
+      status: Number(status[1]),
+      statusText: status[2].trim(),
+      body: bodyAfterHeaders(segment.slice(status.index)),
+    });
+  }
+  return parts;
+}
+
+/** Returns the body after the blank line that ends an HTTP part's headers. */
+function bodyAfterHeaders(httpResponse: string): string {
+  const separator = /\r?\n\r?\n/.exec(httpResponse);
+  return separator ? httpResponse.slice(separator.index + separator[0].length).trim() : "";
 }
 
 function parseCollection(json: string): IRetrieveMultipleResult {

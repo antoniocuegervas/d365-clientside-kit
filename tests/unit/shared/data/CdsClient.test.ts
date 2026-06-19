@@ -266,6 +266,17 @@ describe("CdsClient", () => {
       );
     });
 
+    it("escapes single quotes in a function's string parameter (OData literal rules)", async () => {
+      server.respondAlways({ status: 200, responseText: '{"value":1}' });
+      await makeClient().execute({
+        Name: "O'Brien",
+        getMetadata: () => ({ operationName: "GetSomething", operationType: 1, boundParameter: null }),
+      });
+      expect(server.lastRequest.url).toBe(
+        `https://org.crm.dynamics.com/api/data/v9.2/GetSomething(Name=@p1)?@p1=${encodeURIComponent("'O''Brien'")}`
+      );
+    });
+
     it("rejects CRUD requests with a pointer to the dedicated methods", async () => {
       await expect(
         makeClient().execute({
@@ -293,17 +304,55 @@ describe("CdsClient", () => {
       expect(await response.json()).toEqual({ error: { message: "bad" } });
     });
 
-    it("executeMultiple runs requests in order", async () => {
-      server.respondAlways({ status: 200, responseText: "{}" });
+    it("executeMultiple sends one $batch and maps each part to its own response", async () => {
+      server.respondAlways({
+        status: 200,
+        responseText: [
+          "--batchresponse_abc",
+          "Content-Type: application/http",
+          "",
+          "HTTP/1.1 200 OK",
+          "Content-Type: application/json",
+          "",
+          '{"value":"A-ok"}',
+          "--batchresponse_abc",
+          "Content-Type: application/http",
+          "",
+          "HTTP/1.1 400 Bad Request",
+          "Content-Type: application/json",
+          "",
+          '{"error":{"message":"B failed"}}',
+          "--batchresponse_abc--",
+        ].join("\r\n"),
+      });
+
       const responses = await makeClient().executeMultiple([
         { getMetadata: () => ({ operationName: "ActionA", operationType: 0 }) },
         { getMetadata: () => ({ operationName: "ActionB", operationType: 0 }) },
       ]);
+
+      // One round-trip: a single $batch POST carrying both operations.
+      expect(server.requests).toHaveLength(1);
+      const request = server.lastRequest;
+      expect(request.method).toBe("POST");
+      expect(request.url).toBe("https://org.crm.dynamics.com/api/data/v9.2/$batch");
+      expect(request.headers["Content-Type"]).toMatch(/^multipart\/mixed;boundary=batch_/);
+      expect(request.body).toContain("POST https://org.crm.dynamics.com/api/data/v9.2/ActionA HTTP/1.1");
+      expect(request.body).toContain("POST https://org.crm.dynamics.com/api/data/v9.2/ActionB HTTP/1.1");
+
+      // Per-part outcomes, in request order: one ok, one failed, no throw.
       expect(responses).toHaveLength(2);
-      expect(server.requests.map((r) => r.url)).toEqual([
-        "https://org.crm.dynamics.com/api/data/v9.2/ActionA",
-        "https://org.crm.dynamics.com/api/data/v9.2/ActionB",
-      ]);
+      expect(responses[0].ok).toBe(true);
+      expect(responses[0].status).toBe(200);
+      expect(await responses[0].json()).toEqual({ value: "A-ok" });
+      expect(responses[1].ok).toBe(false);
+      expect(responses[1].status).toBe(400);
+      expect(await responses[1].json()).toEqual({ error: { message: "B failed" } });
+    });
+
+    it("executeMultiple short-circuits an empty request list", async () => {
+      expect(await makeClient().executeMultiple([])).toEqual([]);
+      expect(server.requests).toHaveLength(0);
     });
   });
 
