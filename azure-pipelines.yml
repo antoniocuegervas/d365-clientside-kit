@@ -4,11 +4,11 @@
 
 trigger:
   branches:
-    include: [main]
+    include: [master]
 
 pr:
   branches:
-    include: [main]
+    include: [master]
 
 pool:
   vmImage: ubuntu-latest
@@ -48,8 +48,8 @@ steps:
       if [ "$(Build.Reason)" = "Manual" ]; then
         CHANGED=1
       else
-        git fetch origin main --depth=50 || true
-        CHANGED=$(git diff --name-only origin/main...HEAD -- shared/ pcfs/ | wc -l)
+        git fetch origin master --depth=50 || true
+        CHANGED=$(git diff --name-only origin/master...HEAD -- shared/ pcfs/ | wc -l)
       fi
       if [ "$CHANGED" -gt 0 ]; then
         echo "shared/ or pcfs/ changed, building all sample PCFs (conditional gate)"

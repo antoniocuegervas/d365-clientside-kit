@@ -888,7 +888,7 @@ Use a configurable publisher prefix (e.g. `new_`) in paths, not hardcoded to a s
 
 ### 11.4 CI pipeline
 
-On every PR / main:
+On every PR / master:
 
 1. Lint + typecheck main kit
 2. Build clienthooks + clientui bundles
