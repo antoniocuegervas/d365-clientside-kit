@@ -418,6 +418,8 @@ export interface IWebApi {
    * by default; pass `boundTo` for a bound action. Rides cds-client on every
    * host (even modern), so app code never hand-builds the request-object
    * contract. For functions or a pre-built request object, use {@link execute}.
+   * This is also how you run a Power Automate cloud flow or a Copilot Studio
+   * workflow on demand: wrap it in a Dataverse Custom API and call this.
    */
   executeAction(
     actionName: string,

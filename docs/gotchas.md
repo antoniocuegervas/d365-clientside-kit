@@ -69,6 +69,22 @@ nothing.
 `executeClassicWorkflow` is a thin ergonomic call built on `executeAction`. It is
 named "classic" to set it apart from Copilot Studio workflows, which are unrelated.
 
+## Running flows and the new workflows
+
+`executeClassicWorkflow` exists only because classic workflows have a dedicated
+Dataverse action (`ExecuteWorkflow`). There is no equivalent "run by id" verb for
+Power Automate cloud flows or Copilot Studio workflows, and that is not a gap:
+the supported, kit-friendly way to run either on demand is to wrap it in a
+Dataverse Custom API (or custom action) and call `executeAction`. That stays
+same-origin, uses the ambient session, and gives you a typed response, exactly
+like any other action. So the presence of a method for classic workflows does
+not mean flows are second-class; they just go through `executeAction`.
+
+The one case that does not fit is an HTTP-triggered cloud flow: its endpoint is
+cross-origin with a secret-bearing URL, which is outside cds-client's
+same-origin, ambient-credential scope. Call those from server-side or a
+dedicated integration, not from here.
+
 ## V8 (CRM 8.x) is best-effort, never a silent no-op
 
 The legacy adapter maps the subset 8.x exposes and rejects the rest with a clear
