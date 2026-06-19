@@ -50,6 +50,10 @@ interface ICommonMockOptions {
   barcodeValue?: string;
   /** File returned by Device.captureImage. */
   deviceFile?: unknown;
+  /** Org unique name (modern organizationSettings / legacy getOrgUniqueName). */
+  orgUniqueName?: string;
+  /** Org LCID (legacy getOrgLcid). */
+  orgLcid?: number;
 }
 
 export interface IModernXrmMockOptions extends ICommonMockOptions {
@@ -57,6 +61,16 @@ export interface IModernXrmMockOptions extends ICommonMockOptions {
   webApi?: Partial<IMockWebApi>;
   /** Body returned by online.execute's response.json(). */
   executeResponseBody?: unknown;
+  /** Org id surfaced on organizationSettings. */
+  organizationId?: string;
+  /** Auto-save flag surfaced on organizationSettings. */
+  isAutoSaveEnabled?: boolean;
+  /** Security role ids surfaced on userSettings.securityRoles. */
+  securityRoles?: string[];
+  /** Roles collection surfaced on userSettings.roles. */
+  userRoles?: Array<{ id: string; name?: string; entityType: string }>;
+  /** Properties returned by getCurrentAppProperties / getCurrentAppName / getCurrentAppUrl. */
+  appProperties?: { appId?: string; uniqueName?: string; url?: string; displayName?: string };
 }
 
 export interface IMockWebApi {
@@ -160,12 +174,24 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
       getGlobalContext: () => ({
         getClientUrl: () => clientUrl,
         getVersion: () => options.version ?? "9.2.24.100",
+        prependOrgName: (path: string) => `/${options.orgUniqueName ?? "mockorg"}${path}`,
+        getCurrentAppProperties: async () => options.appProperties ?? {},
+        getCurrentAppName: async () => options.appProperties?.uniqueName ?? "mockapp",
+        getCurrentAppUrl: () => options.appProperties?.url ?? "",
+        organizationSettings: {
+          organizationId: options.organizationId ?? "00000000-0000-0000-0000-0000000000ff",
+          uniqueName: options.orgUniqueName ?? "mockorg",
+          languageId: options.languageId ?? 1033,
+          isAutoSaveEnabled: options.isAutoSaveEnabled ?? true,
+        },
         userSettings: {
           userId: `{${(options.userId ?? "aaaaaaaa-0000-0000-0000-000000000001").toUpperCase()}}`,
           userName: options.userName ?? "Mock User",
           languageId: options.languageId,
           dateFormattingInfo: options.dateFormattingInfo,
           isRTL: options.isRTL,
+          securityRoles: options.securityRoles ?? [],
+          roles: { getAll: () => options.userRoles ?? [] },
           getTimeZoneOffsetMinutes: () => options.timeZoneOffsetMinutes ?? 0,
         },
         // client/form-factor surface.
@@ -253,6 +279,8 @@ export function createV8XrmMock(options: ICommonMockOptions = {}) {
         getUserId: () => `{${(options.userId ?? "bbbbbbbb-0000-0000-0000-000000000002").toUpperCase()}}`,
         getUserName: () => options.userName ?? "Legacy User",
         getVersion: options.version ? () => options.version! : undefined,
+        getOrgUniqueName: options.orgUniqueName ? () => options.orgUniqueName! : undefined,
+        getOrgLcid: options.orgLcid ? () => options.orgLcid! : undefined,
       },
       ...makePageMock(options.formRecord, calls),
     },

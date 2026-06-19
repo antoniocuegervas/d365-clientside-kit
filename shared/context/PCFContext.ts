@@ -5,6 +5,7 @@ import { LibraryUtils } from "../utils/LibraryUtils";
 import { callLookupObjects, type IXrmUtilityLookup } from "./hostSurface";
 import { normalizeDateFormatInfo, resolveFormatting } from "./hostSurface";
 import {
+  buildGlobalContext,
   clientFromSource,
   deviceFromSource,
   resolveAlertArgs,
@@ -28,6 +29,7 @@ import type {
   IFileDetails,
   IFormattingInfo,
   IFormParameters,
+  IGlobalContext,
   ILookupOptions,
   IMetadataApi,
   INavigateToPageInput,
@@ -109,6 +111,7 @@ export class PCFContext implements IViewModelContext {
   readonly metadata: IMetadataApi;
   readonly navigation: INavigation;
   readonly utils: IContextUtils;
+  readonly globalContext: IGlobalContext;
   readonly client: IClientContext;
   readonly device: IDeviceContext;
 
@@ -130,6 +133,16 @@ export class PCFContext implements IViewModelContext {
     this.rawDateFormat = source.userSettings.dateFormattingInfo;
     this.rawNumberFormat = source.userSettings.numberFormattingInfo;
     this.orgVersion = "9.2"; // PCF hosts are modern; the framework hides the build number
+    // PCF exposes userSettings but no full global context; build the subset and
+    // let the app-properties calls reject.
+    this.globalContext = buildGlobalContext(
+      {
+        getClientUrl: () => this.clientUrl,
+        getVersion: () => this.orgVersion,
+        userSettings: source.userSettings,
+      },
+      "PCF"
+    );
 
     const client = new CdsClient({ clientUrl: this.clientUrl });
     this.cdsClient = client;

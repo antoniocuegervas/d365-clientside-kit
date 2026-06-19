@@ -5,6 +5,7 @@ import { LibraryUtils } from "../utils/LibraryUtils";
 import { callLookupObjects, type IXrmUtilityLookup } from "./hostSurface";
 import { normalizeDateFormatInfo, resolveFormatting } from "./hostSurface";
 import {
+  buildGlobalContext,
   clientFromSource,
   deviceFromSource,
   resolveAlertArgs,
@@ -13,6 +14,7 @@ import {
   utilsFromXrm,
   type IXrmClientLike,
   type IXrmDeviceLike,
+  type IXrmGlobalContextLike,
   type IXrmUtilityExtras,
 } from "./hostSurface";
 import type {
@@ -30,6 +32,7 @@ import type {
   IFormAccess,
   IFormattingInfo,
   IFormParameters,
+  IGlobalContext,
   ILookupOptions,
   IMetadataApi,
   INavigateToPageInput,
@@ -58,6 +61,7 @@ export class WebResourceContext implements IViewModelContext {
   readonly metadata: IMetadataApi;
   readonly navigation: INavigation;
   readonly utils: IContextUtils;
+  readonly globalContext: IGlobalContext;
   readonly client: IClientContext;
   readonly device: IDeviceContext;
   readonly formAccess?: IFormAccess;
@@ -84,6 +88,10 @@ export class WebResourceContext implements IViewModelContext {
     };
     this.rawDateFormat = userSettings.dateFormattingInfo;
     this.orgVersion = globalContext.getVersion();
+    this.globalContext = buildGlobalContext(
+      globalContext as unknown as IXrmGlobalContextLike,
+      "modern webresource"
+    );
 
     // One same-origin cds-client backs both metadata and execute*/executeWorkflow
     // so custom actions never touch Xrm.WebApi.execute's request-object API.

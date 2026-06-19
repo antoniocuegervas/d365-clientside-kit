@@ -1,4 +1,5 @@
 import type {
+  IAppProperties,
   IAttributeMetadata,
   ICurrencyInfo,
   IEntityMetadata,
@@ -62,6 +63,16 @@ export interface IFakeContextOptions {
   currencies?: Record<string, ICurrencyInfo>;
   /** Icon URLs returned by getEntityIconUrl, keyed by entity logical name. */
   entityIcons?: Record<string, string>;
+  /** Org unique name surfaced on globalContext.organizationSettings. */
+  orgUniqueName?: string;
+  /** Org id surfaced on globalContext.organizationSettings. */
+  organizationId?: string;
+  /** Auto-save flag surfaced on globalContext.organizationSettings. Default true. */
+  isAutoSaveEnabled?: boolean;
+  /** Security role ids surfaced on globalContext.userSettings.securityRoles. */
+  securityRoles?: string[];
+  /** App properties returned by globalContext.getCurrentAppProperties. */
+  appProperties?: IAppProperties;
   /** Artificial async delay (ms) to exercise loading states. */
   delayMs?: number;
 }
@@ -283,6 +294,32 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
         record("navigateTo", ...args);
       },
       openWebResource: (...args) => record("openWebResource", ...args),
+    },
+    globalContext: {
+      clientUrl: "https://fake.crm.dynamics.com",
+      organizationSettings: {
+        organizationId: options.organizationId ?? "00000000-0000-0000-0000-0000000000ff",
+        uniqueName: options.orgUniqueName ?? "fakeorg",
+        languageId: options.languageId,
+        isAutoSaveEnabled: options.isAutoSaveEnabled ?? true,
+      },
+      userSettings: {
+        userId: "00000000-0000-0000-0000-0000000000aa",
+        userName: "Fake User",
+        languageId: options.languageId,
+        isRTL: options.isRTL,
+        roles: [],
+        securityRoles: options.securityRoles ?? [],
+        getTimeZoneOffsetMinutes: () => options.timeZoneOffsetMinutes ?? 0,
+      },
+      getVersion: () => "9.2.0.0",
+      prependOrgName: (path) => `/${options.orgUniqueName ?? "fakeorg"}${path}`,
+      getCurrentAppProperties: async () => {
+        record("getCurrentAppProperties");
+        return options.appProperties ?? {};
+      },
+      getCurrentAppName: async () => options.appProperties?.uniqueName ?? "fakeapp",
+      getCurrentAppUrl: () => options.appProperties?.url ?? "",
     },
     utils: {
       alert: (message) => record("alert", message),

@@ -33,6 +33,15 @@ export interface IViewModelContext {
   readonly navigation: INavigation;
   readonly utils: IContextUtils;
   /**
+   * Organization and user settings plus app/version helpers, mirroring the
+   * native `getGlobalContext()`. The top-level `clientUrl`, `orgVersion`, and
+   * `user` stay as the common-path convenience reads; this exposes the full
+   * surface (base currency, security roles, transaction currency, app
+   * properties, prependOrgName). The legacy V8 host fills the subset 8.x
+   * exposes and rejects the app-properties calls.
+   */
+  readonly globalContext: IGlobalContext;
+  /**
    * Client/form-factor surface mirroring `GlobalContext.client`, for
    * responsive smart controls (e.g. grid → cards on phone). Smart tier only.
    */
@@ -240,6 +249,105 @@ export interface IExecuteResponse {
   json(): Promise<unknown>;
   text(): Promise<string>;
 }
+
+//#region global context / settings
+
+/**
+ * Organization settings mirroring `GlobalContext.organizationSettings`.
+ * Members the host does not expose resolve to undefined.
+ */
+export interface IOrganizationSettings {
+  /** Org id. */
+  organizationId: string;
+  /** Org unique (schema) name. */
+  uniqueName: string;
+  /** Org preferred language LCID. */
+  languageId?: number;
+  /** Base currency reference (id, name, entity type). */
+  baseCurrency?: IXrmLookupValue;
+  /** Base currency id (the v9.0 deprecated scalar). */
+  baseCurrencyId?: string;
+  /** Whether auto-save is enabled for the org. */
+  isAutoSaveEnabled?: boolean;
+  /** Default phone country/region code. */
+  defaultCountryCode?: string;
+  /** Whether the Skype protocol is used. */
+  useSkypeProtocol?: boolean;
+  /** Org region/geo. */
+  organizationGeo?: string;
+}
+
+/**
+ * User settings mirroring `GlobalContext.userSettings`. Members the host does
+ * not expose resolve to undefined; `roles`/`securityRoles` default to empty.
+ */
+export interface IUserSettings {
+  userId: string;
+  userName: string;
+  /** User UI language LCID. */
+  languageId?: number;
+  /** Right-to-left UI direction. */
+  isRTL?: boolean;
+  isHighContrastEnabled?: boolean;
+  isGuidedHelpEnabled?: boolean;
+  /** Default dashboard id for the user. */
+  defaultDashboardId?: string;
+  /** Security roles / teams the user belongs to (id, name, entity type). */
+  roles: IXrmLookupValue[];
+  /** Security role ids the user belongs to (the v9.0 deprecated scalars). */
+  securityRoles: string[];
+  /** Security role privilege ids. */
+  securityRolePrivileges?: string[];
+  /** Transaction currency reference for the user. */
+  transactionCurrency?: IXrmLookupValue;
+  /** Transaction currency id (the v9.0 deprecated scalar). */
+  transactionCurrencyId?: string;
+  /**
+   * Raw host date-formatting object (Xrm `DateFormattingInfo`). Use
+   * `context.getFormatting()` for the normalized, kit-shaped view.
+   */
+  dateFormattingInfo?: Record<string, unknown>;
+  /** Minutes offset from UTC for the user's timezone. */
+  getTimeZoneOffsetMinutes(): number;
+}
+
+/** Current business-app properties, mirroring `Xrm.AppProperties`. */
+export interface IAppProperties {
+  appId?: string;
+  displayName?: string;
+  uniqueName?: string;
+  url?: string;
+  webResourceId?: string;
+  webResourceName?: string;
+  welcomePageId?: string;
+  welcomePageName?: string;
+}
+
+/**
+ * Global context surface mirroring the native `getGlobalContext()`: client URL,
+ * organization/user settings, version, org-name path helper, and the current
+ * app metadata.
+ */
+export interface IGlobalContext {
+  readonly clientUrl: string;
+  readonly organizationSettings: IOrganizationSettings;
+  readonly userSettings: IUserSettings;
+  /** Server version string, e.g. "9.2.x". */
+  getVersion(): string;
+  /** Prepends the org name to a path, mirroring `prependOrgName`. */
+  prependOrgName(path: string): string;
+  /**
+   * Resolves the current app's properties. Rejects on hosts that do not expose
+   * apps (the legacy V8 host and PCF).
+   */
+  getCurrentAppProperties(): Promise<IAppProperties>;
+  /** Resolves the current app's unique name. Rejects where apps are unavailable. */
+  getCurrentAppName(): Promise<string>;
+  /** The current app's URL, or "" on hosts that do not expose it. */
+  getCurrentAppUrl(): string;
+}
+
+//#endregion
 
 /**
  * Web API surface, Xrm.WebApi-shaped (logical names in, promises out) so the

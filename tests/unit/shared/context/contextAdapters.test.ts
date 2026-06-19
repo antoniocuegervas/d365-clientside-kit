@@ -489,6 +489,39 @@ describe("WebResourceContext (modern)", () => {
     });
   });
 
+  it("exposes the full globalContext: organization + user settings and app metadata", async () => {
+    const { xrm } = createModernXrmMock({
+      clientUrl: "https://org.crm.dynamics.com",
+      orgUniqueName: "contoso",
+      organizationId: "11100000-0000-0000-0000-000000000111",
+      isAutoSaveEnabled: false,
+      securityRoles: ["role-a", "role-b"],
+      userRoles: [
+        { id: "{20000000-0000-0000-0000-000000000002}", name: "Salesperson", entityType: "role" },
+      ],
+      appProperties: {
+        uniqueName: "salesapp",
+        url: "https://org.crm.dynamics.com/main.aspx?appid=1",
+      },
+    });
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    const gc = context.globalContext;
+    expect(gc.clientUrl).toBe("https://org.crm.dynamics.com");
+    expect(gc.organizationSettings).toMatchObject({
+      organizationId: "11100000-0000-0000-0000-000000000111",
+      uniqueName: "contoso",
+      isAutoSaveEnabled: false,
+    });
+    // userId is normalized; roles come from the native collection.
+    expect(gc.userSettings.userId).toBe("aaaaaaaa-0000-0000-0000-000000000001");
+    expect(gc.userSettings.securityRoles).toEqual(["role-a", "role-b"]);
+    expect(gc.userSettings.roles[0]).toMatchObject({ name: "Salesperson" });
+    expect(gc.prependOrgName("/api")).toBe("/contoso/api");
+    await expect(gc.getCurrentAppProperties()).resolves.toMatchObject({ uniqueName: "salesapp" });
+    await expect(gc.getCurrentAppName()).resolves.toBe("salesapp");
+    expect(gc.getCurrentAppUrl()).toContain("appid=1");
+  });
+
   it("surfaces languageId and resolves formatting from userSettings + the usersettings entity", async () => {
     const server = new FakeXhrServer();
     server.install();
@@ -751,6 +784,21 @@ describe("WebResourceContextV8 shim matrix", () => {
     ).rejects.toThrow(/pageType 'dashboard' is not supported/);
   });
 
+  it("builds the globalContext subset from Page.context and rejects app properties", async () => {
+    const mock = createV8XrmMock({
+      clientUrl: "https://crm.onprem.contoso.com/org",
+      orgUniqueName: "onpremorg",
+      orgLcid: 1033,
+    });
+    const context = new WebResourceContextV8(mock.xrm);
+    const gc = context.globalContext;
+    expect(gc.clientUrl).toBe("https://crm.onprem.contoso.com/org");
+    expect(gc.organizationSettings.uniqueName).toBe("onpremorg");
+    expect(gc.organizationSettings.languageId).toBe(1033);
+    expect(gc.userSettings.userId).toBe("bbbbbbbb-0000-0000-0000-000000000002");
+    await expect(gc.getCurrentAppProperties()).rejects.toThrow(/not available in the CRM 8.x/);
+  });
+
   it("createRecord pluralizes logical names by convention", async () => {
     server.respondAlways({
       status: 204,
@@ -872,6 +920,19 @@ describe("PCFContext", () => {
       api: "retrieveMultipleRecords",
       args: ["contact", `?fetchXml=${encodeURIComponent("<fetch/>")}`],
     });
+  });
+
+  it("builds the globalContext from PCF userSettings and rejects app properties", async () => {
+    const { source } = makeSource();
+    const context = new PCFContext(source);
+    expect(context.globalContext.clientUrl).toBe("https://org.crm.dynamics.com");
+    expect(context.globalContext.userSettings.userId).toBe(
+      "abcdabcd-0000-0000-0000-000000000008"
+    );
+    expect(context.globalContext.userSettings.roles).toEqual([]);
+    await expect(context.globalContext.getCurrentAppProperties()).rejects.toThrow(
+      /not available in the PCF host/
+    );
   });
 
   it("execute rides cds-client because the PCF webAPI has no native execute", async () => {

@@ -14,6 +14,7 @@ import type {
   IFileDetails,
   IFormAccess,
   IFormParameters,
+  IGlobalContext,
   ILookupOptions,
   IMetadataApi,
   INavigateToPageInput,
@@ -28,6 +29,7 @@ import type {
   IWindowOptions,
 } from "./IViewModelContext";
 import {
+  buildGlobalContext,
   callLookupObjects,
   resolveAlertArgs,
   resolveConfirmArgs,
@@ -60,6 +62,8 @@ export interface IXrmV8Like {
       getUserName(): string;
       getVersion?(): string;
       getUserLcid?(): number;
+      getOrgUniqueName?(): string;
+      getOrgLcid?(): number;
     };
   };
   Utility: IXrmUtilityLookup & {
@@ -85,6 +89,7 @@ export class WebResourceContextV8 implements IViewModelContext {
   readonly metadata: IMetadataApi;
   readonly navigation: INavigation;
   readonly utils: IContextUtils;
+  readonly globalContext: IGlobalContext;
   readonly client: IClientContext;
   readonly device: IDeviceContext;
   readonly formAccess?: IFormAccess;
@@ -101,6 +106,25 @@ export class WebResourceContextV8 implements IViewModelContext {
       languageId: pageContext.getUserLcid?.(),
     };
     this.orgVersion = pageContext.getVersion?.() ?? "8.2";
+    // 8.x exposes a subset through Page.context: client URL, version, org name
+    // and lcid via the deprecated getters, and the current user. Business-app
+    // properties do not exist on 8.x and reject.
+    this.globalContext = buildGlobalContext(
+      {
+        getClientUrl: () => pageContext.getClientUrl(),
+        getVersion: pageContext.getVersion ? () => pageContext.getVersion!() : undefined,
+        getOrgUniqueName: pageContext.getOrgUniqueName
+          ? () => pageContext.getOrgUniqueName!()
+          : undefined,
+        getOrgLcid: pageContext.getOrgLcid ? () => pageContext.getOrgLcid!() : undefined,
+        userSettings: {
+          userId: pageContext.getUserId(),
+          userName: pageContext.getUserName(),
+          languageId: pageContext.getUserLcid?.(),
+        },
+      },
+      "CRM 8.x webresource"
+    );
 
     const client = new CdsClient({ clientUrl: this.clientUrl, apiVersion: "8.2" });
     this.cdsClient = client;

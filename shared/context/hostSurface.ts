@@ -19,6 +19,7 @@ import {
 import {
   ClientFormFactor,
   type IAlertStrings,
+  type IAppProperties,
   type IClientContext,
   type IConfirmStrings,
   type IContextUtils,
@@ -31,7 +32,10 @@ import {
   type IFormattingInfo,
   type IFormParameters,
   type IGeoPosition,
+  type IGlobalContext,
   type ILookupOptions,
+  type IOrganizationSettings,
+  type IUserSettings,
 } from "./IViewModelContext";
 
 //#region Form access
@@ -303,6 +307,140 @@ export async function resolveFormatting(input: {
     }
   }
   return { decimalSymbol, numberSeparator, dateFormatInfo: input.dateFormatInfo };
+}
+
+//#endregion
+
+//#region Global context / settings
+
+/** Structural slice of an Xrm `Collection.ItemCollection` (roles, etc.). */
+export interface IXrmCollectionLike<T> {
+  getAll?(): T[];
+}
+
+/** Structural slice of `GlobalContext.userSettings` / PCF `context.userSettings`. */
+export interface IXrmUserSettingsLike {
+  userId: string;
+  userName: string;
+  languageId?: number;
+  isRTL?: boolean;
+  isHighContrastEnabled?: boolean;
+  isGuidedHelpEnabled?: boolean;
+  defaultDashboardId?: string;
+  /** Roles as the native collection or a plain array. */
+  roles?: IXrmLookupValue[] | IXrmCollectionLike<IXrmLookupValue>;
+  securityRoles?: string[];
+  securityRolePrivileges?: string[];
+  transactionCurrency?: IXrmLookupValue;
+  transactionCurrencyId?: string;
+  dateFormattingInfo?: Record<string, unknown>;
+  getTimeZoneOffsetMinutes?(): number;
+}
+
+/** Structural slice of `GlobalContext.organizationSettings`. */
+export interface IXrmOrganizationSettingsLike {
+  organizationId?: string;
+  uniqueName?: string;
+  languageId?: number;
+  baseCurrency?: IXrmLookupValue;
+  baseCurrencyId?: string;
+  isAutoSaveEnabled?: boolean;
+  defaultCountryCode?: string;
+  useSkypeProtocol?: boolean;
+  organizationGeo?: string;
+}
+
+/**
+ * Structural slice of the native `getGlobalContext()` the builder reads. Modern
+ * hosts satisfy it whole; the V8 and PCF adapters pass a shim with the subset
+ * their host exposes (the absent members degrade or reject in the builder).
+ */
+export interface IXrmGlobalContextLike {
+  getClientUrl(): string;
+  getVersion?(): string;
+  prependOrgName?(path: string): string;
+  getCurrentAppProperties?(): PromiseLike<IAppProperties>;
+  getCurrentAppName?(): PromiseLike<string>;
+  getCurrentAppUrl?(): string;
+  /** Deprecated org-name getter, the only source on the legacy host. */
+  getOrgUniqueName?(): string;
+  /** Deprecated org-LCID getter, the only source on the legacy host. */
+  getOrgLcid?(): number;
+  organizationSettings?: IXrmOrganizationSettingsLike;
+  userSettings: IXrmUserSettingsLike;
+}
+
+/** Reads a roles-style value that may be a native collection or a plain array. */
+function readLookupCollection(
+  value: IXrmLookupValue[] | IXrmCollectionLike<IXrmLookupValue> | undefined
+): IXrmLookupValue[] {
+  if (!value) {
+    return [];
+  }
+  return Array.isArray(value) ? value : (value.getAll?.() ?? []);
+}
+
+/**
+ * Builds the kit `globalContext` surface from a host's `getGlobalContext()`,
+ * normalizing the user id and roles collection, falling back to the deprecated
+ * org getters where the settings objects are absent, and rejecting the
+ * app-properties calls on hosts that do not expose business apps.
+ */
+export function buildGlobalContext(
+  source: IXrmGlobalContextLike,
+  hostLabel: string
+): IGlobalContext {
+  const org = source.organizationSettings;
+  const user = source.userSettings;
+
+  const organizationSettings: IOrganizationSettings = {
+    organizationId: org?.organizationId ?? "",
+    uniqueName: org?.uniqueName ?? source.getOrgUniqueName?.() ?? "",
+    languageId: org?.languageId ?? source.getOrgLcid?.(),
+    baseCurrency: org?.baseCurrency,
+    baseCurrencyId: org?.baseCurrencyId,
+    isAutoSaveEnabled: org?.isAutoSaveEnabled,
+    defaultCountryCode: org?.defaultCountryCode,
+    useSkypeProtocol: org?.useSkypeProtocol,
+    organizationGeo: org?.organizationGeo,
+  };
+
+  const userSettings: IUserSettings = {
+    userId: normalizeGuid(user.userId),
+    userName: user.userName,
+    languageId: user.languageId,
+    isRTL: user.isRTL,
+    isHighContrastEnabled: user.isHighContrastEnabled,
+    isGuidedHelpEnabled: user.isGuidedHelpEnabled,
+    defaultDashboardId: user.defaultDashboardId,
+    roles: readLookupCollection(user.roles),
+    securityRoles: user.securityRoles ?? [],
+    securityRolePrivileges: user.securityRolePrivileges,
+    transactionCurrency: user.transactionCurrency,
+    transactionCurrencyId: user.transactionCurrencyId,
+    dateFormattingInfo: user.dateFormattingInfo,
+    getTimeZoneOffsetMinutes: () => user.getTimeZoneOffsetMinutes?.() ?? 0,
+  };
+
+  const failApp = (capability: string): Promise<never> =>
+    Promise.reject(new Error(`${capability} is not available in the ${hostLabel} host.`));
+
+  return {
+    clientUrl: source.getClientUrl(),
+    organizationSettings,
+    userSettings,
+    getVersion: () => source.getVersion?.() ?? "",
+    prependOrgName: (path) => source.prependOrgName?.(path) ?? path,
+    getCurrentAppProperties: () =>
+      source.getCurrentAppProperties
+        ? Promise.resolve(source.getCurrentAppProperties())
+        : failApp("getCurrentAppProperties"),
+    getCurrentAppName: () =>
+      source.getCurrentAppName
+        ? Promise.resolve(source.getCurrentAppName())
+        : failApp("getCurrentAppName"),
+    getCurrentAppUrl: () => source.getCurrentAppUrl?.() ?? "",
+  };
 }
 
 //#endregion
