@@ -40,10 +40,12 @@ interface ICommonMockOptions {
   clientKind?: string;
   /** Offline flag returned by client.isOffline. */
   isOffline?: boolean;
+  /** Network-available flag returned by client.isNetworkAvailable. Default true. */
+  isNetworkAvailable?: boolean;
   /** Localized strings returned by Utility.getResourceString. */
   resourceStrings?: Record<string, string>;
-  /** Result of Utility.getAllowedStatusTransitions. */
-  allowedStatusTransitions?: unknown;
+  /** Status codes returned by Utility.getAllowedStatusTransitions. */
+  allowedStatusTransitions?: number[];
   /** Barcode returned by Device.getBarcodeValue. */
   barcodeValue?: string;
   /** File returned by Device.captureImage. */
@@ -172,6 +174,7 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
           getClient: () => options.clientKind ?? "Web",
           getClientState: () => "Online",
           isOffline: () => options.isOffline ?? false,
+          isNetworkAvailable: () => options.isNetworkAvailable ?? true,
         },
       }),
       lookupObjects: async (lookupOptions: unknown) => {
@@ -185,7 +188,7 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
       },
       showProgressIndicator: (message: string) => record("Utility.showProgressIndicator", message),
       closeProgressIndicator: () => record("Utility.closeProgressIndicator"),
-      getAllowedStatusTransitions: async (entity: string, stateCode: number) => {
+      getAllowedStatusTransitions: async (entity: string, stateCode?: number) => {
         record("Utility.getAllowedStatusTransitions", entity, stateCode);
         return options.allowedStatusTransitions ?? [];
       },

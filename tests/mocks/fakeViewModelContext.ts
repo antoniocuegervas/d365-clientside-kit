@@ -40,14 +40,16 @@ export interface IFakeContextOptions {
   timeZoneOffsetMinutes?: number;
   /** Localized strings returned by utils.getResourceString, keyed by key. */
   resourceStrings?: Record<string, string>;
-  /** Result of utils.getAllowedStatusTransitions. */
-  allowedStatusTransitions?: unknown;
+  /** Status codes returned by utils.getAllowedStatusTransitions. */
+  allowedStatusTransitions?: number[];
   /** Form factor returned by client.getFormFactor. Default 1 (Desktop). */
   formFactor?: number;
   /** Client kind returned by client.getClient. */
   clientKind?: string;
   /** Offline flag returned by client.isOffline. */
   isOffline?: boolean;
+  /** Network-available flag returned by client.isNetworkAvailable. Default true. */
+  isNetworkAvailable?: boolean;
   /** File returned by device capture methods. */
   deviceFile?: IFileDetails | null;
   /** Files returned by device.pickFile. */
@@ -305,6 +307,7 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
       getClient: () => options.clientKind ?? "Web",
       getClientState: () => "Online",
       isOffline: () => options.isOffline ?? false,
+      isNetworkAvailable: () => options.isNetworkAvailable ?? true,
     },
     device: {
       captureImage: async (deviceOptions) => {

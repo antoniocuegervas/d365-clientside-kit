@@ -109,6 +109,7 @@ export interface IXrmClientLike {
   getClient?(): string;
   getClientState?(): string;
   isOffline?(): boolean;
+  isNetworkAvailable?(): boolean;
 }
 
 /** Structural slice of `Xrm.Device` / PCF `context.device`. */
@@ -126,7 +127,7 @@ export interface IXrmUtilityExtras {
   getResourceString?(webResourceName: string, key: string): string;
   showProgressIndicator?(message: string): void;
   closeProgressIndicator?(): void;
-  getAllowedStatusTransitions?(entityLogicalName: string, stateCode: number): PromiseLike<unknown>;
+  getAllowedStatusTransitions?(entityLogicalName: string, stateCode?: number): PromiseLike<number[]>;
   refreshParentGrid?(lookupValue: unknown): void;
 }
 
@@ -137,6 +138,7 @@ export function clientFromSource(source: IXrmClientLike | undefined): IClientCon
     getClient: () => source?.getClient?.() ?? "Web",
     getClientState: () => source?.getClientState?.() ?? "Online",
     isOffline: () => source?.isOffline?.() ?? false,
+    isNetworkAvailable: () => source?.isNetworkAvailable?.() ?? true,
   };
 }
 
@@ -194,7 +196,7 @@ export function utilsFromXrm(
     getAllowedStatusTransitions: (entityLogicalName, stateCode) =>
       utility?.getAllowedStatusTransitions
         ? Promise.resolve(utility.getAllowedStatusTransitions(entityLogicalName, stateCode))
-        : Promise.reject(
+        : Promise.reject<number[]>(
             new Error(`getAllowedStatusTransitions is not available in the ${hostLabel} host.`)
           ),
     refreshParentGrid: (lookupValue) => utility?.refreshParentGrid?.(lookupValue),

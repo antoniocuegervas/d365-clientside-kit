@@ -288,6 +288,40 @@ describe("WebResourceContext (modern)", () => {
     await expect(context.device.getBarcodeValue()).resolves.toBe("012345");
   });
 
+  it("exposes isNetworkAvailable and allows getAllowedStatusTransitions without a stateCode", async () => {
+    const { xrm, calls } = createModernXrmMock({
+      isNetworkAvailable: false,
+      allowedStatusTransitions: [1, 2],
+    });
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    expect(context.client.isNetworkAvailable()).toBe(false);
+    await expect(context.utils.getAllowedStatusTransitions("incident")).resolves.toEqual([1, 2]);
+    expect(calls.find((c) => c.api === "Utility.getAllowedStatusTransitions")?.args).toEqual([
+      "incident",
+      undefined,
+    ]);
+  });
+
+  it("forwards captureImage options including preferFrontCamera to the host", async () => {
+    const { xrm, calls } = createModernXrmMock();
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    await context.device.captureImage({
+      allowEdit: true,
+      preferFrontCamera: true,
+      quality: 80,
+      height: 120,
+      width: 160,
+    });
+    const call = calls.find((c) => c.api === "Device.captureImage")!;
+    expect(call.args[0]).toEqual({
+      allowEdit: true,
+      preferFrontCamera: true,
+      quality: 80,
+      height: 120,
+      width: 160,
+    });
+  });
+
   it("fetchPage rides cds-client so paging annotations survive", async () => {
     const server = new FakeXhrServer();
     server.install();
@@ -678,6 +712,7 @@ describe("WebResourceContextV8 shim matrix", () => {
     const { context } = makeContext();
     expect(context.client.getFormFactor()).toBe(0); // Unknown (no 8.x client slice)
     expect(context.client.getClient()).toBe("Web");
+    expect(context.client.isNetworkAvailable()).toBe(true); // defaults when the host omits it
     await expect(context.device.getBarcodeValue()).rejects.toThrow(/not available in the CRM 8.x/);
     await expect(context.utils.getAllowedStatusTransitions("incident", 0)).rejects.toThrow(
       /not available in the CRM 8.x/

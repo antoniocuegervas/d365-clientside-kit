@@ -86,18 +86,29 @@ export interface IClientContext {
   /** "Online" | "Offline" | "OfflineError". */
   getClientState(): string;
   isOffline(): boolean;
+  /** True when the network is reachable, mirroring `client.isNetworkAvailable`. */
+  isNetworkAvailable(): boolean;
 }
 
-/** Image/file payloads captured by `device.*` reuse the navigation file shape. */
+/**
+ * Options for `device.captureImage`, mirroring `Xrm.Device.CaptureImageOptions`
+ * field for field.
+ */
 export interface ICaptureImageOptions {
   allowEdit?: boolean;
   height?: number;
-  width?: number;
+  /** Capture using the device's front camera. */
+  preferFrontCamera?: boolean;
   quality?: number;
+  width?: number;
 }
 
+/** File-type categories for `device.pickFile`, mirroring `Xrm.Device.PickFileTypes`. */
+export type PickFileType = "audio" | "video" | "image";
+
+/** Options for `device.pickFile`, mirroring `Xrm.Device.PickFileOptions`. */
 export interface IPickFileOptions {
-  accept?: string;
+  accept?: PickFileType;
   allowMultipleFiles?: boolean;
   maximumAllowedFileSize?: number;
 }
@@ -602,10 +613,12 @@ export interface IContextUtils {
   showProgressIndicator(message: string): void;
   closeProgressIndicator(): void;
   /**
-   * Allowed status-reason transitions for a state, mirroring
-   * `Xrm.Utility.getAllowedStatusTransitions`. Rejects clearly where unsupported.
+   * Allowed status-reason transitions (status codes) for an entity, optionally
+   * scoped to a state, mirroring `Xrm.Utility.getAllowedStatusTransitions`.
+   * `stateCode` is optional, as on the native call. Rejects clearly where
+   * unsupported.
    */
-  getAllowedStatusTransitions(entityLogicalName: string, stateCode: number): Promise<unknown>;
+  getAllowedStatusTransitions(entityLogicalName: string, stateCode?: number): Promise<number[]>;
   /**
    * Refreshes the host grid after a ribbon action, mirroring
    * `Xrm.Utility.refreshParentGrid`. No-op where unsupported.
