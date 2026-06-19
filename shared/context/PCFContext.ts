@@ -24,6 +24,7 @@ import type {
   IDialogSizeOptions,
   IEntityFormOptions,
   IErrorDialogOptions,
+  IExecuteResponse,
   IFileDetails,
   IFormattingInfo,
   IFormParameters,
@@ -33,9 +34,11 @@ import type {
   INavigation,
   INavigationOptions,
   IOpenFileOptions,
+  IRecordWriteResult,
   IUserInfo,
   IViewModelContext,
   IWebApi,
+  IWebApiRequest,
   IWindowOptions,
 } from "./IViewModelContext";
 
@@ -185,21 +188,25 @@ class PcfWebApi implements IWebApi {
   async createRecord(
     entityLogicalName: string,
     data: Record<string, unknown>
-  ): Promise<{ id: string }> {
+  ): Promise<IRecordWriteResult> {
     const result = await this.api.createRecord(entityLogicalName, data);
-    return { id: normalizeGuid(result.id) };
+    return { entityType: entityLogicalName, id: normalizeGuid(result.id) };
   }
 
   async updateRecord(
     entityLogicalName: string,
     id: string,
     data: Record<string, unknown>
-  ): Promise<void> {
-    await this.api.updateRecord(entityLogicalName, normalizeGuid(id), data);
+  ): Promise<IRecordWriteResult> {
+    const normalizedId = normalizeGuid(id);
+    await this.api.updateRecord(entityLogicalName, normalizedId, data);
+    return { entityType: entityLogicalName, id: normalizedId };
   }
 
-  async deleteRecord(entityLogicalName: string, id: string): Promise<void> {
-    await this.api.deleteRecord(entityLogicalName, normalizeGuid(id));
+  async deleteRecord(entityLogicalName: string, id: string): Promise<IRecordWriteResult> {
+    const normalizedId = normalizeGuid(id);
+    await this.api.deleteRecord(entityLogicalName, normalizedId);
+    return { entityType: entityLogicalName, id: normalizedId };
   }
 
   async retrieveRecord(
@@ -252,6 +259,15 @@ class PcfWebApi implements IWebApi {
 
   executeWorkflow(workflowId: string, recordId: string): Promise<unknown> {
     return this.client.executeWorkflow(workflowId, recordId);
+  }
+
+  execute(request: IWebApiRequest): Promise<IExecuteResponse> {
+    // The PCF webAPI surface has no execute; ride cds-client (actions/functions).
+    return this.client.execute(request);
+  }
+
+  executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]> {
+    return this.client.executeMultiple(requests);
   }
 }
 

@@ -222,6 +222,78 @@ describe("CdsClient", () => {
     });
   });
 
+  describe("execute (request-object contract)", () => {
+    it("runs an unbound action: POST the operation with the parameter body", async () => {
+      server.respondAlways({ status: 200, responseText: '{"Result":7}' });
+      const response = await makeClient().execute({
+        Amount: 5,
+        getMetadata: () => ({ operationName: "new_Recalculate", operationType: 0, boundParameter: null }),
+      });
+      expect(response.ok).toBe(true);
+      expect(await response.json()).toEqual({ Result: 7 });
+      expect(server.lastRequest.method).toBe("POST");
+      expect(server.lastRequest.url).toBe(
+        "https://org.crm.dynamics.com/api/data/v9.2/new_Recalculate"
+      );
+      expect(server.lastRequest.body).toBe('{"Amount":5}');
+    });
+
+    it("runs a bound action: target the entity set and qualify the name, dropping the bound param", async () => {
+      server.respondAlways({ status: 204 });
+      await makeClient().execute({
+        entity: { entityType: "opportunity", id: "{DEF00000-0000-0000-0000-000000000002}" },
+        Reason: "Won",
+        getMetadata: () => ({ operationName: "new_Close", operationType: 0, boundParameter: "entity" }),
+      });
+      expect(server.lastRequest.method).toBe("POST");
+      expect(server.lastRequest.url).toBe(
+        "https://org.crm.dynamics.com/api/data/v9.2/opportunities(def00000-0000-0000-0000-000000000002)/Microsoft.Dynamics.CRM.new_Close"
+      );
+      // The bound reference is not part of the POST body.
+      expect(server.lastRequest.body).toBe('{"Reason":"Won"}');
+    });
+
+    it("runs an unbound function: GET with the OData parameter-alias syntax", async () => {
+      server.respondAlways({ status: 200, responseText: '{"value":"Pacific"}' });
+      await makeClient().execute({
+        Name: "Contoso",
+        Code: 1033,
+        getMetadata: () => ({ operationName: "GetSomething", operationType: 1, boundParameter: null }),
+      });
+      expect(server.lastRequest.method).toBe("GET");
+      expect(server.lastRequest.url).toBe(
+        `https://org.crm.dynamics.com/api/data/v9.2/GetSomething(Name=@p1,Code=@p2)?@p1=${encodeURIComponent("'Contoso'")}&@p2=1033`
+      );
+    });
+
+    it("rejects CRUD requests with a pointer to the dedicated methods", async () => {
+      await expect(
+        makeClient().execute({
+          getMetadata: () => ({ operationName: "Create", operationType: 2 }),
+        })
+      ).rejects.toThrow(/use createRecord, updateRecord, deleteRecord/);
+    });
+
+    it("rejects a request with no operationName", async () => {
+      await expect(
+        makeClient().execute({ getMetadata: () => ({ operationType: 0 }) })
+      ).rejects.toThrow(/requires operationName/);
+    });
+
+    it("executeMultiple runs requests in order", async () => {
+      server.respondAlways({ status: 200, responseText: "{}" });
+      const responses = await makeClient().executeMultiple([
+        { getMetadata: () => ({ operationName: "ActionA", operationType: 0 }) },
+        { getMetadata: () => ({ operationName: "ActionB", operationType: 0 }) },
+      ]);
+      expect(responses).toHaveLength(2);
+      expect(server.requests.map((r) => r.url)).toEqual([
+        "https://org.crm.dynamics.com/api/data/v9.2/ActionA",
+        "https://org.crm.dynamics.com/api/data/v9.2/ActionB",
+      ]);
+    });
+  });
+
   describe("errors", () => {
     it("throws CdsClientError with the platform message on failure", async () => {
       server.respondAlways({

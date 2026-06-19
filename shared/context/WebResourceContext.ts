@@ -25,6 +25,7 @@ import type {
   IDialogSizeOptions,
   IEntityFormOptions,
   IErrorDialogOptions,
+  IExecuteResponse,
   IFileDetails,
   IFormAccess,
   IFormattingInfo,
@@ -35,9 +36,11 @@ import type {
   INavigation,
   INavigationOptions,
   IOpenFileOptions,
+  IRecordWriteResult,
   IUserInfo,
   IViewModelContext,
   IWebApi,
+  IWebApiRequest,
   IWindowOptions,
 } from "./IViewModelContext";
 import { XrmPageFormAccess, type IXrmPageLike } from "./hostSurface";
@@ -137,21 +140,25 @@ class ModernWebApi implements IWebApi {
   async createRecord(
     entityLogicalName: string,
     data: Record<string, unknown>
-  ): Promise<{ id: string }> {
+  ): Promise<IRecordWriteResult> {
     const result = await this.api.createRecord(entityLogicalName, data);
-    return { id: normalizeGuid(result.id) };
+    return { entityType: entityLogicalName, id: normalizeGuid(result.id) };
   }
 
   async updateRecord(
     entityLogicalName: string,
     id: string,
     data: Record<string, unknown>
-  ): Promise<void> {
-    await this.api.updateRecord(entityLogicalName, normalizeGuid(id), data);
+  ): Promise<IRecordWriteResult> {
+    const normalizedId = normalizeGuid(id);
+    await this.api.updateRecord(entityLogicalName, normalizedId, data);
+    return { entityType: entityLogicalName, id: normalizedId };
   }
 
-  async deleteRecord(entityLogicalName: string, id: string): Promise<void> {
-    await this.api.deleteRecord(entityLogicalName, normalizeGuid(id));
+  async deleteRecord(entityLogicalName: string, id: string): Promise<IRecordWriteResult> {
+    const normalizedId = normalizeGuid(id);
+    await this.api.deleteRecord(entityLogicalName, normalizedId);
+    return { entityType: entityLogicalName, id: normalizedId };
   }
 
   async retrieveRecord(
@@ -207,6 +214,15 @@ class ModernWebApi implements IWebApi {
 
   executeWorkflow(workflowId: string, recordId: string): Promise<unknown> {
     return this.client.executeWorkflow(workflowId, recordId);
+  }
+
+  async execute(request: IWebApiRequest): Promise<IExecuteResponse> {
+    // The modern host has the native execute (full action/function/CRUD).
+    return (await this.api.online.execute(request)) as IExecuteResponse;
+  }
+
+  async executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]> {
+    return (await this.api.online.executeMultiple(requests)) as IExecuteResponse[];
   }
 }
 

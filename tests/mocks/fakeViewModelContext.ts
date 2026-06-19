@@ -2,6 +2,7 @@ import type {
   IAttributeMetadata,
   ICurrencyInfo,
   IEntityMetadata,
+  IExecuteResponse,
   IFileDetails,
   IFormattingInfo,
   IGeoPosition,
@@ -25,6 +26,8 @@ export interface IFakeContextOptions {
   pageResults?: Array<IRetrieveMultipleResult>;
   /** Scripted responses returned by executeAction, keyed by action name. */
   actionResults?: Record<string, unknown>;
+  /** Scripted bodies returned by execute/executeMultiple, keyed by operationName. */
+  executeResults?: Record<string, unknown>;
   /** Records the native lookup dialog resolves with. Default empty. */
   lookupResults?: IEntityReference[];
   /** Locale formatting returned by getFormatting(). Default empty (controls use defaults). */
@@ -82,6 +85,14 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
   );
   const pageQueue = [...(options.pageResults ?? [])];
 
+  const makeExecuteResponse = (body: unknown): IExecuteResponse => ({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    json: async () => body,
+    text: async () => (body === undefined ? "" : JSON.stringify(body)),
+  });
+
   const nextQueryResult = (entity: string): IRetrieveMultipleResult => {
     const queue = queryQueues.get(entity);
     if (queue && queue.length > 0) {
@@ -110,15 +121,17 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
       createRecord: async (entity, data) => {
         record("createRecord", entity, data);
         await maybeDelay();
-        return { id: "00000000-0000-0000-0000-0000000000cc" };
+        return { entityType: entity, id: "00000000-0000-0000-0000-0000000000cc" };
       },
       updateRecord: async (entity, id, data) => {
         record("updateRecord", entity, id, data);
         await maybeDelay();
+        return { entityType: entity, id };
       },
       deleteRecord: async (entity, id) => {
         record("deleteRecord", entity, id);
         await maybeDelay();
+        return { entityType: entity, id };
       },
       retrieveRecord: async (entity, id, opts) => {
         record("retrieveRecord", entity, id, opts);
@@ -154,6 +167,19 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
         record("executeWorkflow", workflowId, recordId);
         await maybeDelay();
         return undefined;
+      },
+      execute: async (request) => {
+        const metadata = request.getMetadata();
+        record("execute", metadata);
+        await maybeDelay();
+        return makeExecuteResponse(options.executeResults?.[metadata.operationName ?? ""]);
+      },
+      executeMultiple: async (requests) => {
+        record("executeMultiple", requests.length);
+        await maybeDelay();
+        return requests.map((request) =>
+          makeExecuteResponse(options.executeResults?.[request.getMetadata().operationName ?? ""])
+        );
       },
     },
     metadata: {

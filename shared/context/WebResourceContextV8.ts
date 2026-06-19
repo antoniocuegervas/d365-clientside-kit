@@ -10,6 +10,7 @@ import type {
   IDialogSizeOptions,
   IEntityFormOptions,
   IErrorDialogOptions,
+  IExecuteResponse,
   IFileDetails,
   IFormAccess,
   IFormParameters,
@@ -19,9 +20,11 @@ import type {
   INavigation,
   INavigationOptions,
   IOpenFileOptions,
+  IRecordWriteResult,
   IUserInfo,
   IViewModelContext,
   IWebApi,
+  IWebApiRequest,
   IWindowOptions,
 } from "./IViewModelContext";
 import {
@@ -140,16 +143,29 @@ export class WebResourceContextV8 implements IViewModelContext {
 export class CdsWebApi implements IWebApi {
   constructor(private readonly client: CdsClient) {}
 
-  createRecord(entityLogicalName: string, data: Record<string, unknown>): Promise<{ id: string }> {
-    return this.client.createRecord(LibraryUtils.entitySetName(entityLogicalName), data);
+  async createRecord(
+    entityLogicalName: string,
+    data: Record<string, unknown>
+  ): Promise<IRecordWriteResult> {
+    const result = await this.client.createRecord(
+      LibraryUtils.entitySetName(entityLogicalName),
+      data
+    );
+    return { entityType: entityLogicalName, id: result.id };
   }
 
-  updateRecord(entityLogicalName: string, id: string, data: Record<string, unknown>): Promise<void> {
-    return this.client.updateRecord(LibraryUtils.entitySetName(entityLogicalName), id, data);
+  async updateRecord(
+    entityLogicalName: string,
+    id: string,
+    data: Record<string, unknown>
+  ): Promise<IRecordWriteResult> {
+    await this.client.updateRecord(LibraryUtils.entitySetName(entityLogicalName), id, data);
+    return { entityType: entityLogicalName, id: normalizeGuid(id) };
   }
 
-  deleteRecord(entityLogicalName: string, id: string): Promise<void> {
-    return this.client.deleteRecord(LibraryUtils.entitySetName(entityLogicalName), id);
+  async deleteRecord(entityLogicalName: string, id: string): Promise<IRecordWriteResult> {
+    await this.client.deleteRecord(LibraryUtils.entitySetName(entityLogicalName), id);
+    return { entityType: entityLogicalName, id: normalizeGuid(id) };
   }
 
   retrieveRecord(
@@ -201,6 +217,15 @@ export class CdsWebApi implements IWebApi {
 
   executeWorkflow(workflowId: string, recordId: string): Promise<unknown> {
     return this.client.executeWorkflow(workflowId, recordId);
+  }
+
+  execute(request: IWebApiRequest): Promise<IExecuteResponse> {
+    // No native Xrm.WebApi on 8.x; ride cds-client (actions/functions).
+    return this.client.execute(request);
+  }
+
+  executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]> {
+    return this.client.executeMultiple(requests);
   }
 }
 

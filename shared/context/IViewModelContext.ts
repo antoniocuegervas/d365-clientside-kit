@@ -160,17 +160,94 @@ export interface ICurrencyInfo {
 }
 
 /**
+ * Result of a record write, mirroring Xrm's `CreateResponse`/`UpdateResponse`:
+ * the affected record's entity logical name (`entityType`) and id.
+ */
+export interface IRecordWriteResult {
+  /** Entity logical name of the affected record. */
+  entityType: string;
+  /** Normalized record id. */
+  id: string;
+}
+
+/** Operation type for a Web API request: action, function, or CRUD. */
+export const WebApiOperationType = {
+  Action: 0,
+  Function: 1,
+  CRUD: 2,
+} as const;
+export type WebApiOperationType =
+  (typeof WebApiOperationType)[keyof typeof WebApiOperationType];
+
+/** Parameter type metadata for an execute request, mirroring the native shape. */
+export interface IWebApiParameterType {
+  /** 0 Unknown, 1 PrimitiveType, 2 ComplexType, 3 EnumerationType, 4 Collection, 5 EntityType. */
+  structuralProperty: number;
+  /** Fully qualified parameter type name. */
+  typeName: string;
+  /** Enum metadata when the parameter is an enumeration type. */
+  enumProperties?: Array<{ name: string; value: string }>;
+}
+
+/**
+ * Operation metadata returned by an execute request's `getMetadata()`,
+ * mirroring `Xrm.WebApi.online.execute`'s request contract.
+ */
+export interface IWebApiRequestMetadata {
+  /**
+   * The bound parameter name when the operation is bound to a record (the
+   * request carries the bound reference under this property). `null` or omitted
+   * for an unbound operation.
+   */
+  boundParameter?: string | null;
+  /** Action/function name, or one of Create/Retrieve/RetrieveMultiple/Update/Delete for CRUD. */
+  operationName?: string;
+  /** 0 Action, 1 Function, 2 CRUD. */
+  operationType?: WebApiOperationType;
+  parameterTypes?: Record<string, IWebApiParameterType>;
+}
+
+/**
+ * A Web API request object, mirroring the shape `Xrm.WebApi.online.execute`
+ * accepts: parameter values as own properties plus a `getMetadata()` describing
+ * the action, function, or CRUD operation. The same object passed to Xrm works
+ * unchanged on every host.
+ */
+export interface IWebApiRequest {
+  getMetadata(): IWebApiRequestMetadata;
+  [parameterName: string]: unknown;
+}
+
+/**
+ * Response from `execute`, mirroring the fetch-like `Xrm` ExecuteResponse.
+ * `json()` parses the body; `ok`/`status` describe the HTTP result.
+ */
+export interface IExecuteResponse {
+  ok: boolean;
+  status: number;
+  statusText?: string;
+  json(): Promise<unknown>;
+  text(): Promise<string>;
+}
+
+/**
  * Web API surface, Xrm.WebApi-shaped (logical names in, promises out) so the
  * modern adapter is a thin delegate and other hosts emulate the same shape.
  */
 export interface IWebApi {
-  createRecord(entityLogicalName: string, data: Record<string, unknown>): Promise<{ id: string }>;
+  /** Creates a record. Returns the new record's `{ entityType, id }`. */
+  createRecord(
+    entityLogicalName: string,
+    data: Record<string, unknown>
+  ): Promise<IRecordWriteResult>;
+  /** Updates a record (PATCH). Returns the affected `{ entityType, id }`. */
   updateRecord(
     entityLogicalName: string,
     id: string,
     data: Record<string, unknown>
-  ): Promise<void>;
-  deleteRecord(entityLogicalName: string, id: string): Promise<void>;
+  ): Promise<IRecordWriteResult>;
+  /** Deletes a record. Returns the deleted `{ entityType, id }`. */
+  deleteRecord(entityLogicalName: string, id: string): Promise<IRecordWriteResult>;
   /** `options` is a raw OData query string starting with "?". */
   retrieveRecord(
     entityLogicalName: string,
@@ -217,6 +294,20 @@ export interface IWebApi {
   ): Promise<unknown>;
   /** Runs an on-demand classic workflow against one record by id. */
   executeWorkflow(workflowId: string, recordId: string): Promise<unknown>;
+  /**
+   * Executes a single action, function, or CRUD request object, mirroring
+   * `Xrm.WebApi.online.execute`. The modern host delegates to the native
+   * execute (full action/function/CRUD support); PCF and the legacy host ride
+   * cds-client, which supports actions and functions and rejects CRUD requests
+   * with a clear pointer to the dedicated create/update/delete/retrieve methods.
+   * `executeAction`/`executeWorkflow` remain the ergonomic wrappers.
+   */
+  execute(request: IWebApiRequest): Promise<IExecuteResponse>;
+  /**
+   * Executes multiple requests, mirroring `Xrm.WebApi.online.executeMultiple`.
+   * The modern host delegates natively; the cds-client hosts run them in order.
+   */
+  executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]>;
 }
 
 /**

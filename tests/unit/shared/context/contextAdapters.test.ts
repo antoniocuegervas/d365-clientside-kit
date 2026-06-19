@@ -196,6 +196,49 @@ describe("WebResourceContext (modern)", () => {
     }
   });
 
+  it("createRecord/updateRecord/deleteRecord return { entityType, id } (Xrm parity)", async () => {
+    const { xrm } = createModernXrmMock({
+      webApi: {
+        createRecord: async () => ({ id: "{CCC00000-0000-0000-0000-000000000003}" }),
+      },
+    });
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    await expect(context.webAPI.createRecord("account", { name: "x" })).resolves.toEqual({
+      entityType: "account",
+      id: "ccc00000-0000-0000-0000-000000000003",
+    });
+    await expect(
+      context.webAPI.updateRecord("account", "{CCC00000-0000-0000-0000-000000000003}", { name: "y" })
+    ).resolves.toEqual({ entityType: "account", id: "ccc00000-0000-0000-0000-000000000003" });
+    await expect(
+      context.webAPI.deleteRecord("account", "ccc00000-0000-0000-0000-000000000003")
+    ).resolves.toEqual({ entityType: "account", id: "ccc00000-0000-0000-0000-000000000003" });
+  });
+
+  it("execute delegates to the native online.execute and returns the response", async () => {
+    const { xrm, calls } = createModernXrmMock({ executeResponseBody: { Result: 9 } });
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    const request = {
+      Amount: 5,
+      getMetadata: () => ({ operationName: "new_Recalc", operationType: 0 as const }),
+    };
+    const response = await context.webAPI.execute(request);
+    expect(await response.json()).toEqual({ Result: 9 });
+    const call = calls.find((c) => c.api === "WebApi.online.execute")!;
+    expect(call.args[0]).toBe(request);
+  });
+
+  it("executeMultiple delegates to the native online.executeMultiple", async () => {
+    const { xrm, calls } = createModernXrmMock({ executeResponseBody: {} });
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    const responses = await context.webAPI.executeMultiple([
+      { getMetadata: () => ({ operationName: "A", operationType: 0 as const }) },
+      { getMetadata: () => ({ operationName: "B", operationType: 0 as const }) },
+    ]);
+    expect(responses).toHaveLength(2);
+    expect(calls.find((c) => c.api === "WebApi.online.executeMultiple")).toBeDefined();
+  });
+
   it("lookupObjects calls Xrm.Utility.lookupObjects and maps results to entity references", async () => {
     const { xrm, calls } = createModernXrmMock({
       lookupResult: [
@@ -683,10 +726,24 @@ describe("WebResourceContextV8 shim matrix", () => {
     });
     const { context } = makeContext();
     const result = await context.webAPI.createRecord("opportunity", { name: "Big Deal" });
-    expect(result.id).toBe("fff00000-0000-0000-0000-000000000006");
+    expect(result).toEqual({
+      entityType: "opportunity",
+      id: "fff00000-0000-0000-0000-000000000006",
+    });
     expect(server.lastRequest.url).toBe(
       "https://crm.onprem.contoso.com/org/api/data/v8.2/opportunities"
     );
+  });
+
+  it("execute rides cds-client for an unbound action against /api/data/v8.2/", async () => {
+    server.respondAlways({ status: 200, responseText: '{"ok":1}' });
+    const { context } = makeContext();
+    const response = await context.webAPI.execute({
+      X: 1,
+      getMetadata: () => ({ operationName: "new_Do", operationType: 0 }),
+    });
+    expect(await response.json()).toEqual({ ok: 1 });
+    expect(server.lastRequest.url).toBe("https://crm.onprem.contoso.com/org/api/data/v8.2/new_Do");
   });
 });
 
@@ -780,6 +837,25 @@ describe("PCFContext", () => {
       api: "retrieveMultipleRecords",
       args: ["contact", `?fetchXml=${encodeURIComponent("<fetch/>")}`],
     });
+  });
+
+  it("execute rides cds-client because the PCF webAPI has no native execute", async () => {
+    const server = new FakeXhrServer();
+    server.install();
+    try {
+      server.respondAlways({ status: 200, responseText: '{"done":true}' });
+      const { source } = makeSource();
+      const context = new PCFContext(source);
+      const response = await context.webAPI.execute({
+        getMetadata: () => ({ operationName: "new_Go", operationType: 0 }),
+      });
+      expect(await response.json()).toEqual({ done: true });
+      expect(server.lastRequest.url).toBe(
+        "https://org.crm.dynamics.com/api/data/v9.2/new_Go"
+      );
+    } finally {
+      server.uninstall();
+    }
   });
 
   it("lookupObjects throws a clear error when the PCF host can't summon it", async () => {

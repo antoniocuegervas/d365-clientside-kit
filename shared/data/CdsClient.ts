@@ -1,3 +1,4 @@
+import type { IExecuteResponse, IWebApiRequest } from "../context/IViewModelContext";
 import { LibraryUtils } from "../utils/LibraryUtils";
 import { normalizeGuid } from "../utils/EntityModel";
 
@@ -237,6 +238,86 @@ export class CdsClient {
     );
   }
 
+  /**
+   * Executes a request object that mirrors the `Xrm.WebApi.online.execute`
+   * contract (parameter values as own properties plus a `getMetadata()`).
+   * Actions POST their parameters; functions GET with parameter aliases; bound
+   * operations target the entity set resolved from the bound reference. CRUD
+   * requests are rejected with a pointer to the dedicated CRUD methods, which
+   * are the kit's CRUD surface on the cds-client hosts.
+   */
+  async execute(request: IWebApiRequest): Promise<IExecuteResponse> {
+    const { method, url, body } = this.buildExecuteRequest(request);
+    const response = await this.request(method, url, body);
+    return toExecuteResponse(response);
+  }
+
+  /** Executes requests in order, mirroring `executeMultiple`. */
+  async executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]> {
+    const responses: IExecuteResponse[] = [];
+    for (const request of requests) {
+      responses.push(await this.execute(request));
+    }
+    return responses;
+  }
+
+  /** Resolves an execute request object into the HTTP method, URL, and body. */
+  private buildExecuteRequest(request: IWebApiRequest): {
+    method: "GET" | "POST";
+    url: string;
+    body?: string;
+  } {
+    const metadata = request.getMetadata();
+    const operationName = metadata.operationName;
+    if (!operationName) {
+      throw new Error("execute requires operationName in the request metadata.");
+    }
+    const operationType = metadata.operationType ?? 0;
+    const parameters = collectExecuteParameters(request);
+
+    // A bound operation carries its target reference under the bound-parameter
+    // name; resolve it to an "entityset(id)/" URL prefix and drop it from the
+    // body/query parameters.
+    let boundPrefix = "";
+    const boundParameter = metadata.boundParameter;
+    if (boundParameter !== undefined && boundParameter !== null && boundParameter !== "") {
+      const target = parameters[boundParameter] as
+        | { entityType?: string; id?: string }
+        | undefined;
+      if (!target?.entityType || !target?.id) {
+        throw new Error(
+          `execute bound parameter '${boundParameter}' must be a reference with entityType and id.`
+        );
+      }
+      boundPrefix = `${LibraryUtils.entitySetName(target.entityType)}(${normalizeGuid(target.id)})/`;
+      delete parameters[boundParameter];
+    }
+
+    if (operationType === 2) {
+      throw new Error(
+        `execute does not run CRUD operations through cds-client; use createRecord, updateRecord, deleteRecord, retrieveRecord, or retrieveMultiple for '${operationName}'.`
+      );
+    }
+
+    if (operationType === 1) {
+      // Function: GET with the OData parameter-alias syntax.
+      const qualified = boundPrefix ? qualifyAction(operationName) : operationName;
+      return {
+        method: "GET",
+        url: `${this.apiUrl}${boundPrefix}${qualified}${buildFunctionParameters(parameters)}`,
+      };
+    }
+
+    // Action: POST the remaining parameters. Unbound names are used verbatim;
+    // bound names are namespace-qualified (the executeAction convention).
+    const qualified = boundPrefix ? qualifyAction(operationName) : operationName;
+    return {
+      method: "POST",
+      url: `${this.apiUrl}${boundPrefix}${qualified}`,
+      body: Object.keys(parameters).length > 0 ? JSON.stringify(parameters) : undefined,
+    };
+  }
+
   //#endregion
 
   //#region plumbing
@@ -294,6 +375,60 @@ export class CdsClient {
 
 function qualifyAction(actionName: string): string {
   return actionName.includes(".") ? actionName : `Microsoft.Dynamics.CRM.${actionName}`;
+}
+
+/** Collects an execute request's own parameter values, excluding getMetadata. */
+function collectExecuteParameters(request: IWebApiRequest): Record<string, unknown> {
+  const parameters: Record<string, unknown> = {};
+  for (const key of Object.keys(request)) {
+    if (key === "getMetadata") {
+      continue;
+    }
+    parameters[key] = (request as Record<string, unknown>)[key];
+  }
+  return parameters;
+}
+
+/** Serializes a function parameter value for the OData alias query syntax. */
+function formatFunctionParameterValue(value: unknown): string {
+  if (typeof value === "string") {
+    return `'${value}'`;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return JSON.stringify(value);
+}
+
+/**
+ * Builds the OData function-call suffix: a parameter signature plus alias
+ * values, for example "(Name=@p1)?@p1='Contoso'". Empty params yield "()".
+ */
+function buildFunctionParameters(parameters: Record<string, unknown>): string {
+  const names = Object.keys(parameters);
+  if (names.length === 0) {
+    return "()";
+  }
+  const signature = names.map((name, index) => `${name}=@p${index + 1}`).join(",");
+  const query = names
+    .map(
+      (name, index) =>
+        `@p${index + 1}=${encodeURIComponent(formatFunctionParameterValue(parameters[name]))}`
+    )
+    .join("&");
+  return `(${signature})?${query}`;
+}
+
+/** Wraps an XHR in the fetch-like execute response shape. */
+function toExecuteResponse(xhr: XMLHttpRequest): IExecuteResponse {
+  const text = xhr.responseText;
+  return {
+    ok: xhr.status >= 200 && xhr.status < 300,
+    status: xhr.status,
+    statusText: xhr.statusText,
+    json: async () => (text ? (JSON.parse(text) as unknown) : undefined),
+    text: async () => text,
+  };
 }
 
 function parseCollection(json: string): IRetrieveMultipleResult {
