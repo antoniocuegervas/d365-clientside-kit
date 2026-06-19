@@ -12,7 +12,8 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "types": ["xrm", "jest", "node", "react", "react-dom"]
   },
   "include": ["shared", "clientui", "clienthooks", "tests", ".storybook"],
   "exclude": ["node_modules", "dist", "pcfs", "storybook-static"]

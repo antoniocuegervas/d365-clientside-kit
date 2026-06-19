@@ -6,6 +6,7 @@
         ],
         "jsx": "react-jsx",
         "esModuleInterop": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "types": ["powerapps-component-framework", "node", "react", "react-dom"]
     }
 }
