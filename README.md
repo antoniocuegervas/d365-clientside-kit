@@ -208,4 +208,4 @@ long track record.
 
 ## License
 
-Released under the MIT license.
+Released under the Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

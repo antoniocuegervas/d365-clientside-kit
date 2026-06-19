@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Dynamics 365 / Dataverse client-side UI kit, metadata-aware React building blocks with refreshed-UCI (Fluent v9) fidelity. Spiritual successor to SparkleXrm.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
