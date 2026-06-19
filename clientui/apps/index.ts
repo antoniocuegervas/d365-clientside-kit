@@ -10,6 +10,7 @@ import "./samples-hub/app";
 
 //#region Samples: everyday tier (start here)
 import "./sample-company-search/app";
+import "./sample-master-detail/app";
 //#endregion
 
 //#region Samples: composition tier
