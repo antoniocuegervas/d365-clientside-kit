@@ -8,6 +8,21 @@
 
 export type Unsubscribe = () => void;
 
+/**
+ * Freezes object/array values in non-production builds so an accidental
+ * in-place mutation (for example `obs.value.push(x)`) throws at the mutation
+ * site instead of silently no-op'ing past the Object.is guard. Webpack's mode
+ * replaces `process.env.NODE_ENV`, so the whole branch is dropped from
+ * production bundles, leaving a pass-through. Shallow by design: it catches the
+ * common array/object edits without the cost of a deep walk.
+ */
+function freezeInDev<T>(value: T): T {
+  if (process.env.NODE_ENV !== "production" && value !== null && typeof value === "object") {
+    Object.freeze(value);
+  }
+  return value;
+}
+
 export type ObservableCallback<T> = (newValue: T, oldValue: T) => void;
 
 /** Anything a component can subscribe to (Observable or ObservableEvent). */
@@ -35,23 +50,37 @@ export class Observable<T> implements ISubscribable {
 
   /**
    * Sets the value and notifies subscribers. No-ops when the new value is
-   * identical (Object.is), use {@link notify} after in-place mutation.
+   * identical (Object.is). Observable values are immutable snapshots: to change
+   * part of a list or object, assign a new reference or use {@link update}, do
+   * not mutate the held value in place (that slips past the Object.is guard).
    */
   setValue(next: T): void {
     if (Object.is(next, this._value)) {
       return;
     }
     const previous = this._value;
-    this._value = next;
+    this._value = freezeInDev(next);
     // Copy before iterating: a callback may unsubscribe (or subscribe) mid-notify.
     for (const listener of [...this.listeners]) {
-      listener(next, previous);
+      listener(this._value, previous);
     }
   }
 
   /**
-   * Notifies subscribers without changing the reference, for the rare case
-   * where an array/object was mutated in place. Prefer assigning a new value.
+   * Derives the next value from the current one and assigns it, the safe way to
+   * change part of a list or object: `list.update(rows => [...rows, row])`.
+   * Returning a new reference keeps the Object.is guard meaningful and avoids
+   * the silent no-op an in-place edit would cause.
+   */
+  update(fn: (current: T) => T): void {
+    this.setValue(fn(this._value));
+  }
+
+  /**
+   * Notifies subscribers without changing the reference, a low-level escape
+   * hatch for the rare value you deliberately keep mutable and edit in place.
+   * Prefer {@link update} or assigning a new value: those stay compatible with
+   * the dev-build freeze, this does not (an assigned value is frozen).
    */
   notify(): void {
     for (const listener of [...this.listeners]) {

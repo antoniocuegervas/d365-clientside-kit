@@ -34,6 +34,22 @@ describe("Observable", () => {
     expect(cb).toHaveBeenCalledWith(rows, rows);
   });
 
+  it("update() derives the next value from the current one and notifies", () => {
+    const obs = new Observable<string[]>(["a"]);
+    const cb = jest.fn();
+    obs.subscribe(cb);
+    obs.update((rows) => [...rows, "b"]);
+    expect(obs.value).toEqual(["a", "b"]);
+    expect(cb).toHaveBeenCalledWith(["a", "b"], ["a"]);
+  });
+
+  it("freezes assigned object values in dev so in-place mutation throws", () => {
+    const obs = new Observable<string[]>([]);
+    obs.value = ["x"];
+    expect(Object.isFrozen(obs.value)).toBe(true);
+    expect(() => obs.value.push("y")).toThrow();
+  });
+
   it("unsubscribe stops notifications", () => {
     const obs = new Observable<number>(0);
     const cb = jest.fn();
