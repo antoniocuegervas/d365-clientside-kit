@@ -28,6 +28,7 @@ rebuild spec §1.3.
 | `DataGrid` | Presentational | Displays ANY supplied rows, merged queries, computed joins, multi-entity lists |
 | `SmartViewGrid` | Smart | A saved view inside a webresource, from one `viewId` (or the default view) |
 | `SelectionTree` | Presentational | Hierarchical multi-select |
+| `Stepper` | Presentational | Multi-step gated input; `WizardViewModel` owns the sequence, gating, in-memory draft, and commit |
 | `PersonaList` | Presentational | Custom people layouts |
 | `SearchBar` | Presentational | Search UX; host runs the query |
 | `WaitingMessage` | Presentational | The kit's single loading presentation |
