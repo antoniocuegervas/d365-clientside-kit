@@ -280,6 +280,19 @@ describe("CdsClient", () => {
       ).rejects.toThrow(/requires operationName/);
     });
 
+    it("resolves with ok=false on an HTTP error instead of throwing (fetch parity)", async () => {
+      server.respondAlways({
+        status: 400,
+        responseText: JSON.stringify({ error: { message: "bad" } }),
+      });
+      const response = await makeClient().execute({
+        getMetadata: () => ({ operationName: "new_Do", operationType: 0 }),
+      });
+      expect(response.ok).toBe(false);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: { message: "bad" } });
+    });
+
     it("executeMultiple runs requests in order", async () => {
       server.respondAlways({ status: 200, responseText: "{}" });
       const responses = await makeClient().executeMultiple([

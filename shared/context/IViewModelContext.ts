@@ -413,25 +413,29 @@ export interface IWebApi {
    */
   retrieveMultipleByUrl(url: string): Promise<IRetrieveMultipleResult>;
   /**
-   * Executes a custom action. Unbound by default; pass `boundTo` for an
-   * action bound to a record. Rides cds-client on every host, so
-   * production never touches `Xrm.WebApi.online.execute`'s request-object
-   * contract. Returns the action's response body (or undefined when empty).
+   * Runs a custom action, the ergonomic action-only path: name plus optional
+   * parameters in, the parsed response body out (undefined when empty). Unbound
+   * by default; pass `boundTo` for a bound action. Rides cds-client on every
+   * host (even modern), so app code never hand-builds the request-object
+   * contract. For functions or a pre-built request object, use {@link execute}.
    */
   executeAction(
     actionName: string,
     parameters?: Record<string, unknown>,
     boundTo?: { entityLogicalName: string; id: string }
   ): Promise<unknown>;
-  /** Runs an on-demand classic workflow against one record by id. */
+  /** Runs an on-demand classic workflow against one record by id. Ergonomic, built on executeAction. */
   executeWorkflow(workflowId: string, recordId: string): Promise<unknown>;
   /**
-   * Executes a single action, function, or CRUD request object, mirroring
-   * `Xrm.WebApi.online.execute`. The modern host delegates to the native
-   * execute (full action/function/CRUD support); PCF and the legacy host ride
-   * cds-client, which supports actions and functions and rejects CRUD requests
-   * with a clear pointer to the dedicated create/update/delete/retrieve methods.
-   * `executeAction`/`executeWorkflow` remain the ergonomic wrappers.
+   * Runs a single action, function, or CRUD request object, the standard generic
+   * path mirroring `Xrm.WebApi.online.execute`. Returns a fetch-like response
+   * (call `.json()` for the body) that resolves with `ok: false` on an HTTP error
+   * and rejects only on a network failure, identically on every host. The modern
+   * host delegates to the native
+   * execute (full action/function/CRUD); PCF and the legacy host ride cds-client,
+   * which supports actions and functions and rejects CRUD requests with a pointer
+   * to the dedicated create/update/delete/retrieve methods. For the common action
+   * case prefer the ergonomic {@link executeAction}.
    */
   execute(request: IWebApiRequest): Promise<IExecuteResponse>;
   /**

@@ -228,6 +228,20 @@ describe("WebResourceContext (modern)", () => {
     expect(call.args[0]).toBe(request);
   });
 
+  it("execute resolves ok=false on an HTTP error (same flow control as cds-client)", async () => {
+    const { xrm } = createModernXrmMock({
+      executeResponseStatus: 400,
+      executeResponseBody: { error: "bad" },
+    });
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    const response = await context.webAPI.execute({
+      getMetadata: () => ({ operationName: "new_Do", operationType: 0 as const }),
+    });
+    expect(response.ok).toBe(false);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "bad" });
+  });
+
   it("executeMultiple delegates to the native online.executeMultiple", async () => {
     const { xrm, calls } = createModernXrmMock({ executeResponseBody: {} });
     const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
@@ -849,6 +863,19 @@ describe("WebResourceContextV8 shim matrix", () => {
     });
     expect(await response.json()).toEqual({ ok: 1 });
     expect(server.lastRequest.url).toBe("https://crm.onprem.contoso.com/org/api/data/v8.2/new_Do");
+  });
+
+  it("execute resolves ok=false on an HTTP error rather than rejecting", async () => {
+    server.respondAlways({
+      status: 400,
+      responseText: JSON.stringify({ error: { message: "bad" } }),
+    });
+    const { context } = makeContext();
+    const response = await context.webAPI.execute({
+      getMetadata: () => ({ operationName: "new_Do", operationType: 0 }),
+    });
+    expect(response.ok).toBe(false);
+    expect(response.status).toBe(400);
   });
 });
 

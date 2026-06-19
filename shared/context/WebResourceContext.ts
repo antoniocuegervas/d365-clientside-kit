@@ -1,4 +1,4 @@
-import { CdsClient, type IRetrieveMultipleResult } from "../data/CdsClient";
+import { CdsClient, makeExecuteResponse, type IRetrieveMultipleResult } from "../data/CdsClient";
 import { buildFormContext, type IHostFormContext } from "./formContextSurface";
 import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
@@ -232,12 +232,21 @@ class ModernWebApi implements IWebApi {
   }
 
   async execute(request: IWebApiRequest): Promise<IExecuteResponse> {
-    // The modern host has the native execute (full action/function/CRUD).
-    return (await this.api.online.execute(request)) as IExecuteResponse;
+    // The modern host has the native execute (full action/function/CRUD). Read
+    // the native Response body once and rewrap, so the returned object matches
+    // the cds-client hosts exactly (same shape, re-callable json/text, ok=false
+    // on an HTTP error). Native already resolves ok=false rather than throwing.
+    const response = await this.api.online.execute(request);
+    return makeExecuteResponse(response.status, response.statusText, await response.text());
   }
 
   async executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]> {
-    return (await this.api.online.executeMultiple(requests)) as IExecuteResponse[];
+    const responses = await this.api.online.executeMultiple(requests);
+    return Promise.all(
+      responses.map(async (response) =>
+        makeExecuteResponse(response.status, response.statusText, await response.text())
+      )
+    );
   }
 }
 

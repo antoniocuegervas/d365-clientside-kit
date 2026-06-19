@@ -59,8 +59,10 @@ interface ICommonMockOptions {
 export interface IModernXrmMockOptions extends ICommonMockOptions {
   /** Scripted Web API responses; defaults return empty results. */
   webApi?: Partial<IMockWebApi>;
-  /** Body returned by online.execute's response.json(). */
+  /** Body returned by online.execute's response.json()/text(). */
   executeResponseBody?: unknown;
+  /** HTTP status for online.execute's response. Default 200. */
+  executeResponseStatus?: number;
   /** Org id surfaced on organizationSettings. */
   organizationId?: string;
   /** Auto-save flag surfaced on organizationSettings. */
@@ -112,10 +114,10 @@ function makePageMock(formRecord: IMockFormRecord | undefined, calls: IXrmMockCa
 }
 
 /** A fetch-like ExecuteResponse stand-in for online.execute. */
-function makeExecuteResponse(body: unknown) {
+function makeExecuteResponse(body: unknown, status = 200) {
   return {
-    ok: true,
-    status: 200,
+    ok: status >= 200 && status < 300,
+    status,
     statusText: "OK",
     json: async () => body,
     text: async () => (body === undefined ? "" : JSON.stringify(body)),
@@ -162,11 +164,13 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
       online: {
         execute: async (request: unknown) => {
           record("WebApi.online.execute", request);
-          return makeExecuteResponse(options.executeResponseBody);
+          return makeExecuteResponse(options.executeResponseBody, options.executeResponseStatus);
         },
         executeMultiple: async (requests: unknown[]) => {
           record("WebApi.online.executeMultiple", requests);
-          return (requests ?? []).map(() => makeExecuteResponse(options.executeResponseBody));
+          return (requests ?? []).map(() =>
+            makeExecuteResponse(options.executeResponseBody, options.executeResponseStatus)
+          );
         },
       },
     },

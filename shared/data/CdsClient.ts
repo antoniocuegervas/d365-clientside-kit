@@ -209,9 +209,15 @@ export class CdsClient {
   //#region Actions and workflows
 
   /**
-   * Executes a custom action. Unbound by default; pass `boundTo` for an action
-   * bound to a record. Action names without a namespace are used verbatim for
-   * unbound calls and prefixed with "Microsoft.Dynamics.CRM." for bound calls.
+   * Executes a custom action, the ergonomic action-only path: positional args
+   * in, parsed response body out. For functions or a pre-built Xrm request
+   * object use {@link execute}, the standard generic path. Both hit the same
+   * action endpoint; this one stays separate because its `boundTo` is already an
+   * entity set (execute takes a logical name and pluralizes it itself).
+   *
+   * Unbound by default; pass `boundTo` for an action bound to a record. Action
+   * names without a namespace are used verbatim for unbound calls and prefixed
+   * with "Microsoft.Dynamics.CRM." for bound calls.
    */
   async executeAction(
     actionName: string,
@@ -240,7 +246,13 @@ export class CdsClient {
 
   /**
    * Executes a request object that mirrors the `Xrm.WebApi.online.execute`
-   * contract (parameter values as own properties plus a `getMetadata()`).
+   * contract (parameter values as own properties plus a `getMetadata()`), the
+   * standard generic path. Returns a fetch-like response (call `.json()` for the
+   * body) that resolves with `ok: false` on an HTTP error and rejects only on a
+   * network failure, the same flow control as the modern host's native execute.
+   * For the common "just run this action" case, {@link executeAction} is the
+   * ergonomic wrapper.
+   *
    * Actions POST their parameters; functions GET with parameter aliases; bound
    * operations target the entity set resolved from the bound reference. CRUD
    * requests are rejected with a pointer to the dedicated CRUD methods, which
@@ -248,8 +260,11 @@ export class CdsClient {
    */
   async execute(request: IWebApiRequest): Promise<IExecuteResponse> {
     const { method, url, body } = this.buildExecuteRequest(request);
-    const response = await this.request(method, url, body);
-    return toExecuteResponse(response);
+    // Fetch semantics, matching the native online.execute: resolve with
+    // ok=false on an HTTP error, reject only on a network failure. Uses send
+    // (not request) so a non-2xx status is reported rather than thrown.
+    const xhr = await this.send(method, url, body);
+    return makeExecuteResponse(xhr.status, xhr.statusText, xhr.responseText);
   }
 
   /** Executes requests in order, mirroring `executeMultiple`. */
@@ -322,7 +337,26 @@ export class CdsClient {
 
   //#region plumbing
 
-  private request(
+  private async request(
+    method: "GET" | "POST" | "PATCH" | "DELETE",
+    url: string,
+    body?: string,
+    extraHeaders?: Record<string, string>
+  ): Promise<XMLHttpRequest> {
+    const xhr = await this.send(method, url, body, extraHeaders);
+    if (xhr.status >= 200 && xhr.status < 300) {
+      return xhr;
+    }
+    throw new CdsClientError(xhr.status, extractErrorMessage(xhr), xhr.responseText);
+  }
+
+  /**
+   * Sends the request and resolves with the XHR on ANY HTTP status, rejecting
+   * only on a network-level failure. `request` layers the 2xx check on top; the
+   * fetch-like `execute` keeps non-2xx responses so it can report `ok: false`
+   * rather than throwing, matching the native online.execute.
+   */
+  private send(
     method: "GET" | "POST" | "PATCH" | "DELETE",
     url: string,
     body?: string,
@@ -358,13 +392,7 @@ export class CdsClient {
         }
         xhr.setRequestHeader(name, value);
       }
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(xhr);
-        } else {
-          reject(new CdsClientError(xhr.status, extractErrorMessage(xhr), xhr.responseText));
-        }
-      };
+      xhr.onload = () => resolve(xhr);
       xhr.onerror = () =>
         reject(new CdsClientError(0, `Network error calling ${url}`, xhr.responseText));
       xhr.send(body);
@@ -419,13 +447,21 @@ function buildFunctionParameters(parameters: Record<string, unknown>): string {
   return `(${signature})?${query}`;
 }
 
-/** Wraps an XHR in the fetch-like execute response shape. */
-function toExecuteResponse(xhr: XMLHttpRequest): IExecuteResponse {
-  const text = xhr.responseText;
+/**
+ * Builds the kit IExecuteResponse from a raw status and body. Shared by the
+ * cds-client path and the modern adapter (which reads the native Response body
+ * once and feeds it here), so every host returns an identical response object:
+ * re-callable json/text, and ok=false on an HTTP error rather than a throw.
+ */
+export function makeExecuteResponse(
+  status: number,
+  statusText: string,
+  text: string
+): IExecuteResponse {
   return {
-    ok: xhr.status >= 200 && xhr.status < 300,
-    status: xhr.status,
-    statusText: xhr.statusText,
+    ok: status >= 200 && status < 300,
+    status,
+    statusText,
     json: async () => (text ? (JSON.parse(text) as unknown) : undefined),
     text: async () => text,
   };
