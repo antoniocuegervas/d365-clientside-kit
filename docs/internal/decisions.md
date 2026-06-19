@@ -568,7 +568,7 @@ shared), and (b) **abstraction must remove a concern, not relocate one**.
 The kit is public, so public exports keep `/** */` JSDoc, but written plainly in
 the maintainer's voice. The hard rules:
 
-- **No em dashes (`—`) in comments/JSDoc, ever** (the clearest AI tell; the owner
+- **No em dashes in comments/JSDoc, ever** (the clearest AI tell; the owner
   flagged it explicitly). Use period, comma, parentheses, or colon. Applies to
   user-facing strings too (app titles took colons).
 - **No internal doc-ID citations in code** (`§x.x`, `N-xx`, `G-xx`, `T-xx`,

@@ -1,7 +1,7 @@
 # Dependencies
 node_modules/
 
-# Build outputs (generated in CI/CD, never committed, section 14)
+# Build outputs (generated in CI/CD, never committed)
 dist/
 out/
 storybook-static/

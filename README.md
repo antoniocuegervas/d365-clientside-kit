@@ -202,9 +202,9 @@ constraints. They are background, not required reading.
 A working v1: the architecture, the three-layer contract, the shell, sample apps, sample
 PCFs, and the client-hooks framework are all in place and pass the local verification
 gate (lint, typecheck, both bundle builds, unit tests, modern and legacy host smoke
-tests, and a Storybook build). It has been exercised against a Dataverse org using
-standard entities. It is a foundation built to be extended, not a finished product with a
-long track record.
+tests, and a Storybook build). It has been deployed to and exercised against a live
+Dataverse v9 org using standard entities. It is a foundation built to be extended, not a
+finished product with a long track record.
 
 ## License
 
