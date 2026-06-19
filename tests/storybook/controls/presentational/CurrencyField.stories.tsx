@@ -15,6 +15,20 @@ const make = (initial: number | null) => {
   return { value, onChange: (v: number | null) => (value.value = v) };
 };
 
+/** Required variant: the validation message tracks emptiness as the user types. */
+const makeRequired = (label: string) => {
+  const value = new Observable<number | null>(null);
+  const errorMessage = new Observable<string | undefined>(`${label} is required.`);
+  return {
+    value,
+    errorMessage,
+    onChange: (v: number | null) => {
+      value.value = v;
+      errorMessage.value = v == null ? `${label} is required.` : undefined;
+    },
+  };
+};
+
 export const Empty: Story = {
   render: () => <CurrencyField label="Annual Revenue" {...make(null)} />,
 };
@@ -26,7 +40,7 @@ export const EuroSymbol: Story = {
   render: () => <CurrencyField label="Annual Revenue" currencySymbol="€" {...make(840000)} />,
 };
 export const Required: Story = {
-  render: () => <CurrencyField label="Annual Revenue" required {...make(null)} />,
+  render: () => <CurrencyField label="Annual Revenue" required {...makeRequired("Annual Revenue")} />,
 };
 export const Disabled: Story = {
   render: () => <CurrencyField label="Annual Revenue" disabled {...make(310000)} />,

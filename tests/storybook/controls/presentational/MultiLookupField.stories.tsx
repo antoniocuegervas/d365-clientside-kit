@@ -27,6 +27,27 @@ const make = (initial: IEntityReference[]) => {
   };
 };
 
+/** Required variant: the validation message clears once a stakeholder is added. */
+const makeRequired = () => {
+  const selected = new Observable<IEntityReference[]>([]);
+  const results = new Observable<IEntityReference[]>([]);
+  const errorMessage = new Observable<string | undefined>("Add at least one stakeholder.");
+  return {
+    selected,
+    results,
+    errorMessage,
+    onSearchTextChanged: (text: string) => {
+      results.value = contactRefs.filter((r) =>
+        (r.name ?? "").toLowerCase().includes(text.toLowerCase())
+      );
+    },
+    onChange: (v: IEntityReference[]) => {
+      selected.value = v;
+      errorMessage.value = v.length === 0 ? "Add at least one stakeholder." : undefined;
+    },
+  };
+};
+
 export const Empty: Story = {
   render: () => <MultiLookupField label="Stakeholders" {...make([])} />,
 };
@@ -34,7 +55,7 @@ export const Filled: Story = {
   render: () => <MultiLookupField label="Stakeholders" {...make([contactRefs[0], contactRefs[1]])} />,
 };
 export const Required: Story = {
-  render: () => <MultiLookupField label="Stakeholders" required {...make([])} />,
+  render: () => <MultiLookupField label="Stakeholders" required {...makeRequired()} />,
 };
 export const Disabled: Story = {
   render: () => <MultiLookupField label="Stakeholders" disabled {...make([contactRefs[0]])} />,

@@ -15,6 +15,20 @@ const make = (initial: boolean | null) => {
   return { value, onChange: (v: boolean) => (value.value = v) };
 };
 
+/** Required variant: the validation message clears once a choice is made. */
+const makeRequired = () => {
+  const value = new Observable<boolean | null>(null);
+  const errorMessage = new Observable<string | undefined>("A choice is required.");
+  return {
+    value,
+    errorMessage,
+    onChange: (v: boolean) => {
+      value.value = v;
+      errorMessage.value = undefined;
+    },
+  };
+};
+
 export const Empty: Story = {
   render: () => <BooleanField label="Do Not Allow Emails" {...make(null)} />,
 };
@@ -22,7 +36,7 @@ export const Filled: Story = {
   render: () => <BooleanField label="Do Not Allow Emails" {...make(true)} />,
 };
 export const Required: Story = {
-  render: () => <BooleanField label="Do Not Allow Emails" required {...make(null)} />,
+  render: () => <BooleanField label="Do Not Allow Emails" required {...makeRequired()} />,
 };
 export const Disabled: Story = {
   render: () => <BooleanField label="Do Not Allow Emails" disabled {...make(true)} />,

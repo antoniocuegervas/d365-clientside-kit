@@ -24,6 +24,21 @@ const make = (initial: number | null) => {
   };
 };
 
+/** Required variant: the validation message clears once an option is selected. */
+const makeRequired = () => {
+  const selectedValue = new Observable<number | null>(null);
+  const errorMessage = new Observable<string | undefined>("Select an industry.");
+  return {
+    options: industryOptions,
+    selectedValue,
+    errorMessage,
+    onChange: (v: number | null) => {
+      selectedValue.value = v;
+      errorMessage.value = v == null ? "Select an industry." : undefined;
+    },
+  };
+};
+
 export const Empty: Story = {
   render: () => <OptionSetField label="Industry" {...make(null)} />,
 };
@@ -31,7 +46,7 @@ export const Filled: Story = {
   render: () => <OptionSetField label="Industry" {...make(6)} />,
 };
 export const Required: Story = {
-  render: () => <OptionSetField label="Industry" required {...make(null)} />,
+  render: () => <OptionSetField label="Industry" required {...makeRequired()} />,
 };
 export const Disabled: Story = {
   render: () => <OptionSetField label="Industry" disabled {...make(1)} />,

@@ -15,6 +15,20 @@ const make = (initial: number | null) => {
   return { value, onChange: (v: number | null) => (value.value = v) };
 };
 
+/** Required variant: the validation message tracks emptiness as the user types. */
+const makeRequired = (label: string) => {
+  const value = new Observable<number | null>(null);
+  const errorMessage = new Observable<string | undefined>(`${label} is required.`);
+  return {
+    value,
+    errorMessage,
+    onChange: (v: number | null) => {
+      value.value = v;
+      errorMessage.value = v == null ? `${label} is required.` : undefined;
+    },
+  };
+};
+
 export const WholeNumberEmpty: Story = {
   render: () => <NumberField label="Number of Employees" precision={0} {...make(null)} />,
 };
@@ -29,7 +43,9 @@ export const FloatFilled: Story = {
   render: () => <NumberField label="Latitude" {...make(47.6062)} />,
 };
 export const Required: Story = {
-  render: () => <NumberField label="Number of Employees" precision={0} required {...make(null)} />,
+  render: () => (
+    <NumberField label="Number of Employees" precision={0} required {...makeRequired("Number of Employees")} />
+  ),
 };
 export const Disabled: Story = {
   render: () => <NumberField label="Number of Employees" precision={0} disabled {...make(250)} />,

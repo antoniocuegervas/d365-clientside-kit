@@ -32,6 +32,27 @@ const make = (initial: IEntityReference | null) => {
   };
 };
 
+/** Required variant: the validation message clears once a record is chosen. */
+const makeRequired = () => {
+  const selected = new Observable<IEntityReference | null>(null);
+  const results = new Observable<IEntityReference[]>([]);
+  const errorMessage = new Observable<string | undefined>("Select a parent account.");
+  return {
+    selected,
+    results,
+    errorMessage,
+    onSearchTextChanged: (text: string) => {
+      results.value = accountRefs.filter((r) =>
+        (r.name ?? "").toLowerCase().includes(text.toLowerCase())
+      );
+    },
+    onChange: (v: IEntityReference | null) => {
+      selected.value = v;
+      errorMessage.value = v ? undefined : "Select a parent account.";
+    },
+  };
+};
+
 export const Empty: Story = {
   render: () => <LookupField label="Parent Account" {...make(null)} />,
 };
@@ -39,7 +60,7 @@ export const Filled: Story = {
   render: () => <LookupField label="Parent Account" {...make(accountRefs[0])} />,
 };
 export const Required: Story = {
-  render: () => <LookupField label="Parent Account" required {...make(null)} />,
+  render: () => <LookupField label="Parent Account" required {...makeRequired()} />,
 };
 export const Disabled: Story = {
   render: () => <LookupField label="Parent Account" disabled {...make(accountRefs[1])} />,

@@ -15,6 +15,20 @@ const make = (initial: Date | null) => {
   return { value, onChange: (v: Date | null) => (value.value = v) };
 };
 
+/** Required variant: the validation message tracks emptiness as the user picks a date. */
+const makeRequired = (label: string) => {
+  const value = new Observable<Date | null>(null);
+  const errorMessage = new Observable<string | undefined>(`${label} is required.`);
+  return {
+    value,
+    errorMessage,
+    onChange: (v: Date | null) => {
+      value.value = v;
+      errorMessage.value = v ? undefined : `${label} is required.`;
+    },
+  };
+};
+
 const sampleDate = new Date(2026, 5, 18, 14, 30);
 
 export const DateOnlyEmpty: Story = {
@@ -27,7 +41,7 @@ export const DateAndTime: Story = {
   render: () => <DateTimeField label="Scheduled Start" includeTime {...make(sampleDate)} />,
 };
 export const Required: Story = {
-  render: () => <DateTimeField label="Est. Close Date" required {...make(null)} />,
+  render: () => <DateTimeField label="Est. Close Date" required {...makeRequired("Est. Close Date")} />,
 };
 export const Disabled: Story = {
   render: () => <DateTimeField label="Est. Close Date" disabled {...make(sampleDate)} />,
