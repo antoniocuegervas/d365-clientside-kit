@@ -79,3 +79,30 @@ deployment/    # SPKL config + publish script
 `?app=`/`data` → poll for Xrm (visible timeout error) → auto-detect modern vs
 legacy adapter → registry lookup → render app inside `FluentProvider` +
 `ViewModelContextProvider` → unmount on `beforeunload`.
+
+## Host parity
+
+`IViewModelContext` mirrors the native Xrm surfaces at full parity, so a
+consumer never has to break out of the contract to reach a platform capability.
+Each adapted surface threads every native parameter through to the host call:
+
+- **navigation**: `openForm` (convenience `(entity, id?)` plus the full
+  `entityFormOptions` + `formParameters`), `openAlertDialog`/`openConfirmDialog`
+  (full strings + dialog size), `openUrl` size options, `openWebResource`
+  `openInNewWindow`, and the complete `navigateTo` page-input union.
+- **webAPI**: CRUD with `{ entityType, id }` write results, the ergonomic
+  `executeAction`/`executeWorkflow`, and the generic `execute`/`executeMultiple`
+  request-object contract.
+- **client / device / utility**: `isNetworkAvailable`, the native device option
+  fields, and optional `getAllowedStatusTransitions` state code.
+- **globalContext**: organization and user settings, version, `prependOrgName`,
+  and current-app metadata.
+- **formContext**: the full form object model (`data`, `ui`, attributes,
+  controls, tabs, sections, BPF process), built once by
+  `formContextSurface.buildFormContext`. `formAccess` is a thin facade over it.
+
+One shared builder backs each surface across all three hosts. The modern
+(`WebResourceContext`) and PCF (`PCFContext`) hosts delegate to the native
+calls; the legacy `WebResourceContextV8` maps the subset CRM 8.x exposes and
+rejects what it cannot do with a clear "not supported on the CRM 8.x host"
+error rather than a silent no-op.

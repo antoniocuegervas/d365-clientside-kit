@@ -10,6 +10,13 @@ import type {
   IViewDefinition,
   IViewModelContext,
 } from "../../shared/context/IViewModelContext";
+import {
+  buildFormContext,
+  type IFormContext,
+  type IHostFormContext,
+} from "../../shared/context/formContextSurface";
+import { XrmPageFormAccess } from "../../shared/context/hostSurface";
+import type { IFormAccess } from "../../shared/context/IViewModelContext";
 import type { IRetrieveMultipleResult } from "../../shared/data/CdsClient";
 import type { IEntityReference } from "../../shared/utils/EntityModel";
 
@@ -73,8 +80,55 @@ export interface IFakeContextOptions {
   securityRoles?: string[];
   /** App properties returned by globalContext.getCurrentAppProperties. */
   appProperties?: IAppProperties;
+  /**
+   * When set, the fake exposes context.formContext (and the formAccess facade)
+   * over a small in-memory record form built through the real builder.
+   */
+  formRecord?: {
+    id?: string;
+    entityName?: string;
+    attributes?: Record<string, unknown>;
+    formType?: number;
+  };
   /** Artificial async delay (ms) to exercise loading states. */
   delayMs?: number;
+}
+
+/** Builds a minimal host form the real buildFormContext can wrap, for the fake. */
+function makeFakeHostForm(form: NonNullable<IFakeContextOptions["formRecord"]>): IHostFormContext {
+  const values = new Map(Object.entries(form.attributes ?? {}));
+  const makeAttribute = (name: string) => ({
+    getName: () => name,
+    getValue: () => values.get(name) ?? null,
+    setValue: (value: unknown) => void values.set(name, value),
+    getAttributeType: () => "string",
+    getRequiredLevel: () => "none",
+    getIsDirty: () => false,
+    controls: { get: () => null, getAll: () => [], forEach: () => undefined, getLength: () => 0 },
+  });
+  const host = {
+    data: {
+      entity: {
+        getId: () => (form.id ? `{${form.id}}` : ""),
+        getEntityName: () => form.entityName ?? "",
+        getEntityReference: () => ({ id: form.id ?? "", entityType: form.entityName ?? "" }),
+        getIsDirty: () => false,
+        attributes: {
+          get: (nameOrIndex: string | number) =>
+            typeof nameOrIndex === "string" && (values.has(nameOrIndex) || form.attributes)
+              ? makeAttribute(nameOrIndex)
+              : null,
+          getAll: () => [...values.keys()].map(makeAttribute),
+          forEach: (cb: (item: unknown, index: number) => void) =>
+            [...values.keys()].forEach((name, index) => cb(makeAttribute(name), index)),
+          getLength: () => values.size,
+        },
+      },
+      getIsDirty: () => false,
+    },
+    ui: { getFormType: () => form.formType ?? 2 },
+  };
+  return host as unknown as IHostFormContext;
 }
 
 export interface IFakeContextCall {
@@ -97,6 +151,13 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
     Object.entries(options.queryResults ?? {})
   );
   const pageQueue = [...(options.pageResults ?? [])];
+
+  const formContext: IFormContext | undefined = options.formRecord
+    ? buildFormContext(makeFakeHostForm(options.formRecord), "fake")
+    : undefined;
+  const formAccess: IFormAccess | undefined = formContext
+    ? new XrmPageFormAccess(formContext, formContext)
+    : undefined;
 
   const makeExecuteResponse = (body: unknown): IExecuteResponse => ({
     ok: true,
@@ -125,6 +186,8 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
     },
     orgVersion: "9.2.0.0",
     isLegacy: false,
+    formContext,
+    formAccess,
     getFormatting: async () => {
       record("getFormatting");
       await maybeDelay();

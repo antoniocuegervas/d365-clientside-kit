@@ -1,4 +1,5 @@
 import { CdsClient, type IRetrieveMultipleResult } from "../data/CdsClient";
+import { buildFormContext, type IHostFormContext } from "./formContextSurface";
 import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
@@ -30,6 +31,7 @@ import type {
   IExecuteResponse,
   IFileDetails,
   IFormAccess,
+  IFormContext,
   IFormattingInfo,
   IFormParameters,
   IGlobalContext,
@@ -64,6 +66,7 @@ export class WebResourceContext implements IViewModelContext {
   readonly globalContext: IGlobalContext;
   readonly client: IClientContext;
   readonly device: IDeviceContext;
+  readonly formContext?: IFormContext;
   readonly formAccess?: IFormAccess;
 
   private readonly cdsClient: CdsClient;
@@ -123,7 +126,11 @@ export class WebResourceContext implements IViewModelContext {
     // form resolved by the factory; fall back to this Xrm's own Page.
     const page = formPage ?? (xrm as unknown as { Page?: IXrmPageLike }).Page;
     if (XrmPageFormAccess.hasForm(page)) {
-      this.formAccess = new XrmPageFormAccess(page);
+      this.formContext = buildFormContext(
+        page as unknown as IHostFormContext,
+        "modern webresource"
+      );
+      this.formAccess = new XrmPageFormAccess(this.formContext, page);
     }
   }
 

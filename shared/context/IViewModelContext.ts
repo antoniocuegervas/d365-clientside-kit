@@ -1,4 +1,5 @@
 import type { IRetrieveMultipleResult } from "../data/CdsClient";
+import type { IFormContext } from "./formContextSurface";
 import type { IEntityReference, IOptionItem, IXrmLookupValue } from "../utils/EntityModel";
 
 /**
@@ -53,7 +54,18 @@ export interface IViewModelContext {
    */
   readonly device: IDeviceContext;
 
-  /** Form access when hosted on (or beside) a record form; undefined otherwise. */
+  /**
+   * Full form object-model mirror (data, ui, attributes, controls, tabs,
+   * sections, BPF process) when hosted on (or beside) a record form; undefined
+   * otherwise. Mirrors the native `formContext`. The V8 host fills the classic
+   * Xrm.Page subset and rejects members 8.x lacks.
+   */
+  readonly formContext?: IFormContext;
+  /**
+   * Form access when hosted on (or beside) a record form; undefined otherwise.
+   * A thin convenience facade over {@link formContext} for the common
+   * id/entity/attribute reads.
+   */
   readonly formAccess?: IFormAccess;
 
   /**
@@ -733,6 +745,27 @@ export interface IContextUtils {
    */
   refreshParentGrid(lookupValue: unknown): void;
 }
+
+/**
+ * Form object-model mirror, re-exported from formContextSurface so the full
+ * contract is discoverable here alongside the rest of IViewModelContext.
+ */
+export type {
+  FormEventHandler,
+  IAttribute,
+  IControl,
+  IFormCollection,
+  IFormContext,
+  IFormData,
+  IFormEntity,
+  IFormProcess,
+  IFormUi,
+  IProcess,
+  IProcessStage,
+  IProcessStep,
+  ISection,
+  ITab,
+} from "./formContextSurface";
 
 /** Read/write access to the hosting record form, when present. */
 export interface IFormAccess {

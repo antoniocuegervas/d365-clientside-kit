@@ -10,6 +10,7 @@
  */
 
 import type { CdsClient } from "../data/CdsClient";
+import type { IFormContext } from "./formContextSurface";
 import {
   normalizeGuid,
   toLookupValue,
@@ -65,14 +66,19 @@ function isEntityReference(value: unknown): value is IEntityReference {
   return typeof candidate.id === "string" && typeof candidate.logicalName === "string";
 }
 
-/** IFormAccess over an Xrm.Page-shaped object. */
+/**
+ * IFormAccess as a thin convenience facade over the full {@link IFormContext}
+ * mirror: the common id/entity/attribute reads without walking the object
+ * model. The `raw` host page stays available for cases the typed surface does
+ * not cover.
+ */
 export class XrmPageFormAccess implements IFormAccess {
   readonly raw: unknown;
-  private readonly page: IXrmPageLike;
+  private readonly formContext: IFormContext;
 
-  constructor(page: IXrmPageLike) {
-    this.page = page;
-    this.raw = page;
+  constructor(formContext: IFormContext, raw: unknown) {
+    this.formContext = formContext;
+    this.raw = raw;
   }
 
   /** True when the page actually has a record form behind it. */
@@ -81,17 +87,16 @@ export class XrmPageFormAccess implements IFormAccess {
   }
 
   getRecordId(): string | null {
-    const id = this.page.data?.entity?.getId() ?? "";
-    return id ? normalizeGuid(id) : null;
+    // The wrapper already normalizes the id and returns "" while unsaved.
+    return this.formContext.data.entity.getId() || null;
   }
 
   getEntityName(): string | null {
-    return this.page.data?.entity?.getEntityName() ?? null;
+    return this.formContext.data.entity.getEntityName() || null;
   }
 
   getAttributeValue<T = unknown>(attributeLogicalName: string): T | null {
-    const attribute = this.page.data?.entity?.attributes.get(attributeLogicalName);
-    return (attribute?.getValue() as T | undefined) ?? null;
+    return this.formContext.getAttribute(attributeLogicalName)?.getValue<T>() ?? null;
   }
 
   setAttributeValue(attributeLogicalName: string, value: unknown): void {
@@ -99,7 +104,7 @@ export class XrmPageFormAccess implements IFormAccess {
     // (braced GUID + entityType) so apps can push a chosen lookup straight onto
     // a form attribute without hand-rolling the conversion.
     const resolved = isEntityReference(value) ? [toLookupValue(value)] : value;
-    this.page.data?.entity?.attributes.get(attributeLogicalName)?.setValue(resolved);
+    this.formContext.getAttribute(attributeLogicalName)?.setValue(resolved);
   }
 }
 

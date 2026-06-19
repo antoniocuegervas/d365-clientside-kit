@@ -1,4 +1,5 @@
 import { CdsClient, type IRetrieveMultipleResult } from "../data/CdsClient";
+import { buildFormContext, type IHostFormContext } from "./formContextSurface";
 import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
@@ -13,6 +14,7 @@ import type {
   IExecuteResponse,
   IFileDetails,
   IFormAccess,
+  IFormContext,
   IFormParameters,
   IGlobalContext,
   ILookupOptions,
@@ -92,6 +94,7 @@ export class WebResourceContextV8 implements IViewModelContext {
   readonly globalContext: IGlobalContext;
   readonly client: IClientContext;
   readonly device: IDeviceContext;
+  readonly formContext?: IFormContext;
   readonly formAccess?: IFormAccess;
 
   private readonly cdsClient: CdsClient;
@@ -147,7 +150,11 @@ export class WebResourceContextV8 implements IViewModelContext {
     // one; otherwise this host's own Page.
     const page = formPage ?? xrm.Page;
     if (XrmPageFormAccess.hasForm(page)) {
-      this.formAccess = new XrmPageFormAccess(page);
+      this.formContext = buildFormContext(
+        page as unknown as IHostFormContext,
+        "CRM 8.x webresource"
+      );
+      this.formAccess = new XrmPageFormAccess(this.formContext, page);
     }
   }
 

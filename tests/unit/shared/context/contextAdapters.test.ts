@@ -579,6 +579,28 @@ describe("WebResourceContext (modern)", () => {
     const { xrm } = createModernXrmMock();
     const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
     expect(context.formAccess).toBeUndefined();
+    expect(context.formContext).toBeUndefined();
+  });
+
+  it("exposes formContext and a facade that reads through it on a record form", () => {
+    const { xrm } = createModernXrmMock({
+      formRecord: {
+        id: "ddd00000-0000-0000-0000-000000000004",
+        entityName: "account",
+        attributes: { name: "Contoso" },
+      },
+    });
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    expect(context.formContext).toBeDefined();
+    // The full mirror resolves the entity and attributes.
+    expect(context.formContext!.data.entity.getEntityName()).toBe("account");
+    expect(context.formContext!.data.entity.getId()).toBe(
+      "ddd00000-0000-0000-0000-000000000004"
+    );
+    expect(context.formContext!.getAttribute("name")?.getValue()).toBe("Contoso");
+    // The facade reads through the same formContext.
+    expect(context.formAccess!.getRecordId()).toBe("ddd00000-0000-0000-0000-000000000004");
+    expect(context.formAccess!.getAttributeValue("name")).toBe("Contoso");
   });
 
   it("setAttributeValue converts an EntityReference to the Xrm lookup array", () => {
