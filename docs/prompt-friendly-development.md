@@ -10,7 +10,8 @@ hallucinate than hand-wired FetchXML and option-list plumbing.
 1. Prompt an agent with the requirement plus a few-shot reference.
 2. The agent generates `app.ts` + `XyzView.tsx` + `XyzViewModel.ts` under
    `clientui/apps/<app-key>/` and registers the app in `clientui/apps/index.ts`.
-3. Build, deploy, open `…/new_clientui.html?app=<app-key>`.
+3. Build, deploy, and open the shell in a model-driven app with the app key
+   (see deployment.md, "Hosting the shell").
 4. Humans tweak or re-prompt. Reading the View tells you the layout; reading
    the ViewModel tells you the rules. That comprehension step is a feature.
 

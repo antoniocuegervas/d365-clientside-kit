@@ -43,7 +43,9 @@ PCFs: `cd pcfs/<Control> && npm run build`.
 
 ## Manual sandbox checklist (human acceptance)
 
-1. Deploy webresources (see deployment.md); open `…/new_clientui.html?app=samples`.
+1. Deploy webresources (see deployment.md), then open the shell inside a
+   model-driven app (deployment.md, "Hosting the shell"), e.g. navigate to
+   `…&pagetype=webresource&webresourceName=new_clientui.html&data=%7B%22app%22%3A%22samples%22%7D`.
 2. Walk each sample; compare controls side-by-side with native UCI forms
    (labels, spacing, focus, validation, hover).
 3. Register the example hooks on Account form/ribbon/grid; verify behavior.

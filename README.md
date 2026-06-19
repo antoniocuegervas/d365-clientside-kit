@@ -171,10 +171,14 @@ npm run verify        # lint + typecheck + build + tests + smoke + storybook
 npm run storybook     # browse the controls with fixture data
 ```
 
-Sample apps live in `clientui/apps/`. Start with `template` (the scaffold to copy) and
+Sample apps live in `clientui/apps/`. Start with `template` (the scaffold to copy),
 `sample-company-search` (the flagship 90%-native case: a saved-view grid and editable
-lookups in a webresource that behave like form controls). Deploy the shell and open
-`…/new_clientui.html?app=samples` to browse every sample from one webresource.
+lookups in a webresource that behave like form controls), and `sample-master-detail`
+(an account grid driving an editable contact form with a field of every type, runs on
+any Dataverse org with no extra metadata). Deploy the shell and open it inside a
+model-driven app: the webresource needs that app context to receive `Xrm`, see
+[docs/deployment.md](docs/deployment.md) ("Hosting the shell"). The `samples` app key
+lists every sample from one webresource.
 
 ## Where to go deeper
 

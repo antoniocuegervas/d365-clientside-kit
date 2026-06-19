@@ -31,6 +31,32 @@ $env:SPKL_CONNECTION = "AuthType=OAuth;Url=https://org.crm.dynamics.com;..."
 strings, SPKL logs, or `connection.local.json`, .gitignore already covers
 them; keep it that way.
 
+## Hosting the shell
+
+A webresource receives the full `Xrm` API (Web API, navigation, metadata) only
+when it runs inside a model-driven app. Opening
+`https://<org>/WebResources/new_clientui.html` as a top-level URL gives the page
+no `Xrm` in this window or any parent frame, so the shell shows "Xrm was not
+found" and stops. That is expected, the Unified Interface app shell is what
+injects `Xrm`. Host the shell one of three ways:
+
+- **Sitemap subarea (permanent nav entry):** add `new_clientui.html` as a Web
+  Resource area in a model-driven app's navigation. It then loads in the app's
+  content frame, where `parent.Xrm` is the real client API.
+- **From a ribbon, form, or hook (in code):**
+  `context.navigation.openClientUI("new_clientui.html", "<app-key>", { anyPayload })`
+  opens the shell in the app context and passes the app key plus payload for you.
+- **Quick test URL (no sitemap change):** inside any model-driven app, navigate to
+  `…/main.aspx?appid=<app-id>&pagetype=webresource&webresourceName=new_clientui.html&data=<json>`
+  where `<json>` is a URL-encoded `{"app":"<app-key>"}`. For example
+  `data=%7B%22app%22%3A%22samples%22%7D` opens the samples hub. `appid` is any
+  model-driven app in the org (a bare Dataverse environment ships none, so create a
+  minimal one first), and the webresource need not be in that app's sitemap for
+  `pagetype=webresource` to resolve.
+
+The shell reads the app key from `?app=` or from the `data` JSON payload, so the
+subarea and the navigateTo paths both select the right app.
+
 ## Source maps
 
 `.map` files are generated locally for debugging but are NOT listed in
@@ -38,12 +64,26 @@ them; keep it that way.
 
 ## Cache busting
 
-Dataverse caches webresources aggressively. After publishing:
-- model-driven apps generally pick up published changes on reload;
-- if a form still serves a stale bundle, bump the webresource (republish) or
-  hard-reload with cache disabled while testing;
-- avoid renaming the bundle per release, keep one stable name and rely on
-  publish + reload, so ribbon/form registrations never go stale.
+Dataverse caches webresources aggressively, and a model-driven app serves a
+stable script URL from cache forever even after a republish. The build defeats
+this automatically: `clientui.html` references the bundle as
+`new_clientui.js?v=<hash>`, where `<hash>` is the webpack compilation hash. A
+changed bundle gets a new URL the browser and app cache must refetch, while the
+webresource name itself stays stable (so ribbon/form registrations never go
+stale). The token only changes when the bundle's content changes.
+
+The practical workflow is therefore:
+- redeploy (`deploy.ps1`, or `spkl webresources` on a current `dist/`), which
+  publishes the new HTML and JS together;
+- reload the app. The new HTML carries the new `?v=`, so the JS is refetched
+  with no manual cache clearing.
+
+If a reload still shows old HTML (the outer webresource, not the bundle), it is
+the platform's own cache: publish customizations and reload once. For tight
+inner-loop UI work, prefer Storybook (zero CRM mocks) and deploy only for
+metadata/integration checkpoints; that removes most publish cycles entirely. As
+a last-resort fallback while testing, keep DevTools open with "Disable cache"
+checked, which also bypasses the Unified Interface service worker.
 
 ## CI
 

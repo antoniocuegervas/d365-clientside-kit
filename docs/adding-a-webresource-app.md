@@ -33,8 +33,13 @@ Add one import line to `clientui/apps/index.ts` (keep the category grouping).
 
 ## 3. Launch
 
-- Direct: `…/new_clientui.html?app=my-app`
+The shell needs the model-driven app context for `Xrm`, so launch it in-app, not
+as a top-level `/WebResources/...` URL (see deployment.md, "Hosting the shell").
+
 - From a ribbon/hook: `context.navigation.openClientUI("new_clientui.html", "my-app", { anyPayload: "…" })`
+- Quick test: inside a model-driven app, open
+  `…/main.aspx?appid=<app-id>&pagetype=webresource&webresourceName=new_clientui.html&data=<json>`
+  where `<json>` is a URL-encoded `{"app":"my-app"}`.
 - The payload arrives as `host.params.data`; query params as `host.params.query`.
 
 ## 4. When to use RecordReady
