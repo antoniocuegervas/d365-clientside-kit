@@ -106,3 +106,7 @@ One shared builder backs each surface across all three hosts. The modern
 calls; the legacy `WebResourceContextV8` maps the subset CRM 8.x exposes and
 rejects what it cannot do with a clear "not supported on the CRM 8.x host"
 error rather than a silent no-op.
+
+For the non-obvious bits (which Web API call routes to the native host vs
+cds-client, `executeAction` vs `execute`, V8 rejections), see
+[gotchas.md](gotchas.md).
