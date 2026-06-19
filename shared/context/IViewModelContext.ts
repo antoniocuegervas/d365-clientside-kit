@@ -277,6 +277,20 @@ export interface INavigationOptions {
 }
 
 /**
+ * Launch options for opening the clientui shell as a dialog from a ribbon,
+ * command bar, or form. `mode` picks a centered modal (default) or a right-hand
+ * side pane; `width`/`height` are pixels (omit for the 80% default); `title`
+ * sets the dialog header. The legacy (V8) host opens a popup window and honors
+ * only width/height.
+ */
+export interface IClientUILaunchOptions {
+  mode?: "modal" | "side";
+  width?: number;
+  height?: number;
+  title?: string;
+}
+
+/**
  * Page inputs for the general `navigateTo`, mirroring the platform's
  * `PageInput` union. Covers the navigable page types a webresource/PCF reaches
  * for; the adapter passes them straight to the host.
@@ -297,15 +311,17 @@ export interface IWindowOptions {
 export interface INavigation {
   openForm(entityLogicalName: string, id?: string): Promise<void>;
   /**
-   * Opens the unified clientui shell webresource with an app key + payload
-   *. `webResourceName` defaults to "<prefix>clientui.html" resolution
-   * at the call site, pass the deployed name explicitly from hooks.
+   * Opens the unified clientui shell webresource with an app key + payload,
+   * as a centered modal dialog (default) or a side pane. Pass the deployed
+   * `webResourceName` explicitly from hooks (the publisher prefix varies).
+   * Modern hosts use Xrm.Navigation.navigateTo (dialog / side pane); the
+   * legacy host falls back to a popup window.
    */
   openClientUI(
     webResourceName: string,
     app: string,
     payload?: Record<string, unknown>,
-    size?: { width?: number; height?: number }
+    options?: IClientUILaunchOptions
   ): Promise<void>;
   openAlertDialog(text: string, title?: string): Promise<void>;
   /** Resolves true when the user confirmed. */

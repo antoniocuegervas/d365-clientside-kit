@@ -127,6 +127,26 @@ describe("WebResourceContext (modern)", () => {
       webresourceName: "new_clientui.html",
       data: JSON.stringify({ app: "template", recordId: "1" }),
     });
+    // Default launch is a centered modal at 80% with no custom title.
+    expect(call!.args[1]).toMatchObject({ target: 2, position: 1 });
+  });
+
+  it("openClientUI side mode opens a side-pane dialog sized and titled", async () => {
+    const { xrm, calls } = createModernXrmMock();
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    await context.navigation.openClientUI("new_clientui.html", "sample-company-search", undefined, {
+      mode: "side",
+      width: 480,
+      title: "Company Search",
+    });
+    const call = calls.find((c) => c.api === "Navigation.navigateTo");
+    expect(call!.args[1]).toEqual({
+      target: 2,
+      position: 2,
+      width: { value: 480, unit: "px" },
+      height: { value: 80, unit: "%" },
+      title: "Company Search",
+    });
   });
 
   it("openConfirmDialog resolves the boolean", async () => {

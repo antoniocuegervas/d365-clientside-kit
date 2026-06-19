@@ -3,6 +3,7 @@ import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
 import type {
+  IClientUILaunchOptions,
   IContextUtils,
   IErrorDialogOptions,
   IFileDetails,
@@ -202,13 +203,15 @@ class V8Navigation implements INavigation {
     webResourceName: string,
     app: string,
     payload?: Record<string, unknown>,
-    size?: { width?: number; height?: number }
+    options?: IClientUILaunchOptions
   ): Promise<void> {
+    // The legacy host has no navigateTo dialog/side pane, so it opens a popup
+    // window; mode and title do not apply, width/height size the window.
     this.utility.openWebResource(
       webResourceName,
       encodeURIComponent(LibraryUtils.buildClientUIDataParam(app, payload)),
-      size?.width,
-      size?.height
+      options?.width,
+      options?.height
     );
   }
 

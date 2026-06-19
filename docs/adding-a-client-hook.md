@@ -52,6 +52,16 @@ Reusable, entity-agnostic hooks get non-entity keys (`CrmClientSide.LockedGrid`)
 CRM loads libraries before firing events, so Xrm is always present by the
 time a handler runs, that ordering is the contract the lazy context relies on.
 
+## Launching the shell from a hook
+
+`context.navigation.openClientUI(webResourceName, appKey, payload?, options?)`
+opens the clientui shell from a ribbon, command bar, or form handler. On a modern
+host it uses `Xrm.Navigation.navigateTo`: `options.mode` selects a centered modal
+(default) or a side pane (`"side"`), with `width`/`height` in pixels (80% when
+omitted) and an optional `title`. `AccountRibbon` ships both, `openCompanySearch`
+(modal) and `openCompanySearchPane` (side pane). The legacy (V8) host falls back
+to a popup window and honors only width/height.
+
 ## 4. Verify
 
 Add assertions to `tests/smoke/clienthooks.smoke.test.ts`, the smoke run

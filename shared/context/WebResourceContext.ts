@@ -14,6 +14,7 @@ import {
 } from "./hostSurface";
 import type {
   IClientContext,
+  IClientUILaunchOptions,
   IContextUtils,
   IDeviceContext,
   IErrorDialogOptions,
@@ -217,7 +218,7 @@ class ModernNavigation implements INavigation {
     webResourceName: string,
     app: string,
     payload?: Record<string, unknown>,
-    size?: { width?: number; height?: number }
+    options?: IClientUILaunchOptions
   ): Promise<void> {
     await this.navigation.navigateTo(
       {
@@ -227,8 +228,10 @@ class ModernNavigation implements INavigation {
       },
       {
         target: 2, // dialog over the current page, the shell's standard launch mode
-        width: { value: size?.width ?? 80, unit: size?.width ? "px" : "%" },
-        height: { value: size?.height ?? 80, unit: size?.height ? "px" : "%" },
+        position: options?.mode === "side" ? 2 : 1, // 1 center modal, 2 side pane
+        width: { value: options?.width ?? 80, unit: options?.width ? "px" : "%" },
+        height: { value: options?.height ?? 80, unit: options?.height ? "px" : "%" },
+        title: options?.title,
       }
     );
   }

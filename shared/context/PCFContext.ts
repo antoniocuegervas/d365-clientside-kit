@@ -13,6 +13,7 @@ import {
 } from "./hostSurface";
 import type {
   IClientContext,
+  IClientUILaunchOptions,
   IContextUtils,
   IDeviceContext,
   IErrorDialogOptions,
@@ -259,11 +260,13 @@ class PcfNavigation implements INavigation {
     webResourceName: string,
     app: string,
     payload?: Record<string, unknown>,
-    size?: { width?: number; height?: number }
+    options?: IClientUILaunchOptions
   ): Promise<void> {
+    // The PCF navigation surface opens a webresource window; mode and title do
+    // not apply, width/height size it.
     this.navigation.openWebResource(
       webResourceName,
-      size ? { width: size.width, height: size.height, openInNewWindow: false } : undefined,
+      options ? { width: options.width, height: options.height, openInNewWindow: false } : undefined,
       encodeURIComponent(LibraryUtils.buildClientUIDataParam(app, payload))
     );
   }
