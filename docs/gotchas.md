@@ -160,3 +160,18 @@ const useStyles = makeStyles({ divider: { flexGrow: 0 } });
 // ...
 <Divider className={styles.divider} />
 ```
+
+## `overflowY: "auto"` quietly enables a horizontal scrollbar too
+
+Setting only `overflowY: "auto"` on a scroll container looks like "let it scroll
+vertically". The browser does more than that: when one axis is a scrolling value
+and the other is `visible`, the `visible` one is computed to `auto` as well. So
+the container can show a *horizontal* scrollbar whenever its content is even 1px
+too wide. That 1px is easy to hit, a focused field is enough: Fluent's input
+focus underline is an `::after` inset `-1px` on each side, so it bleeds just past
+the edge, and a horizontal scrollbar pops in on focus and vanishes on blur.
+
+For a container that should only scroll vertically, set `overflowX: "hidden"`
+alongside `overflowY: "auto"`. (Containers with generous padding hide the symptom
+because the padding absorbs the 1px; the ones where content reaches the edge,
+like a stepper body, do not.)

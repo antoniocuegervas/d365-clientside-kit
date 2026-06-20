@@ -54,7 +54,11 @@ const useStyles = makeStyles({
     minWidth: "16px",
     backgroundColor: tokens.colorNeutralStroke2,
   },
-  body: { flexGrow: 1, minHeight: 0, overflowY: "auto" },
+  // overflowX hidden on purpose: overflowY auto alone makes the browser compute
+  // overflow-x to auto too, and a focused field's Fluent focus underline bleeds
+  // 1px past the edge (its ::after is inset -1px), which would pop a horizontal
+  // scrollbar in on focus. The step body only ever scrolls vertically.
+  body: { flexGrow: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden" },
   footer: { display: "flex", justifyContent: "space-between", columnGap: tokens.spacingHorizontalS },
 });
 
