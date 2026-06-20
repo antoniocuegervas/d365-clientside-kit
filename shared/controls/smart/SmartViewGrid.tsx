@@ -35,9 +35,17 @@ export interface ISmartViewGridProps {
   quickFindFields?: string[];
   /** Declarative eq/ne filters, re-queried server-side on change. */
   filters?: Observable<ISmartViewGridFilter[]>;
-  /** Server-side sort spec. Header clicks update it when `serverSort`. */
+  /**
+   * Optional sort spec the grid reads and writes. The grid keeps its own sort
+   * internally, so `serverSort` works without this; pass it only to seed an
+   * initial sort or to read the current one.
+   */
   orderBy?: Observable<ISortSpec | null>;
-  /** Enable header-click server sorting (writes `orderBy`). */
+  /**
+   * The on/off switch for sorting. When true, header clicks sort on the server
+   * by re-querying. When false or omitted, the grid does not sort at all (it
+   * never sorts a loaded page in memory).
+   */
   serverSort?: boolean;
   /**
    * Dynamic/polymorphic columns, keyed by layout column name (to replace
@@ -114,6 +122,8 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   /** This wrapper is the host for grid data. */
   private readonly columns = new Observable<IGridColumn[]>([]);
   private readonly rows = new ObservableArray<IGridRow>();
+  /** Grid-owned sort, used when the host does not supply an `orderBy`. */
+  private readonly internalSort = new Observable<ISortSpec | null>(null);
   private readonly loading = new Observable<boolean>(true);
   private readonly page = new Observable<number>(1);
   private readonly hasNextPage = new Observable<boolean>(false);
@@ -139,7 +149,8 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       this.page,
       this.hasNextPage,
       props.selectedRecordId,
-      props.orderBy
+      props.orderBy,
+      this.internalSort
     );
   }
 
@@ -147,7 +158,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     const reload = () => void this.loadRows();
     this.track(this.props.refresh?.subscribe(reload));
     this.track(this.props.filters?.subscribe(reload));
-    this.track(this.props.orderBy?.subscribe(reload));
+    this.track(this.sortTarget().subscribe(reload));
     this.track(this.props.overrideFetchXml?.subscribe(reload));
     // Quick find fires per keystroke, debounce the re-query.
     this.track(this.props.quickFind?.subscribe(() => this.scheduleQuickFindReload()));
@@ -161,6 +172,11 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       this.track(this.props.totalRecordCount.subscribe((value) => (this.totalCountObs.value = value)));
     }
     void this.initialize();
+  }
+
+  /** The active sort source: the host's `orderBy` when given, else the grid's own. */
+  private sortTarget(): Observable<ISortSpec | null> {
+    return this.props.orderBy ?? this.internalSort;
   }
 
   private richMode(): boolean {
@@ -250,12 +266,22 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         } catch {
           // metadata unavailable for this column, keep the raw name, no kind
         }
-        const base: IGridColumn = { key: column.name, name: header, width: column.width };
-        // Lookups, link-entity columns, and DisableSorting cells can't be
-        // sorted through the savedQuery layer (a platform boundary).
-        if (kind === "lookup" || column.relatedEntity || column.disableSorting) {
-          base.sortable = false;
-        }
+        // Sorting is opt-in through `serverSort` and always done on the query, so
+        // only real root attributes are sortable: lookups, link-entity columns,
+        // and DisableSorting cells can't ride the savedQuery `$orderby` (a
+        // platform boundary). Without `serverSort` nothing is sortable, so the
+        // grid never sorts a single page of rows in memory.
+        const serverSortable =
+          !!this.props.serverSort &&
+          kind !== "lookup" &&
+          !column.relatedEntity &&
+          !column.disableSorting;
+        const base: IGridColumn = {
+          key: column.name,
+          name: header,
+          width: column.width,
+          sortable: serverSortable,
+        };
         if (kind === "lookup") {
           base.onRender = (row) => this.renderLookupCell(row[column.name]);
         }
@@ -278,8 +304,9 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       key,
       name: spec.header,
       width,
-      sortable: !!spec.sort?.comparator,
-      comparator: spec.sort?.comparator,
+      // A dynamic column derives its cell from 2+ source fields, so there is no
+      // single server field to order by; it is not sortable.
+      sortable: false,
       onRender: (row) => row[key] as React.ReactNode,
     };
   }
@@ -342,7 +369,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       quickFindText: this.props.quickFind?.value,
       quickFindFields: this.effectiveQuickFindFields(),
       filters: this.props.filters?.value,
-      orderBy: this.props.orderBy?.value,
+      orderBy: this.sortTarget().value,
     });
   }
 
@@ -445,7 +472,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       }
     }
     // Server sort.
-    const orderBy = this.props.orderBy?.value;
+    const orderBy = this.sortTarget().value;
     if (orderBy) {
       fetch = setRootOrder(fetch, orderBy.attribute, !!orderBy.descending);
     }
@@ -544,7 +571,12 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     }
     this.loading.value = true;
     try {
-      const result = await this.vmContext.webAPI.retrieveMultipleByUrl(nextLink);
+      // Re-send the page size: the nextLink cookie does not carry it, and without
+      // it the server returns its default page size instead of pageSize rows.
+      const result = await this.vmContext.webAPI.retrieveMultipleByUrl(
+        nextLink,
+        this.props.pageSize
+      );
       if (this.isDisposed) {
         return;
       }
@@ -573,9 +605,9 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   };
 
   private readonly handleColumnSort = (columnKey: string, descending: boolean): void => {
-    if (this.props.orderBy) {
-      this.props.orderBy.value = { attribute: columnKey, descending };
-    }
+    // Server sort: record the new spec and re-query. Writes to the host's
+    // orderBy when supplied, otherwise to the grid's own sort state.
+    this.sortTarget().value = { attribute: columnKey, descending };
   };
 
   /**
@@ -613,7 +645,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     if (this.state.loadError) {
       return <div role="alert">Could not load view: {this.state.loadError}</div>;
     }
-    const sort = this.props.orderBy?.value;
+    const sort = this.sortTarget().value;
     return (
       <>
         <DataGrid
@@ -895,11 +927,6 @@ export interface IDynamicColumnSpec {
   header: string;
   /** Probed in order; the first source with a value renders the cell. */
   sources: IDynamicColumnSource[];
-  sort?: {
-    fetchOrder?: (descending: boolean) => string;
-    odataOrder?: (descending: boolean) => string;
-    comparator?: (a: IGridRow, b: IGridRow) => number;
-  };
   filter?: (criteria: unknown) => string;
 }
 

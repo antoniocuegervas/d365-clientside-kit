@@ -523,6 +523,12 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(screen.getByLabelText("Current page").textContent).toContain("2");
     expect(calls.filter((c) => c.api === "retrieveMultipleByUrl").length).toBe(1);
 
+    // The nextLink follow must re-send the page size; the cookie does not carry
+    // it, so without this page 2 comes back at the server default size.
+    const nextCall = calls.find((c) => c.api === "retrieveMultipleByUrl")!;
+    expect(nextCall.args[0]).toBe("https://fake/next-page-2");
+    expect(nextCall.args[1]).toBe(2);
+
     // Previous comes from cache, no extra query.
     await userEvent.click(screen.getByLabelText("Previous page"));
     expect(await screen.findByText("Contoso Ltd")).toBeTruthy();
@@ -788,6 +794,28 @@ describe("SmartViewGrid (read-only view grid)", () => {
     await screen.findByText("Contoso Ltd");
     await userEvent.click(screen.getByText("Account Name"));
     expect(orderBy.value).toEqual({ attribute: "name", descending: false });
+    await waitFor(() => {
+      const queries = calls.filter((c) => c.api === "retrieveMultipleRecords");
+      expect(String(queries.at(-1)!.args[1])).toContain("$orderby=name asc");
+    });
+  });
+
+  it("without serverSort a header click neither re-queries nor reorders", async () => {
+    const { context, calls } = createFakeViewModelContext(viewSetup);
+    renderWith(context, <SmartViewGrid entity="account" />);
+    await screen.findByText("Contoso Ltd");
+    const queriesBefore = calls.filter((c) => c.api === "retrieveMultipleRecords").length;
+    await userEvent.click(screen.getByText("Account Name"));
+    // No serverSort: the header is inert. The grid never sorts a page in memory,
+    // and it does not re-query.
+    expect(calls.filter((c) => c.api === "retrieveMultipleRecords").length).toBe(queriesBefore);
+  });
+
+  it("server sort works without a host orderBy, using the grid's own sort state", async () => {
+    const { context, calls } = createFakeViewModelContext(viewSetup);
+    renderWith(context, <SmartViewGrid entity="account" serverSort />);
+    await screen.findByText("Contoso Ltd");
+    await userEvent.click(screen.getByText("Account Name"));
     await waitFor(() => {
       const queries = calls.filter((c) => c.api === "retrieveMultipleRecords");
       expect(String(queries.at(-1)!.args[1])).toContain("$orderby=name asc");

@@ -407,11 +407,14 @@ export interface IWebApi {
    */
   fetchPage(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult>;
   /**
-   * Follows an `@odata.nextLink` (a full collection URL) for server-side paging
-   *. Dataverse paging is forward-cookie based; rides cds-client on every
-   * host so an absolute nextLink can be re-issued (Xrm.WebApi can't take one).
+   * Follows an `@odata.nextLink` (a full collection URL) for server-side paging.
+   * Dataverse paging is forward-cookie based; rides cds-client on every host so
+   * an absolute nextLink can be re-issued (Xrm.WebApi can't take one). Pass the
+   * same `maxPageSize` used for the first page: the nextLink carries only the
+   * position cookie, so the page size has to be re-sent or the server returns
+   * its default page size instead.
    */
-  retrieveMultipleByUrl(url: string): Promise<IRetrieveMultipleResult>;
+  retrieveMultipleByUrl(url: string, maxPageSize?: number): Promise<IRetrieveMultipleResult>;
   /**
    * Runs a custom action, the ergonomic action-only path: name plus optional
    * parameters in, the parsed response body out (undefined when empty). Unbound

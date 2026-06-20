@@ -85,7 +85,7 @@ open the real activity type on row invoke (N-08).
 | `quickFind` (Observable&lt;string&gt;) | Contains-search text, debounced; ANDed into the query |
 | `quickFindFields` | Fields quick find searches (default: primary name) |
 | `filters` (Observable) | Declarative eq/ne filters, re-queried server-side |
-| `orderBy` (Observable) + `serverSort` | Server-side `$orderby`; header clicks update it |
+| `serverSort` + `orderBy` (Observable, optional) | Header clicks sort server-side by re-query (`$orderby`, back to page 1). Without `serverSort` the grid does not sort at all (no in-memory page sort). `orderBy` seeds and exposes the spec; the grid keeps its own when omitted |
 | `pageSize` | Server-side paging with a Pagination control |
 | `pagination` | `"simple"` (default, forward-cookie next/prev) or `"rich"` (jump-to-page combobox + first/last + "X–Y of N" via FetchXML `page`/`count`), N-04. Requires `pageSize` |
 | `onPageChange(n)` | Raised on every page change; the controlled hook for `overrideFetchXml` + rich (host re-supplies the page), N-04 |

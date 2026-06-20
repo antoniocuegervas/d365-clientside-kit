@@ -106,6 +106,16 @@ describe("CdsClient", () => {
       expect(server.lastRequest.url).not.toContain("$top");
     });
 
+    it("retrieveMultipleByUrl re-sends the page size when following a nextLink", async () => {
+      server.respondAlways({ status: 200, responseText: JSON.stringify({ value: [] }) });
+      const nextLink = "https://org.crm.dynamics.com/api/data/v9.2/accounts?$skiptoken=x";
+      await makeClient().retrieveMultipleByUrl(nextLink, 5);
+      // The nextLink cookie does not carry the page size, so re-sending the
+      // preference is what keeps page 2 the same size as page 1.
+      expect(server.lastRequest.headers["Prefer"]).toContain("odata.maxpagesize=5");
+      expect(server.lastRequest.url).toBe(nextLink);
+    });
+
     it("surfaces FetchXML paging annotations (total, more-records, cookie)", async () => {
       server.respondAlways({
         status: 200,

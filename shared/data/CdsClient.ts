@@ -126,19 +126,24 @@ export class CdsClient {
     query?: string,
     maxPageSize?: number
   ): Promise<IRetrieveMultipleResult> {
-    // Server-side paging is driven by the odata.maxpagesize preference, NOT by
-    // $top (which caps the result and suppresses @odata.nextLink). Send the page
-    // size as a Prefer directive so the response carries the next page's link.
-    const extraHeaders =
-      maxPageSize !== undefined ? { Prefer: `odata.maxpagesize=${maxPageSize}` } : undefined;
-    return this.retrieveMultipleByUrl(`${this.apiUrl}${entitySet}${query ?? ""}`, extraHeaders);
+    return this.retrieveMultipleByUrl(`${this.apiUrl}${entitySet}${query ?? ""}`, maxPageSize);
   }
 
-  /** Follows an @odata.nextLink (or any absolute Web API collection URL). */
+  /**
+   * Follows an @odata.nextLink (or any absolute Web API collection URL). Pass the
+   * same `maxPageSize` used for the first page. Server-side paging is driven by
+   * the odata.maxpagesize preference, NOT by $top (which caps the result and
+   * suppresses @odata.nextLink), and the nextLink carries only the position
+   * cookie, not the page size. The preference has to be re-sent on every page;
+   * skip it and the server falls back to its default page size and returns far
+   * more rows than the page asked for.
+   */
   async retrieveMultipleByUrl(
     url: string,
-    extraHeaders?: Record<string, string>
+    maxPageSize?: number
   ): Promise<IRetrieveMultipleResult> {
+    const extraHeaders =
+      maxPageSize !== undefined ? { Prefer: `odata.maxpagesize=${maxPageSize}` } : undefined;
     const response = await this.request("GET", url, undefined, extraHeaders);
     return parseCollection(response.responseText);
   }

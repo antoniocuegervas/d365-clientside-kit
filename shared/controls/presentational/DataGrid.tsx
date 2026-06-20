@@ -92,6 +92,12 @@ const useStyles = makeStyles({
     cursor: "pointer",
     userSelect: "none",
   },
+  // A column that cannot be sorted gets no pointer or click affordance.
+  headerCellStatic: {
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground3,
+    userSelect: "none",
+  },
   row: { cursor: "default" },
   clickableRow: { cursor: "pointer" },
   selectionCell: { width: "36px" },
@@ -250,10 +256,10 @@ const Body: React.FC<
           {columns.map((column) => (
             <TableHeaderCell
               key={column.key}
-              className={styles.headerCell}
+              className={column.sortable === false ? styles.headerCellStatic : styles.headerCell}
               style={column.width ? { width: column.width } : undefined}
-              sortDirection={sortDirectionFor(column.key)}
-              onClick={() => props.onSort(column)}
+              sortDirection={column.sortable === false ? undefined : sortDirectionFor(column.key)}
+              onClick={column.sortable === false ? undefined : () => props.onSort(column)}
             >
               {column.name}
             </TableHeaderCell>

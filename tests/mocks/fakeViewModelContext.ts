@@ -229,8 +229,8 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
         await maybeDelay();
         return nextQueryResult(entity);
       },
-      retrieveMultipleByUrl: async (url) => {
-        record("retrieveMultipleByUrl", url);
+      retrieveMultipleByUrl: async (url, maxPageSize) => {
+        record("retrieveMultipleByUrl", url, maxPageSize);
         await maybeDelay();
         return pageQueue.shift() ?? { entities: [] };
       },

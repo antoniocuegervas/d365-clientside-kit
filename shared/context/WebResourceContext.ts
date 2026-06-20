@@ -211,8 +211,8 @@ class ModernWebApi implements IWebApi {
     return this.client.fetch(LibraryUtils.entitySetName(entityLogicalName), fetchXml);
   }
 
-  retrieveMultipleByUrl(url: string): Promise<IRetrieveMultipleResult> {
-    return this.client.retrieveMultipleByUrl(url);
+  retrieveMultipleByUrl(url: string, maxPageSize?: number): Promise<IRetrieveMultipleResult> {
+    return this.client.retrieveMultipleByUrl(url, maxPageSize);
   }
 
   executeAction(
