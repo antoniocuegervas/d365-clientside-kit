@@ -20,6 +20,8 @@ deployment/packages/
 *.log
 spkl-log*
 
+docs/internal/qa**
+
 # Tooling caches
 .eslintcache
 *.tsbuildinfo
