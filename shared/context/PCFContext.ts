@@ -151,7 +151,7 @@ export class PCFContext implements IViewModelContext {
     this.navigation = new PcfNavigation(source.navigation, source.utils);
     // Platform-mirror surface: client/device native to PCF; resource strings via the
     // control's resources; the Xrm.Utility progress/status extras have no PCF
-    // equivalent and degrade (no-op / reject).
+    // equivalent and degrade (do nothing / reject).
     const resources = source.resources;
     this.utils = {
       ...utilsFromXrm(

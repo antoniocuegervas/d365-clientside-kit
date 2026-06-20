@@ -75,7 +75,7 @@ export interface ISmartViewGridProps {
   currentPage?: Observable<number>;
   /**
    * Override mode: when this holds a FetchXML string, the host supplies
-   * the query while the view still supplies the layout, the canonical
+   * the query while the view still supplies the layout, the standard
    * "native look, custom data" path. Null/empty falls back to the saved query.
    */
   overrideFetchXml?: Observable<string | null>;

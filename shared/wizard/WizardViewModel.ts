@@ -15,7 +15,7 @@ export interface IWizardStep {
  * half-entered records behind, and because `commit` goes through the normal
  * create/update path, server-side logic still runs on the final write.
  *
- * It is deliberately orthogonal to a record's business process flow: hosted as
+ * It is deliberately independent of a record's business process flow: hosted as
  * a webresource it is just custom UI over the Web API, so it can run on a record
  * that is mid-process without touching its stage.
  */

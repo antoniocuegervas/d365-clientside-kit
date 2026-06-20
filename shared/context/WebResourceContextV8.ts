@@ -135,7 +135,7 @@ export class WebResourceContextV8 implements IViewModelContext {
     this.metadata = new MetadataService(client);
     this.navigation = new V8Navigation(xrm.Utility);
     // Platform-mirror surface; V8 fidelity is a per-method dial: utility extras degrade
-    // (undefined/no-op/reject) and device capture throws "not supported".
+    // (undefined / do nothing / reject) and device capture throws "not supported".
     this.utils = utilsFromXrm(
       (message: string) => void this.navigation.openAlertDialog(message),
       xrm.Utility as unknown as IXrmUtilityExtras,

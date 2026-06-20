@@ -37,7 +37,7 @@ export interface IXrmLookupValue {
   name?: string;
 }
 
-/** Normalizes a guid to the canonical bare lowercase form. */
+/** Normalizes a guid to the standard bare lowercase form. */
 export function normalizeGuid(id: string): string {
   return id.replace(/[{}]/g, "").toLowerCase();
 }

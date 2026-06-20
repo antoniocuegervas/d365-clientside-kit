@@ -63,7 +63,7 @@ export interface IViewModelContext {
   readonly formContext?: IFormContext;
   /**
    * Form access when hosted on (or beside) a record form; undefined otherwise.
-   * A thin convenience facade over {@link formContext} for the common
+   * A small convenience wrapper over {@link formContext} for the common
    * id/entity/attribute reads.
    */
   readonly formAccess?: IFormAccess;
@@ -476,7 +476,7 @@ export interface ILookupOptions {
 
 /**
  * Error-dialog options mirroring `Xrm.Navigation.ErrorDialogOptions`.
- * the idiomatic CRM error surface. When `details` is set the dialog shows a
+ * the standard CRM error surface. When `details` is set the dialog shows a
  * "Download Log File" button; when only `errorCode` is set the platform looks
  * up the message server-side.
  */
@@ -709,7 +709,7 @@ export interface INavigation {
    */
   lookupObjects(options: ILookupOptions): Promise<IEntityReference[]>;
   /**
-   * Shows the native CRM error dialog, the idiomatic error surface.
+   * Shows the native CRM error dialog, the standard error surface.
    * Mirrors `Xrm.Navigation.openErrorDialog`. Modern/PCF delegate natively; V8
    * routes `message`+`details` to the v8 alert.
    */

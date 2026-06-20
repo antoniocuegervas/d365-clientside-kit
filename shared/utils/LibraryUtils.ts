@@ -4,7 +4,7 @@
  * families, consolidated here rather than scattered across small files:
  *
  *   - OData formatting for the Dataverse Web API (entity sets, escaping, binds)
- *   - Webresource `data`/`?app=` parameter parsing (the canonical parser)
+ *   - Webresource `data`/`?app=` parameter parsing (the one parser)
  *   - GUID / $batch boundary generation
  *
  * Stateless static methods, with no dependencies of their own beyond EntityModel.
@@ -83,7 +83,7 @@ export class LibraryUtils {
   }
 
   /**
-   * Formats a primitive for an OData `$filter` literal: strings quoted and
+   * Formats a single value for an OData `$filter` literal: strings quoted and
    * `''`-escaped, booleans as true/false, numbers raw.
    */
   static formatODataValue(value: string | number | boolean): string {
@@ -111,7 +111,7 @@ export class LibraryUtils {
   //#region Webresource parameters
 
   /**
-   * The ONE canonical parser for webresource parameters. App selection comes,
+   * The ONE parser for webresource parameters. App selection comes,
    * in priority order, from `?app=<key>` or the `?data=` payload's `app`
    * property (`data` may be JSON or a plain string, possibly double-encoded).
    */

@@ -99,13 +99,13 @@ Each adapted surface threads every native parameter through to the host call:
   and current-app metadata.
 - **formContext**: the full form object model (`data`, `ui`, attributes,
   controls, tabs, sections, BPF process), built once by
-  `formContextSurface.buildFormContext`. `formAccess` is a thin facade over it.
+  `formContextSurface.buildFormContext`. `formAccess` is a small wrapper over it.
 
 One shared builder backs each surface across all three hosts. The modern
 (`WebResourceContext`) and PCF (`PCFContext`) hosts delegate to the native
 calls; the legacy `WebResourceContextV8` maps the subset CRM 8.x exposes and
 rejects what it cannot do with a clear "not supported on the CRM 8.x host"
-error rather than a silent no-op.
+error rather than silently doing nothing.
 
 For the non-obvious bits (which Web API call routes to the native host vs
 cds-client, `executeAction` vs `execute`, V8 rejections), see

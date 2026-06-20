@@ -1,5 +1,5 @@
 /**
- * Minimal pub/sub primitive for host-owned values.
+ * A tiny publish/subscribe helper for values the host owns.
  *
  * Ownership contract: the HOST (ViewModel, smart control, PCF root) creates
  * Observables and writes to them. Presentational controls only subscribe and
@@ -9,12 +9,12 @@
 export type Unsubscribe = () => void;
 
 /**
- * Freezes object/array values in non-production builds so an accidental
- * in-place mutation (for example `obs.value.push(x)`) throws at the mutation
- * site instead of silently no-op'ing past the Object.is guard. Webpack's mode
- * replaces `process.env.NODE_ENV`, so the whole branch is dropped from
- * production bundles, leaving a pass-through. Shallow by design: it catches the
- * common array/object edits without the cost of a deep walk.
+ * In development builds, locks object/array values so an accidental edit in
+ * place (for example `obs.value.push(x)`) throws right where you wrote it,
+ * instead of quietly doing nothing because the value still looks unchanged.
+ * Shipped builds skip this: webpack strips the whole block out, so it costs
+ * nothing in production. It locks only the top level, which catches the common
+ * array/object edits without the cost of looking all the way down.
  */
 function freezeInDev<T>(value: T): T {
   if (process.env.NODE_ENV !== "production" && value !== null && typeof value === "object") {
@@ -49,10 +49,10 @@ export class Observable<T> implements ISubscribable {
   }
 
   /**
-   * Sets the value and notifies subscribers. No-ops when the new value is
-   * identical (Object.is). Observable values are immutable snapshots: to change
-   * part of a list or object, assign a new reference or use {@link update}, do
-   * not mutate the held value in place (that slips past the Object.is guard).
+   * Sets the value and tells subscribers. Does nothing when the new value is the
+   * same one it already holds. Observable values are meant to be replaced, not
+   * edited in place: to change part of a list or object, assign a new value or
+   * use {@link update}; editing the held value directly goes unnoticed.
    */
   setValue(next: T): void {
     if (Object.is(next, this._value)) {
@@ -60,27 +60,28 @@ export class Observable<T> implements ISubscribable {
     }
     const previous = this._value;
     this._value = freezeInDev(next);
-    // Copy before iterating: a callback may unsubscribe (or subscribe) mid-notify.
+    // Copy the listeners first: one of them might add or remove a listener while
+    // we are still calling them.
     for (const listener of [...this.listeners]) {
       listener(this._value, previous);
     }
   }
 
   /**
-   * Derives the next value from the current one and assigns it, the safe way to
+   * Builds the next value from the current one and assigns it, the safe way to
    * change part of a list or object: `list.update(rows => [...rows, row])`.
-   * Returning a new reference keeps the Object.is guard meaningful and avoids
-   * the silent no-op an in-place edit would cause.
+   * Returning a new value is what lets the change be noticed; editing the old
+   * one in place would quietly do nothing.
    */
   update(fn: (current: T) => T): void {
     this.setValue(fn(this._value));
   }
 
   /**
-   * Notifies subscribers without changing the reference, a low-level escape
-   * hatch for the rare value you deliberately keep mutable and edit in place.
-   * Prefer {@link update} or assigning a new value: those stay compatible with
-   * the dev-build freeze, this does not (an assigned value is frozen).
+   * Tells subscribers without giving the value a new identity, a low-level
+   * option for the rare value you deliberately keep editable and change in
+   * place. Prefer {@link update} or assigning a new value: those work with the
+   * development lock, this does not (an assigned value is locked).
    */
   notify(): void {
     for (const listener of [...this.listeners]) {

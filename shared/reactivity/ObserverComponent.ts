@@ -90,6 +90,6 @@ export abstract class ObserverComponent<P = object, S = object> extends React.Co
    * the base teardown can never be skipped.
    */
   protected onUnmount(): void {
-    // no-op by default
+    // does nothing by default
   }
 }

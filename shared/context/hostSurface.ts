@@ -57,7 +57,7 @@ export interface IXrmPageLike {
   };
 }
 
-/** Duck-types a kit IEntityReference (vs a plain primitive/object value). */
+/** Detects a kit IEntityReference by its shape (vs a plain value or object). */
 function isEntityReference(value: unknown): value is IEntityReference {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -67,7 +67,7 @@ function isEntityReference(value: unknown): value is IEntityReference {
 }
 
 /**
- * IFormAccess as a thin convenience facade over the full {@link IFormContext}
+ * IFormAccess as a small convenience wrapper over the full {@link IFormContext}
  * mirror: the common id/entity/attribute reads without walking the object
  * model. The `raw` host page stays available for cases the typed surface does
  * not cover.
@@ -189,7 +189,7 @@ export function deviceFromSource(
 /**
  * Builds the kit `utils` surface (alert + Xrm.Utility extras) from a structural
  * `Xrm.Utility`. Members the host lacks degrade: string getters return
- * undefined, void methods no-op, and `getAllowedStatusTransitions` rejects.
+ * undefined, void methods do nothing, and `getAllowedStatusTransitions` rejects.
  */
 export function utilsFromXrm(
   alert: (message: string) => void,
@@ -455,7 +455,7 @@ export function buildGlobalContext(
 /**
  * Resolves the convenience `(text, title?)` and full `(strings, options?)`
  * overloads of `openAlertDialog` into one native-shaped strings object plus
- * optional size options. The first argument's type discriminates the form.
+ * optional size options. The first argument's type decides which form is meant.
  */
 export function resolveAlertArgs(
   textOrStrings: string | IAlertStrings,

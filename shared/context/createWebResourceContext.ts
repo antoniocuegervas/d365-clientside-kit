@@ -11,7 +11,7 @@ import { WebResourceContextV8, type IXrmV8Like } from "./WebResourceContextV8";
  * Webresources can be nested several frames deep (dialogs, embedded iframes),
  * so checking only `window` and `window.parent` misses the host Xrm.
  * The walk stops at the top frame and on cross-origin boundaries, both raise
- * or short-circuit gracefully inside the try/catch.
+ * or exit early and safely inside the try/catch.
  */
 export function collectAncestorXrms(win: Window = window): unknown[] {
   const found: unknown[] = [];

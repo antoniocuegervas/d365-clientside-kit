@@ -44,7 +44,7 @@ function forEachAttributeControl(
   for (const name of attributeNames) {
     const attribute = formContext.getAttribute(name);
     if (!attribute) {
-      continue; // attribute not on this form, a no-op, matching CRM script habits
+      continue; // attribute not on this form, does nothing, matching CRM script habits
     }
     attribute.controls.forEach((control) => {
       if (control) {
