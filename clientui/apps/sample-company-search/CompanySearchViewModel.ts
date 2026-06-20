@@ -1,5 +1,6 @@
 import type { IViewModelContext } from "../../../shared/context/IViewModelContext";
 import { Observable } from "../../../shared/reactivity/Observable";
+import { ObservableArray } from "../../../shared/reactivity/ObservableArray";
 import { ObservableEvent } from "../../../shared/reactivity/ObservableEvent";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
 import type { IEntityReference } from "../../../shared/utils/EntityModel";
@@ -22,7 +23,7 @@ export interface IAccountRow {
 export class CompanySearchViewModel {
   //#region Search state
   readonly searchText = new Observable<string>("");
-  readonly searchResults = new Observable<IAccountRow[]>([]);
+  readonly searchResults = new ObservableArray<IAccountRow>();
   readonly searching = new Observable<boolean>(false);
   /** True once a search ran, switches the View from saved view to results. */
   readonly hasSearched = new Observable<boolean>(false);
@@ -125,7 +126,7 @@ export class CompanySearchViewModel {
       });
     } catch (error) {
       if (!this.tracker.isDisposed) {
-        // The idiomatic CRM error surface: native error chrome plus a
+        // The standard CRM error surface: the native error dialog plus a
         // Download Log File button when details are present.
         void this.context.navigation.openErrorDialog({
           message: "Could not save the account.",

@@ -1,5 +1,6 @@
 import type { IViewModelContext } from "../../../shared/context/IViewModelContext";
 import { Observable } from "../../../shared/reactivity/Observable";
+import { ObservableArray } from "../../../shared/reactivity/ObservableArray";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
 import type { IEntityReference } from "../../../shared/utils/EntityModel";
 import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
@@ -32,7 +33,7 @@ export class OpportunitySearchViewModel {
   //#endregion
 
   //#region Results
-  readonly results = new Observable<IOpportunityRow[]>([]);
+  readonly results = new ObservableArray<IOpportunityRow>();
   readonly searching = new Observable<boolean>(false);
   readonly resultSummary = new Observable<string | null>(null);
   //#endregion
@@ -117,7 +118,7 @@ export class OpportunitySearchViewModel {
     this.minValue.value = null;
     this.closingAfter.value = null;
     this.closingBefore.value = null;
-    this.results.value = [];
+    this.results.clear();
     this.resultSummary.value = null;
   };
 

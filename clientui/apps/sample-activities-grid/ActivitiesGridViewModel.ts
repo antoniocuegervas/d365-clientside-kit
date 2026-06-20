@@ -1,5 +1,6 @@
 import type { IViewModelContext } from "../../../shared/context/IViewModelContext";
 import { Observable } from "../../../shared/reactivity/Observable";
+import { ObservableArray } from "../../../shared/reactivity/ObservableArray";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
 import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
 
@@ -23,7 +24,7 @@ export interface IActivityRow {
  * normalizes the rows, merges, and sorts; the View maps the result to grid rows.
  */
 export class ActivitiesGridViewModel {
-  readonly activities = new Observable<IActivityRow[]>([]);
+  readonly activities = new ObservableArray<IActivityRow>();
   readonly loading = new Observable<boolean>(true);
 
   private readonly tracker = new SubscriptionTracker();

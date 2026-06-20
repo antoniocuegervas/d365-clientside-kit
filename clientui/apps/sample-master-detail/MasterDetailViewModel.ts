@@ -1,5 +1,6 @@
 import type { IViewModelContext } from "../../../shared/context/IViewModelContext";
 import { Observable } from "../../../shared/reactivity/Observable";
+import { ObservableArray } from "../../../shared/reactivity/ObservableArray";
 import { ObservableEvent } from "../../../shared/reactivity/ObservableEvent";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
 import type { IEntityReference } from "../../../shared/utils/EntityModel";
@@ -58,7 +59,7 @@ export class MasterDetailViewModel {
   //#endregion
 
   //#region Bridge (the account's contacts)
-  readonly contacts = new Observable<IContactOption[]>([]);
+  readonly contacts = new ObservableArray<IContactOption>();
   readonly contactsLoading = new Observable<boolean>(false);
   readonly selectedContactId = new Observable<string | null>(null);
   //#endregion
@@ -199,11 +200,12 @@ export class MasterDetailViewModel {
       return;
     }
     this.saveMessage.value = "Saved.";
-    // The contact's name may have changed, so refresh the selector entries.
-    this.contacts.value = this.contacts.value.map((contact) =>
-      contact.id === contactId
-        ? { ...contact, name: this.composeFullName(contact.name) }
-        : contact
+    // The contact's name may have changed, so update the matching entry.
+    // replaceWhere swaps in a new row, which refreshes the contact selector;
+    // editing the existing row in place would not have updated the view.
+    this.contacts.replaceWhere(
+      (contact) => contact.id === contactId,
+      (contact) => ({ ...contact, name: this.composeFullName(contact.name) })
     );
   };
 

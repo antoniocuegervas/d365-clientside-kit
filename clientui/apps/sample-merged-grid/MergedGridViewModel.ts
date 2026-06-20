@@ -1,5 +1,6 @@
 import type { IViewModelContext } from "../../../shared/context/IViewModelContext";
 import { Observable } from "../../../shared/reactivity/Observable";
+import { ObservableArray } from "../../../shared/reactivity/ObservableArray";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
 import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
 
@@ -19,7 +20,7 @@ export interface IPipelineRow {
  * ViewModel merges; the View maps the result to grid rows.
  */
 export class MergedGridViewModel {
-  readonly results = new Observable<IPipelineRow[]>([]);
+  readonly results = new ObservableArray<IPipelineRow>();
   readonly loading = new Observable<boolean>(true);
 
   private readonly tracker = new SubscriptionTracker();
