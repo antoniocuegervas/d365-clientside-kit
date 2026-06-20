@@ -33,6 +33,10 @@ const useStyles = makeStyles({
     height: "100%",
     boxSizing: "border-box",
     overflowY: "auto",
+    // Tighter padding on a narrow (portrait / mobile) screen.
+    "@media (max-width: 640px)": {
+      padding: tokens.spacingHorizontalM,
+    },
   },
   bridge: { display: "flex", flexDirection: "column", rowGap: tokens.spacingVerticalS },
   picker: { maxWidth: "420px" },
@@ -40,7 +44,18 @@ const useStyles = makeStyles({
     display: "flex",
     flexDirection: "column",
     rowGap: tokens.spacingVerticalM,
-    maxWidth: "480px",
+    maxWidth: "760px",
+  },
+  // Contact fields in two columns so the form stays compact, collapsing to a
+  // single column on a narrow (portrait / mobile) screen.
+  fields: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    columnGap: tokens.spacingHorizontalL,
+    rowGap: tokens.spacingVerticalM,
+    "@media (max-width: 640px)": {
+      gridTemplateColumns: "1fr",
+    },
   },
   hint: { color: tokens.colorNeutralForeground3 },
 });
@@ -85,7 +100,9 @@ const Body: React.FC<IMasterDetailViewProps> = ({ viewModel: vm }) => {
       {/* Master: the account's saved grid view, paged server-side. */}
       <SmartViewGrid
         entity="account"
-        pageSize={10}
+        pageSize={5}
+        serverSort
+        orderBy={vm.accountSort}
         refresh={vm.refreshViewGrid}
         selectedRecordId={vm.selectedAccountId}
         onRecordSelected={(id) => void vm.onAccountSelected(id)}
@@ -136,29 +153,31 @@ const Body: React.FC<IMasterDetailViewProps> = ({ viewModel: vm }) => {
           // Keyed by contact id so switching contacts gives each field a clean
           // mount. A field of every out-of-box contact type, in form order.
           <div className={styles.detail} key={selectedContactId}>
-            <SmartTextField entity="contact" attribute="firstname" value={vm.firstName} />
-            <SmartTextField entity="contact" attribute="lastname" value={vm.lastName} />
-            <SmartTextField entity="contact" attribute="jobtitle" value={vm.jobTitle} />
-            <SmartLookup
-              entity="contact"
-              attribute="preferredsystemuserid"
-              value={vm.preferredUser}
-            />
-            <SmartOptionSet entity="contact" attribute="gendercode" value={vm.gender} />
-            <SmartBooleanField entity="contact" attribute="donotemail" value={vm.doNotEmail} />
-            <SmartNumberField
-              entity="contact"
-              attribute="numberofchildren"
-              value={vm.numberOfChildren}
-            />
-            <SmartNumberField
-              entity="contact"
-              attribute="creditlimit"
-              value={vm.creditLimit}
-              transactionCurrencyId={vm.transactionCurrencyId.value ?? undefined}
-            />
-            <SmartDatePicker entity="contact" attribute="birthdate" value={vm.birthDate} />
-            <SmartTextField entity="contact" attribute="description" value={vm.description} />
+            <div className={styles.fields}>
+              <SmartTextField entity="contact" attribute="firstname" value={vm.firstName} />
+              <SmartTextField entity="contact" attribute="lastname" value={vm.lastName} />
+              <SmartTextField entity="contact" attribute="jobtitle" value={vm.jobTitle} />
+              <SmartLookup
+                entity="contact"
+                attribute="preferredsystemuserid"
+                value={vm.preferredUser}
+              />
+              <SmartOptionSet entity="contact" attribute="gendercode" value={vm.gender} />
+              <SmartBooleanField entity="contact" attribute="donotemail" value={vm.doNotEmail} />
+              <SmartNumberField
+                entity="contact"
+                attribute="numberofchildren"
+                value={vm.numberOfChildren}
+              />
+              <SmartNumberField
+                entity="contact"
+                attribute="creditlimit"
+                value={vm.creditLimit}
+                transactionCurrencyId={vm.transactionCurrencyId.value ?? undefined}
+              />
+              <SmartDatePicker entity="contact" attribute="birthdate" value={vm.birthDate} />
+              <SmartTextField entity="contact" attribute="description" value={vm.description} />
+            </div>
 
             <div>
               <Button

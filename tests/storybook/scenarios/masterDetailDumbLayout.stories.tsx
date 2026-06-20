@@ -121,6 +121,10 @@ const useStyles = makeStyles({
     rowGap: tokens.spacingVerticalM,
     padding: tokens.spacingHorizontalXXL,
     boxSizing: "border-box",
+    // Tighter padding on a narrow (portrait / mobile) screen.
+    "@media (max-width: 640px)": {
+      padding: tokens.spacingHorizontalM,
+    },
   },
   bridge: { display: "flex", flexDirection: "column", rowGap: tokens.spacingVerticalS },
   picker: { maxWidth: "420px" },
@@ -128,7 +132,18 @@ const useStyles = makeStyles({
     display: "flex",
     flexDirection: "column",
     rowGap: tokens.spacingVerticalM,
-    maxWidth: "480px",
+    maxWidth: "760px",
+  },
+  // Contact fields in two columns so the form stays compact, collapsing to a
+  // single column on a narrow (portrait / mobile) screen.
+  fields: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    columnGap: tokens.spacingHorizontalL,
+    rowGap: tokens.spacingVerticalM,
+    "@media (max-width: 640px)": {
+      gridTemplateColumns: "1fr",
+    },
   },
   hint: { color: tokens.colorNeutralForeground3 },
 });
@@ -262,64 +277,66 @@ const Body: React.FC<IMasterDetailBody> = ({ demo }) => {
 
       {selectedContactId !== null ? (
         <div className={styles.detail} key={selectedContactId}>
-          <TextField
-            label="First Name"
-            value={demo.firstName}
-            onChange={(v) => (demo.firstName.value = v)}
-          />
-          <TextField
-            label="Last Name"
-            value={demo.lastName}
-            onChange={(v) => (demo.lastName.value = v)}
-          />
-          <TextField
-            label="Job Title"
-            value={demo.jobTitle}
-            onChange={(v) => (demo.jobTitle.value = v)}
-          />
-          <LookupField
-            label="Preferred User"
-            selected={demo.preferredUser}
-            results={demo.userResults}
-            onSearchTextChanged={demo.searchUsers}
-            onChange={(v) => (demo.preferredUser.value = v)}
-          />
-          <OptionSetField
-            label="Gender"
-            options={genderOptions}
-            selectedValue={demo.gender}
-            onChange={(v) => (demo.gender.value = v)}
-          />
-          <BooleanField
-            label="Do Not Allow Emails"
-            value={demo.doNotEmail}
-            trueLabel="Do Not Allow"
-            falseLabel="Allow"
-            onChange={(v) => (demo.doNotEmail.value = v)}
-          />
-          <NumberField
-            label="No. of Children"
-            value={demo.numberOfChildren}
-            precision={0}
-            onChange={(v) => (demo.numberOfChildren.value = v)}
-          />
-          <NumberField
-            label="Credit Limit"
-            value={demo.creditLimit}
-            precision={2}
-            prefix="$"
-            onChange={(v) => (demo.creditLimit.value = v)}
-          />
-          <DateTimeField
-            label="Birthday"
-            value={demo.birthDate}
-            onChange={(v) => (demo.birthDate.value = v)}
-          />
-          <MultilineTextField
-            label="Description"
-            value={demo.description}
-            onChange={(v) => (demo.description.value = v)}
-          />
+          <div className={styles.fields}>
+            <TextField
+              label="First Name"
+              value={demo.firstName}
+              onChange={(v) => (demo.firstName.value = v)}
+            />
+            <TextField
+              label="Last Name"
+              value={demo.lastName}
+              onChange={(v) => (demo.lastName.value = v)}
+            />
+            <TextField
+              label="Job Title"
+              value={demo.jobTitle}
+              onChange={(v) => (demo.jobTitle.value = v)}
+            />
+            <LookupField
+              label="Preferred User"
+              selected={demo.preferredUser}
+              results={demo.userResults}
+              onSearchTextChanged={demo.searchUsers}
+              onChange={(v) => (demo.preferredUser.value = v)}
+            />
+            <OptionSetField
+              label="Gender"
+              options={genderOptions}
+              selectedValue={demo.gender}
+              onChange={(v) => (demo.gender.value = v)}
+            />
+            <BooleanField
+              label="Do Not Allow Emails"
+              value={demo.doNotEmail}
+              trueLabel="Do Not Allow"
+              falseLabel="Allow"
+              onChange={(v) => (demo.doNotEmail.value = v)}
+            />
+            <NumberField
+              label="No. of Children"
+              value={demo.numberOfChildren}
+              precision={0}
+              onChange={(v) => (demo.numberOfChildren.value = v)}
+            />
+            <NumberField
+              label="Credit Limit"
+              value={demo.creditLimit}
+              precision={2}
+              prefix="$"
+              onChange={(v) => (demo.creditLimit.value = v)}
+            />
+            <DateTimeField
+              label="Birthday"
+              value={demo.birthDate}
+              onChange={(v) => (demo.birthDate.value = v)}
+            />
+            <MultilineTextField
+              label="Description"
+              value={demo.description}
+              onChange={(v) => (demo.description.value = v)}
+            />
+          </div>
 
           <div>
             <Button appearance="primary" onClick={demo.onSave}>

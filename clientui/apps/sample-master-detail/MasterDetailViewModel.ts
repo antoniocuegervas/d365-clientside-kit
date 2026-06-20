@@ -5,6 +5,7 @@ import { ObservableEvent } from "../../../shared/reactivity/ObservableEvent";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
 import type { IEntityReference } from "../../../shared/utils/EntityModel";
 import { EntityReference } from "../../../shared/utils/EntityModel";
+import type { ISortSpec } from "../../../shared/controls/smart/SmartViewGrid";
 
 /** One of the selected account's contacts, in domain terms. */
 export interface IContactOption {
@@ -56,6 +57,8 @@ export class MasterDetailViewModel {
   readonly selectedAccountId = new Observable<string | null>(null);
   readonly selectedAccountName = new Observable<string | null>(null);
   readonly refreshViewGrid = new ObservableEvent<void>();
+  /** Default grid sort: account name ascending. Header clicks re-sort server-side. */
+  readonly accountSort = new Observable<ISortSpec | null>({ attribute: "name", descending: false });
   //#endregion
 
   //#region Bridge (the account's contacts)

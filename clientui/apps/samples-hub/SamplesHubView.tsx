@@ -32,7 +32,16 @@ const useStyles = makeStyles({
     boxSizing: "border-box",
   },
   picker: { maxWidth: "420px" },
-  stage: { flexGrow: 1, minHeight: 0, overflowY: "auto" },
+  stage: { flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "column" },
+  // The hosted sample fills the stage and stacks from the top, so its `height:
+  // 100%` resolves and its content does not float to the middle as panels appear.
+  stageItem: {
+    flexGrow: 1,
+    minHeight: 0,
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
+  },
 });
 
 export class SamplesHubView extends ObserverComponent<ISamplesHubProps> {
@@ -82,7 +91,11 @@ const Body: React.FC<ISamplesHubProps & { selectedKey: Observable<string | null>
       <div className={styles.stage}>
         {/* key forces a fresh mount per app, so the outgoing app unmounts and
             its ViewModel is disposed before the next one mounts */}
-        {current ? <div key={currentKey}>{current.render(host)}</div> : null}
+        {current ? (
+          <div key={currentKey} className={styles.stageItem}>
+            {current.render(host)}
+          </div>
+        ) : null}
       </div>
     </div>
   );
