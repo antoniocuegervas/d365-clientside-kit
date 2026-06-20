@@ -40,6 +40,9 @@ const useStyles = makeStyles({
   },
   bridge: { display: "flex", flexDirection: "column", rowGap: tokens.spacingVerticalS },
   picker: { maxWidth: "420px" },
+  // Fluent's Divider defaults to flex-grow: 1; in a flex column that makes it grow
+  // vertically and push everything below it down, so pin it to 0.
+  divider: { flexGrow: 0 },
   detail: {
     display: "flex",
     flexDirection: "column",
@@ -108,7 +111,7 @@ const Body: React.FC<IMasterDetailViewProps> = ({ viewModel: vm }) => {
         onRecordSelected={(id) => void vm.onAccountSelected(id)}
       />
 
-      <Divider />
+      <Divider className={styles.divider} />
 
       {vm.selectedAccountId.value === null ? (
         <div className={styles.hint}>Select an account to load its contacts.</div>

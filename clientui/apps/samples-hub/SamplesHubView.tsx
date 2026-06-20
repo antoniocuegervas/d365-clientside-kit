@@ -32,6 +32,9 @@ const useStyles = makeStyles({
     boxSizing: "border-box",
   },
   picker: { maxWidth: "420px" },
+  // Fluent's Divider defaults to flex-grow: 1; in a flex column that makes it grow
+  // vertically and push the hosted sample down, so pin it to 0.
+  divider: { flexGrow: 0 },
   stage: { flexGrow: 1, minHeight: 0, display: "flex", flexDirection: "column" },
   // The hosted sample fills the stage and stacks from the top, so its `height:
   // 100%` resolves and its content does not float to the middle as panels appear.
@@ -87,7 +90,7 @@ const Body: React.FC<ISamplesHubProps & { selectedKey: Observable<string | null>
           ))}
         </Dropdown>
       </div>
-      <Divider />
+      <Divider className={styles.divider} />
       <div className={styles.stage}>
         {/* key forces a fresh mount per app, so the outgoing app unmounts and
             its ViewModel is disposed before the next one mounts */}

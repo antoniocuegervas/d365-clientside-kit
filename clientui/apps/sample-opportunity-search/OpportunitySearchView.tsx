@@ -32,6 +32,9 @@ const useStyles = makeStyles({
     maxWidth: "900px",
   },
   actions: { display: "flex", columnGap: tokens.spacingHorizontalS },
+  // Fluent's Divider defaults to flex-grow: 1; in a flex column that makes it grow
+  // vertically and push everything below it down, so pin it to 0.
+  divider: { flexGrow: 0 },
   summary: { color: tokens.colorNeutralForeground3 },
 });
 
@@ -83,7 +86,7 @@ const Body: React.FC<IOpportunitySearchViewProps> = ({ viewModel: vm }) => {
         <Button onClick={vm.onClear}>Clear</Button>
       </div>
 
-      <Divider />
+      <Divider className={styles.divider} />
       {vm.resultSummary.value ? <div className={styles.summary}>{vm.resultSummary.value}</div> : null}
       <DataGrid
         columns={[

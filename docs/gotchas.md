@@ -141,3 +141,22 @@ that goes unnoticed. Two ways to handle it:
 change a row through one of those methods. The other list props (selection,
 lookup results, options) stay on a plain `Observable`: they hold ids or lists
 that are replaced whole, so there is nothing to reach into.
+
+## Fluent's Divider grows vertically in a column and pushes content down
+
+A page laid out as a flex column (`display: flex; flexDirection: column`, which
+every sample View uses) plus a Fluent `<Divider />` reads as an obvious "draw a
+line between sections". It has a non-obvious catch: Fluent's `Divider` defaults
+to `flex-grow: 1`. In a row that is what you want (the line fills the width), but
+in a column it grows along the vertical axis and eats all the free space,
+shoving everything below it down. The symptom is content that looks vertically
+centered and visibly shifts as sections appear, even though nothing sets
+`justify-content: center` anywhere.
+
+Pin it whenever a `Divider` sits in a column layout:
+
+```tsx
+const useStyles = makeStyles({ divider: { flexGrow: 0 } });
+// ...
+<Divider className={styles.divider} />
+```
