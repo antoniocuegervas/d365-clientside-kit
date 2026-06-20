@@ -8,6 +8,9 @@ import { d365Theme } from "../shared/theme/d365Theme";
  * and PCF roots do, so Storybook IS the side-by-side review surface.
  */
 const preview: Preview = {
+  // Every component gets an autodocs page; the source shows expanded under each
+  // sample so the code is browsable next to the rendered control.
+  tags: ["autodocs"],
   decorators: [
     (Story) => (
       <FluentProvider theme={d365Theme}>
@@ -19,6 +22,7 @@ const preview: Preview = {
   ],
   parameters: {
     layout: "padded",
+    docs: { source: { state: "open" } },
   },
 };
 

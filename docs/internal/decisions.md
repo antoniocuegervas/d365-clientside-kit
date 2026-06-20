@@ -239,8 +239,8 @@ the `?fetchXml=` path (view supplies layout, host supplies query).
 
 Dynamic columns (G-16) **extend the column model rather than forking the grid**
 (`columnOverrides: Record<key, IDynamicColumnSpec>`): a column probes 2+ source
-fields in order and the first with a value renders, with per-source `render`,
-synthetic `calc_*` columns, and a per-column client `comparator`. This
+fields in order and the first with a value renders, with per-source `render` and
+synthetic `calc_*` columns. This
 generalizes the legacy cross-sell fork into one opt-in, per-column feature;
 default rendering stays metadata-driven. Link-entity (dotted) columns can't be
 filtered/sorted through the savedQuery layer, a platform boundary, so those
@@ -708,3 +708,48 @@ Kept narrow on purpose. `DataGrid.columns` stays an `OrObservable` (columns are
 built once, never edited), and the selection props stay plain `Observable`, so
 the second reactive type shows up only where it earns its place. Revisit if a
 control grows genuine per-item state somewhere other than the grid.
+
+## D-040, the view grid sorts server-side or not at all, never a single page in memory
+
+The saved-view grid was letting the presentational DataGrid sort the loaded rows
+whenever the host had not opted into server sort. With paging on, that sorts one
+page, not the result set, which is simply wrong. The rule is now explicit:
+
+- `SmartViewGrid` sorts only when `serverSort` is set, and only on the query (a
+  re-query with `$orderby`, which resets to page 1). Without `serverSort`, its
+  columns are not sortable at all, so it never sorts a page in memory.
+- The grid owns its sort state internally, so `serverSort` works on its own; a
+  host `orderBy` Observable is optional (it seeds and exposes the spec when the
+  host wants to read or set the sort).
+- Only real root attributes are server-sortable. Lookups, link-entity columns,
+  DisableSorting cells, and dynamic/`calc_*` columns are not: a dynamic column
+  derives from several fields, so there is no single server field to order by.
+  The never-wired `IDynamicColumnSpec.sort` hook (a client comparator plus two
+  order builders, none of them used) is removed rather than left as a footgun.
+
+The presentational `DataGrid` keeps its own in-memory sort for a host that hands
+it the whole result set and opts in: it sorts everything it is given, not a page,
+and a non-sortable column now renders with no click or pointer affordance.
+Filters were never affected: they always rode the query (`$filter`) and re-query
+on change. Revisit if a dynamic column needs sorting: wire a per-spec `$orderby`
+or FetchXML order builder rather than reviving the in-memory path.
+
+## D-041, Storybook gains a Smart Controls section on an in-memory metadata fake
+
+The spec keeps Storybook on fixture data with zero CRM mocks, which is right for
+the presentational tier (those controls are host-agnostic, so a mock would only
+hide that). But it left the metadata-aware controls, the thing the kit is most
+about, entirely unshown, since they cannot render without metadata. The
+compromise: a single "Smart Controls (Metadata-aware)" section that runs them
+against the existing in-memory `createFakeViewModelContext` (a canned slice of
+contact/account metadata plus a few records), provided through a
+`ViewModelContextProvider` decorator. The label/option/format/lookup resolution
+on screen is the real control behaviour; only the metadata behind it is fixture
+data.
+
+Scoped on purpose: the presentational stories stay zero-mocks (unchanged), and
+the fake is the same one the smart-control unit tests already use, so there is
+no second mock to maintain. Also enabled autodocs (`@storybook/addon-docs`) with
+the source shown under each sample, so the hosted Storybook reads as browsable
+examples. Revisit if the smart section starts needing bespoke per-control metadata
+that the shared fake can't express; until then, one seeded context covers it.

@@ -534,7 +534,11 @@ flowchart TB
 - **No metadata helpers**, no attribute type lookups
 - **Supplied values only**, rows, options, labels, formats, column defs, selected value, via Observables and plain props
 - **Events out**, parent, smart layer, or ViewModel decides what to fetch in response
-- **Storybook runs with zero CRM mocks**, fixture data only
+- **Storybook presentational stories run with zero CRM mocks**, fixture data only. The
+  metadata-aware (smart) stories are the one exception: they cannot render without
+  metadata, so a dedicated "Smart Controls" section renders them against an in-memory
+  metadata fake (the only mocked surface), keeping the kit's headline tier visible
+  without a host. See decision D-041.
 - **Enforced by lint, not just review**, a restricted-imports rule scoped to presentational folders forbids importing Context, Metadata, `cds-client`, or `LibraryUtils`
 
 If a control calls `webAPI` when the user types in a lookup box, that is a **smart control** or **ViewModel** concern. The presentational lookup renders **supplied results** and emits **search text changed**.
@@ -1011,7 +1015,7 @@ After each phase and before declaring completion: lint, typecheck, kit build (bo
 
 1. Repo top level matches the section 2 topology, shared code, apps, hooks, and PCFs are locatable from folder names alone
 2. Bootstrap flow is traceable in **one primary entry file** plus at most **2–3** supporting modules
-3. Every standard field type has a **presentational Storybook story** with disabled/read-only/required variants; Storybook builds with **fixture data only** (zero CRM mocks)
+3. Every standard field type has a **presentational Storybook story** with disabled/read-only/required variants on **fixture data only** (zero CRM mocks); the metadata-aware controls have a **Smart Controls** Storybook section rendered against an in-memory metadata fake (the one mocked surface, see D-041)
 4. **Merged multi-query grid** and **multi-activity-type list** exist as Storybook stories and as compiling sample apps
 5. A metadata-aware field control is addable to a View with **entity + attribute only**, demonstrated in `template`
 6. Lint, typecheck, kit build, unit tests, and **both** smoke runs (modern + legacy `WebResourceContextV8` mocks) pass

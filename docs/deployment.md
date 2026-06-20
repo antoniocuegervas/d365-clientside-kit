@@ -80,7 +80,7 @@ The practical workflow is therefore:
 
 If a reload still shows old HTML (the outer webresource, not the bundle), it is
 the platform's own cache: publish customizations and reload once. For tight
-inner-loop UI work, prefer Storybook (zero CRM mocks) and deploy only for
+inner-loop UI work, prefer Storybook (no live org needed) and deploy only for
 metadata/integration checkpoints; that removes most publish cycles entirely. As
 a last-resort fallback while testing, keep DevTools open with "Disable cache"
 checked, which also bypasses the Unified Interface service worker.
