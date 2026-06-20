@@ -85,7 +85,7 @@ cross-origin with a secret-bearing URL, which is outside cds-client's
 same-origin, ambient-credential scope. Call those from server-side or a
 dedicated integration, not from here.
 
-## V8 (CRM 8.x) is best-effort, never a silent no-op
+## V8 (CRM 8.x) is best-effort, but never silently does nothing
 
 The legacy adapter maps the subset 8.x exposes and rejects the rest with a clear
 "not supported on the CRM 8.x host" error rather than quietly doing nothing.
@@ -104,11 +104,34 @@ fine for a decorative glyph, not something to hard-depend on. The method returns
 `undefined` when it cannot resolve a name, but a resolved-but-stale URL is still
 possible.
 
-## `formContext` is the full mirror; `formAccess` is a facade
+## `formContext` is the full mirror; `formAccess` is a small shortcut
 
 `context.formContext` is the full form object model (data, ui, attributes,
-controls, tabs, sections, BPF process). `context.formAccess` is a thin facade
-over it for the common id/entity/attribute reads. Both are undefined when the
+controls, tabs, sections, BPF process). `context.formAccess` is a small shortcut
+onto it for the common id/entity/attribute reads. Both are undefined when the
 app is not hosted on (or beside) a record form, and on PCF, which has no form
 context. Reach for `formAccess` for a quick read; drop to `formContext` for
 anything more.
+
+## An Observable holding a list does not notice when you change one item
+
+An `Observable` only re-renders the view when you give it a whole new value. If
+it holds a list and you change one item inside that list, the view never finds
+out:
+
+```ts
+rows.value[0].selected = true; // nothing happens: the view keeps showing the old data
+```
+
+Replacing the whole list works fine, and a top-level `rows.value.push(x)`
+actually throws in development to warn you. It is only reaching inside an item
+that goes unnoticed. Two ways to handle it:
+
+- Build a new list instead of editing in place: `rows.update(r => r.map((row, i)
+  => i === 0 ? { ...row, selected: true } : row))`. A new list means the view
+  refreshes.
+- Better, for a list a grid or list view shows, use `ObservableArray<T>`. You
+  change it through its methods (`push`, `removeAt`, `updateAt`, `replaceWhere`,
+  and so on), which always refresh the view, and in development it catches an
+  accidental in-place edit by throwing instead of leaving the grid stale. You
+  observe it exactly like an `Observable`.

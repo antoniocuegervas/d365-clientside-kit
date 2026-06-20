@@ -614,3 +614,73 @@ agent generation of MVVM proves materially worse than agent generation of hooks
 when measured against the sample apps (spec section 17.2 #5), which would undercut
 the prompt-friendly claim in spec section 1.6. React-first reviewer distaste alone is
 explicitly not a trigger; spec section 1.5 already anticipates it.
+
+## D-038, ObservableArray for the lists a grid shows, so changing one row updates the view
+
+A plain `Observable` only re-renders the view when you give it a whole new
+value. When it holds a list, that leaves a gap. Replacing the list works, and a
+top-level `rows.value.push(x)` throws in development to warn you, but changing
+one item inside the list does neither: `rows.value[0].selected = true` edits a
+row the list still points at, so the view never refreshes, and because the
+development lock only covers the list itself (not the rows in it), nothing even
+warns you. Grids are exactly where people reach into a row, so the gap sits right
+where it is most likely to be hit.
+
+`ObservableArray<T>` (shared/reactivity) closes it two ways. You change the list
+through its methods (`push`, `removeAt`, `updateAt`, `replaceWhere`, and so on),
+each of which builds a fresh list, so the view always refreshes. And in
+development the lock goes one level deeper (the list and the rows in it), so an
+accidental in-place edit throws right where you wrote it. You observe it exactly
+like an Observable, so the View, `observe(...)`, and `SubscriptionTracker` all
+take it unchanged. The shape mirrors the list helper proven in hand-built D365
+work over the years, and the one SparkleXrm shipped for the same reason. Plain
+single values and whole objects stay on `Observable`; reach for `ObservableArray`
+only for the list a grid or list view shows.
+
+Adopted in the sample grid/list ViewModels (`searchResults`, `results`,
+`contacts`, `activities`). The View observes the list and reads `.value`, then
+maps the domain rows to the presentational grid rows it hands the control:
+
+```ts
+// ViewModel: owns the domain list
+readonly searchResults = new ObservableArray<IAccountRow>();
+
+// View: observes it, then maps domain rows to grid rows on each render
+this.observe(vm.searchResults);
+const rows: IGridRow[] = vm.searchResults.value.map((r) => ({
+  key: r.id,
+  name: r.name,
+  city: r.city,
+}));
+return <DataGrid rows={rows} columns={columns} />;
+```
+
+So a presentational control never receives the `ObservableArray` itself; it gets
+the plain array the View built from it. That is the layer split working as
+intended (domain shape in the ViewModel, presentational shape in the View), not a
+workaround, which is why the samples needed no change to the controls.
+
+The boundary, and why it is not a silent trap. The control list props are typed
+`OrObservable<IGridRow[]>` (a plain array, or a plain `Observable` of one). An
+`ObservableArray` is neither, so handing one straight to a control is a compile
+error, not a quiet runtime break:
+
+```tsx
+// error TS2322: ObservableArray<IGridRow> is not assignable to
+// OrObservable<IGridRow[]>. Map through `.value` instead (as above).
+return <DataGrid rows={vm.searchResults} columns={columns} />;
+```
+
+What is left undone, stated plainly. Letting the controls bind an
+`ObservableArray` directly (so a smart control's own internal row list, or a
+story that binds a reactive list with no mapping View, could hold one) is a real,
+implementable feature, not a principled limit. The single point in favor of
+leaving it is uniformity: every presentational prop today is one shape,
+`OrObservable<T>`, and special-casing the list props with a second reactive type
+chips at that. That is a weak reason. The samples genuinely do not need it (they
+map through `.value`), which is why it was not built alongside them, but if a
+smart control or a direct-bind story wants it, the change is small: widen the
+list props to `T[] | Observable<T[]> | ObservableArray<T>` and teach the unwrap
+helper (`valueOf`) to read `.value` from either reactive type. The deeper
+(all-the-way-down) development lock was also left out, for speed on large grids;
+revisit it if a call site needs nested row objects guarded too.
