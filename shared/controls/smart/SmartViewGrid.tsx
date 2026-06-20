@@ -11,6 +11,7 @@ import { ObservableArray } from "../../reactivity/ObservableArray";
 import type { ObservableEvent } from "../../reactivity/ObservableEvent";
 import { LibraryUtils } from "../../utils/LibraryUtils";
 import { DataGrid, type IGridColumn, type IGridRow } from "../presentational/DataGrid";
+import { DegradedState } from "../presentational/DegradedState";
 import { Pagination } from "../presentational/Pagination";
 
 // Query composition, FetchXML paging, cell readers, and dynamic-column logic
@@ -130,6 +131,8 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   /** Rich-mode total page count / record count (null = unknown). */
   private readonly pageCountObs = new Observable<number | null>(null);
   private readonly totalCountObs = new Observable<number | null>(null);
+  /** Records on the current page, for the pagination range label. */
+  private readonly pageRecordCount = new Observable<number | null>(0);
   /** Cache of visited pages (1-based) and the nextLink that follows each. */
   private readonly pageRows = new Map<number, IGridRow[]>();
   private readonly pageNextLink = new Map<number, string | undefined>();
@@ -229,9 +232,11 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       await this.loadRows();
     } catch (error) {
       if (!this.isDisposed) {
+        // Never surface raw SDK text; log for developers, show a friendly banner.
+        console.error("SmartViewGrid view load failed", error);
         this.loading.value = false;
         this.setState({
-          loadError: error instanceof Error ? error.message : String(error),
+          loadError: "This view could not be loaded in this environment.",
         });
       }
     }
@@ -438,6 +443,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         this.hasNextPage.value = !!result.nextLink;
       }
       this.rows.value = rows;
+      this.pageRecordCount.value = rows.length;
     } finally {
       if (!this.isDisposed) {
         this.loading.value = false;
@@ -496,7 +502,9 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       if (this.isDisposed) {
         return;
       }
-      this.rows.value = this.mapRows(view, result.entities);
+      const mapped = this.mapRows(view, result.entities);
+      this.rows.value = mapped;
+      this.pageRecordCount.value = mapped.length;
       this.page.value = target;
       this.syncCurrentPage(target);
       if (requestTotal) {
@@ -549,7 +557,9 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   }
 
   private applyPage(pageNumber: number): void {
-    this.rows.value = this.pageRows.get(pageNumber) ?? [];
+    const pageData = this.pageRows.get(pageNumber) ?? [];
+    this.rows.value = pageData;
+    this.pageRecordCount.value = pageData.length;
     this.page.value = pageNumber;
     this.hasNextPage.value =
       this.pageRows.has(pageNumber + 1) || !!this.pageNextLink.get(pageNumber);
@@ -628,8 +638,14 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       return;
     }
     if (view.entityLogicalName === "activitypointer") {
-      const realType = row.activitytypecode;
-      if (typeof realType !== "string" || !realType) {
+      // The row carries the real type in the activitytypecode formatted value
+      // (e.g. "phonecall"). Normalize casing and whitespace: entity logical names
+      // are always lowercase, so a stray case or space difference would otherwise
+      // route us to a form that does not exist. See the activity-type gotcha for
+      // the locale limit of reading the formatted value.
+      const rawType = row.activitytypecode;
+      const realType = typeof rawType === "string" ? rawType.trim().toLowerCase() : "";
+      if (!realType) {
         void this.vmContext.navigation.openErrorDialog({
           message: "Activity Type Code is required on the view to open the records.",
         });
@@ -643,7 +659,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
 
   override render(): React.ReactNode {
     if (this.state.loadError) {
-      return <div role="alert">Could not load view: {this.state.loadError}</div>;
+      return <DegradedState message={this.state.loadError} />;
     }
     const sort = this.sortTarget().value;
     return (
@@ -672,6 +688,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
               page={this.page}
               pageCount={this.pageCountObs}
               totalRecordCount={this.totalCountObs}
+              pageRecordCount={this.pageRecordCount}
               pageSize={this.props.pageSize}
               hasNextPage={this.hasNextPage}
               onFirst={() => void this.goToPage(1)}
@@ -684,6 +701,8 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
           ) : (
             <Pagination
               page={this.page}
+              pageSize={this.props.pageSize}
+              pageRecordCount={this.pageRecordCount}
               hasNextPage={this.hasNextPage}
               onPrevious={this.goPrevious}
               onNext={() => void this.goNext()}

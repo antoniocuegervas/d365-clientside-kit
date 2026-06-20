@@ -19,6 +19,31 @@ describe("LibraryUtils.entitySetName", () => {
   });
 });
 
+describe("LibraryUtils entity-set cache", () => {
+  beforeEach(() => LibraryUtils.clearEntitySetNameCache());
+  afterEach(() => LibraryUtils.clearEntitySetNameCache());
+
+  it("a cached set name wins over the pluralization guess", () => {
+    // The convention would guess "new_widgets"; metadata says otherwise.
+    expect(LibraryUtils.entitySetName("new_widget")).toBe("new_widgets");
+    LibraryUtils.cacheEntitySetName("new_widget", "new_widgetz");
+    expect(LibraryUtils.entitySetName("new_widget")).toBe("new_widgetz");
+  });
+
+  it("matches the logical name case-insensitively", () => {
+    LibraryUtils.cacheEntitySetName("New_Thing", "new_thingset");
+    expect(LibraryUtils.entitySetName("new_thing")).toBe("new_thingset");
+  });
+
+  it("ignores empty mappings and clears cleanly", () => {
+    LibraryUtils.cacheEntitySetName("account", "");
+    expect(LibraryUtils.entitySetName("account")).toBe("accounts");
+    LibraryUtils.cacheEntitySetName("account", "accountset");
+    LibraryUtils.clearEntitySetNameCache();
+    expect(LibraryUtils.entitySetName("account")).toBe("accounts");
+  });
+});
+
 describe("LibraryUtils.escapeODataString", () => {
   it("doubles single quotes", () => {
     expect(LibraryUtils.escapeODataString("O'Brien's")).toBe("O''Brien''s");

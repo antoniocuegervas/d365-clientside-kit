@@ -5,6 +5,7 @@ import {
   parseLayoutColumnsFromJson,
 } from "../../../../shared/metadata/MetadataService";
 import { FakeXhrServer } from "../../../mocks/FakeXhr";
+import { LibraryUtils } from "../../../../shared/utils/LibraryUtils";
 
 const API = "https://org.crm.dynamics.com/api/data/v9.2/";
 
@@ -17,12 +18,16 @@ describe("MetadataService", () => {
   let service: MetadataService;
 
   beforeEach(() => {
+    LibraryUtils.clearEntitySetNameCache();
     server = new FakeXhrServer();
     server.install();
     service = new MetadataService(new CdsClient({ clientUrl: "https://org.crm.dynamics.com" }));
   });
 
-  afterEach(() => server.uninstall());
+  afterEach(() => {
+    server.uninstall();
+    LibraryUtils.clearEntitySetNameCache();
+  });
 
   it("normalizes entity metadata", async () => {
     server.respondWith((request) =>
@@ -47,6 +52,27 @@ describe("MetadataService", () => {
       primaryIdAttribute: "accountid",
       primaryNameAttribute: "name",
     });
+  });
+
+  it("teaches the pluralizer the real set name for a custom entity", async () => {
+    // The convention would guess "new_widgets"; metadata carries the truth.
+    expect(LibraryUtils.entitySetName("new_widget")).toBe("new_widgets");
+    server.respondWith((request) =>
+      request.url.startsWith(`${API}EntityDefinitions(LogicalName='new_widget')`)
+        ? {
+            status: 200,
+            responseText: JSON.stringify({
+              LogicalName: "new_widget",
+              DisplayName: label("Widget"),
+              EntitySetName: "new_widgetz",
+              PrimaryIdAttribute: "new_widgetid",
+              PrimaryNameAttribute: "new_name",
+            }),
+          }
+        : undefined
+    );
+    await service.getEntityMetadata("new_widget");
+    expect(LibraryUtils.entitySetName("new_widget")).toBe("new_widgetz");
   });
 
   it("resolves a picklist attribute with options (base + cast query)", async () => {

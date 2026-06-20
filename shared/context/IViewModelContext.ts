@@ -826,6 +826,12 @@ export interface IAttributeMetadata {
   targets?: string[];
   maxLength?: number;
   precision?: number;
+  /**
+   * Money PrecisionSource: 0 = use the attribute `precision`, 1 = use the record
+   * currency's precision, 2 = use the org pricing precision. Only set for money
+   * attributes; undefined elsewhere.
+   */
+  precisionSource?: number;
   minValue?: number;
   maxValue?: number;
 }

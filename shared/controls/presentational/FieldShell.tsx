@@ -18,13 +18,14 @@ export class FieldShell extends ObserverComponent<
   }
 
   override render(): React.ReactNode {
-    const { label, required, hint, children } = this.props;
+    const { label, required, hint, labelPosition, children } = this.props;
     const errorMessage = valueOf(this.props.errorMessage);
     return (
       <Field
         label={label}
         required={required}
         hint={hint}
+        orientation={labelPosition === "start" ? "horizontal" : "vertical"}
         validationMessage={errorMessage}
         validationState={errorMessage ? "error" : "none"}
       >

@@ -21,6 +21,8 @@ export class SmartTextField extends SmartFieldBase<string | null, ISmartTextFiel
       required: this.resolveRequired(metadata),
       disabled: this.props.disabled,
       readOnly: this.props.readOnly,
+      hint: this.resolveHint(metadata),
+      labelPosition: this.props.labelPosition,
       errorMessage: this.props.errorMessage,
       value: this.props.value,
       onChange: this.commitChange,

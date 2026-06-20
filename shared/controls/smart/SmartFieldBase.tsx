@@ -31,6 +31,14 @@ export interface ISmartFieldProps<TValue> {
   disabled?: boolean;
   readOnly?: boolean;
   errorMessage?: OrObservable<string | undefined>;
+  /**
+   * Description hint shown with the label. Defaults to the attribute's metadata
+   * Description; pass to override, or "" to suppress. A free-form `placeholder`
+   * is deliberately not offered: what a smart field shows comes from metadata.
+   */
+  hint?: string;
+  /** Label placement: "top" (default) or "start" (beside the field, RTL-aware). */
+  labelPosition?: "top" | "start";
 }
 
 interface ISmartFieldState {
@@ -112,11 +120,10 @@ export abstract class SmartFieldBase<
       }
     } catch (error) {
       if (!this.isDisposed) {
-        this.setState({
-          loadError: `Could not load metadata for ${entity}.${attribute}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        });
+        // Never surface raw SDK text to the user; log it for developers and show
+        // a neutral message under the field label.
+        console.error(`Smart field metadata load failed for ${entity}.${attribute}`, error);
+        this.setState({ loadError: "Unavailable in this environment." });
       }
     }
   }
@@ -129,6 +136,14 @@ export abstract class SmartFieldBase<
   /** Effective required flag: prop override, else metadata requirement. */
   protected resolveRequired(metadata: IAttributeMetadata): boolean {
     return this.props.required ?? metadata.required;
+  }
+
+  /**
+   * Effective hint: prop override, else the attribute's metadata Description.
+   * Pass `hint=""` to suppress (the nullish check keeps an explicit empty string).
+   */
+  protected resolveHint(metadata: IAttributeMetadata): string | undefined {
+    return this.props.hint ?? metadata.description;
   }
 
   /** Standard change plumbing: write host-owned observable, raise event. */

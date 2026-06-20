@@ -23,6 +23,8 @@ export class SmartOptionSet extends SmartFieldBase<number | null, ISmartOptionSe
         required={this.resolveRequired(metadata)}
         disabled={this.props.disabled}
         readOnly={this.props.readOnly}
+        hint={this.resolveHint(metadata)}
+        labelPosition={this.props.labelPosition}
         errorMessage={this.props.errorMessage}
         options={this.props.filterOptions ? this.props.filterOptions(options) : options}
         selectedValue={this.props.value}

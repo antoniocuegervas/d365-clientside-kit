@@ -47,12 +47,43 @@ export class LibraryUtils {
   //#region OData formatting
 
   /**
-   * Derives the entity set name from a logical name using standard Dataverse
-   * pluralization. Convention-based, pass an explicit set name wherever a
-   * customization breaks the convention (rare for OOTB entities).
+   * Authoritative logical-name to entity-set-name mappings learned from
+   * metadata. Entity set names are org-stable and immutable, so one
+   * process-level cache is safe, and it lets the convention-based
+   * {@link entitySetName} return the real set name once an entity's metadata
+   * has been loaded, covering the rare custom entity the pluralizer would miss.
+   */
+  private static readonly entitySetNameCache = new Map<string, string>();
+
+  /**
+   * Records an authoritative entity set name (from EntityDefinitions metadata)
+   * so later {@link entitySetName} calls return it instead of the pluralization
+   * guess. MetadataService calls this as it loads entity metadata.
+   */
+  static cacheEntitySetName(logicalName: string, entitySetName: string): void {
+    if (logicalName && entitySetName) {
+      LibraryUtils.entitySetNameCache.set(logicalName.toLowerCase(), entitySetName);
+    }
+  }
+
+  /** Clears the learned entity-set-name cache. For test isolation. */
+  static clearEntitySetNameCache(): void {
+    LibraryUtils.entitySetNameCache.clear();
+  }
+
+  /**
+   * Derives the entity set name from a logical name. Returns the authoritative
+   * name when metadata has cached one (see {@link cacheEntitySetName}), else
+   * falls back to standard Dataverse pluralization. The cache covers the rare
+   * custom entity whose set name breaks the convention; pass an explicit set
+   * name where even that is unavailable.
    */
   static entitySetName(logicalName: string): string {
     const lower = logicalName.toLowerCase();
+    const known = LibraryUtils.entitySetNameCache.get(lower);
+    if (known) {
+      return known;
+    }
     if (/(s|x|z|ch|sh)$/.test(lower)) {
       return `${lower}es`;
     }

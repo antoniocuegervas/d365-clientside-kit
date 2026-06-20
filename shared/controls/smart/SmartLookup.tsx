@@ -130,6 +130,10 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
       ].filter(Boolean);
       const filter = clauses.length > 0 ? `&$filter=${clauses.join(" and ")}` : "";
       const top = this.props.top ?? 10;
+      // $top is deliberate here, unlike the paged grid path: the lookup flyout
+      // wants a small capped suggestion list, not server-side paging, so capping
+      // with $top (which suppresses the nextLink paging relies on) is exactly
+      // what we want.
       // View-driven: run the saved view as the source, else a plain select.
       const options = viewId
         ? `?savedQuery=${viewId}${filter}&$top=${top}`
@@ -193,6 +197,8 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
         required={this.resolveRequired(metadata)}
         disabled={this.props.disabled}
         readOnly={this.props.readOnly}
+        hint={this.resolveHint(metadata)}
+        labelPosition={this.props.labelPosition}
         errorMessage={this.props.errorMessage}
         selected={this.props.value}
         results={this.results}

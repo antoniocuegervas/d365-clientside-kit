@@ -20,4 +20,10 @@ export interface ICommonFieldProps {
   errorMessage?: OrObservable<string | undefined>;
   /** Tooltip/description hint rendered with the label. */
   hint?: string;
+  /**
+   * Where the label sits: "top" (default) or "start" (beside the field, on the
+   * leading edge, so left in LTR and right in RTL). Maps to Fluent Field
+   * orientation. Fluent has no label-after-field ("end") option.
+   */
+  labelPosition?: "top" | "start";
 }

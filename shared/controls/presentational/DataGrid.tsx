@@ -101,11 +101,24 @@ const useStyles = makeStyles({
   row: { cursor: "default" },
   clickableRow: { cursor: "pointer" },
   selectionCell: { width: "36px" },
-  selectedRow: { backgroundColor: tokens.colorNeutralBackground1Selected },
+  // Selected row: the neutral selected tint alone is easy to miss, so add a left
+  // accent bar (the way native subgrids mark the active row) for a clear highlight.
+  selectedRow: {
+    backgroundColor: tokens.colorNeutralBackground1Selected,
+    boxShadow: `inset 3px 0 0 0 ${tokens.colorBrandStroke1}`,
+  },
   empty: {
     padding: tokens.spacingVerticalXXL,
     textAlign: "center",
     color: tokens.colorNeutralForeground3,
+  },
+  // Darken the loading skeleton a step. Fluent's default stencil is nearly
+  // invisible on a white surface (fine on a designer's monitor, gone on a
+  // laptop panel), so override the two stencil colours the SkeletonItem gradient
+  // reads: a darker base and a lighter shimmer above it.
+  loadingSkeleton: {
+    "--colorNeutralStencil1": tokens.colorNeutralStroke1,
+    "--colorNeutralStencil2": tokens.colorNeutralStencil1,
   },
 });
 
@@ -230,7 +243,7 @@ const Body: React.FC<
 
   if (loading) {
     return (
-      <Skeleton aria-label="Loading rows">
+      <Skeleton aria-label="Loading rows" className={styles.loadingSkeleton}>
         {Array.from({ length: props.skeletonRows ?? 5 }, (_, index) => (
           <div key={index} style={{ padding: "6px 0" }}>
             <SkeletonItem size={24} />

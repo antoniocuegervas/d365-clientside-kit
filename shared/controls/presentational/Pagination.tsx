@@ -35,10 +35,15 @@ export interface IPaginationProps {
   onLast?: () => void;
   /** Jump to an arbitrary 1-based page (rich), enables the combobox. */
   onGoToPage?: (page: number) => void;
-  /** Total matching records, for the "X–Y of N" label (rich). */
+  /** Total matching records, appended as "of N" when known. */
   totalRecordCount?: OrObservable<number | null>;
   /** Page size, for computing the X–Y range. */
   pageSize?: number;
+  /**
+   * Records on the current page. Makes the range's upper bound exact on a short
+   * last page when the total is unknown; without it the range assumes a full page.
+   */
+  pageRecordCount?: OrObservable<number | null>;
   disabled?: OrObservable<boolean>;
 }
 
@@ -57,7 +62,14 @@ const useStyles = makeStyles({
 export class Pagination extends ObserverComponent<IPaginationProps> {
   constructor(props: IPaginationProps) {
     super(props);
-    this.observe(props.page, props.pageCount, props.hasNextPage, props.totalRecordCount, props.disabled);
+    this.observe(
+      props.page,
+      props.pageCount,
+      props.hasNextPage,
+      props.totalRecordCount,
+      props.pageRecordCount,
+      props.disabled
+    );
   }
 
   override render(): React.ReactNode {
@@ -71,6 +83,7 @@ const Body: React.FC<IPaginationProps> = (props) => {
   const pageCount = valueOf(props.pageCount ?? null);
   const hasNext = props.hasNextPage !== undefined ? valueOf(props.hasNextPage) : null;
   const total = valueOf(props.totalRecordCount ?? null);
+  const pageRecordCount = valueOf(props.pageRecordCount ?? null);
   const disabled = valueOf(props.disabled ?? false);
 
   const richMode = !!props.onGoToPage && typeof pageCount === "number" && pageCount > 0;
@@ -80,10 +93,41 @@ const Body: React.FC<IPaginationProps> = (props) => {
     typeof pageCount === "number" ? page < pageCount : hasNext ?? false;
   const canPrev = page > 1;
 
+  // Range label, shown in BOTH modes. The page and page size are always known, so
+  // a range ("Showing records 51–100") can show even with no total; the total is
+  // appended as "of N" only when known. pageRecordCount makes the upper bound
+  // exact on a short last page, otherwise a full page is assumed. The prose is
+  // English (like the "Page N" text); localizing it would mean passing the label
+  // down from the smart layer, which can read a RESX string.
+  const range = ((): string | undefined => {
+    if (!props.pageSize) {
+      return undefined;
+    }
+    const size = props.pageSize;
+    const knownTotal = typeof total === "number";
+    if ((knownTotal && total === 0) || pageRecordCount === 0) {
+      return undefined;
+    }
+    const from = (page - 1) * size + 1;
+    const to = knownTotal
+      ? Math.min(page * size, total as number)
+      : typeof pageRecordCount === "number"
+        ? from + pageRecordCount - 1
+        : page * size;
+    return knownTotal
+      ? `Showing records ${from}–${to} of ${total}`
+      : `Showing records ${from}–${to}`;
+  })();
+
   if (!richMode) {
-    // Simple forward-cookie rendering (unchanged behavior).
+    // Simple forward-cookie rendering: range label plus prev / Page N / next.
     return (
       <div className={styles.root}>
+        {range ? (
+          <span className={styles.rangeLabel} aria-label="Record range">
+            {range}
+          </span>
+        ) : null}
         <Button
           appearance="subtle"
           icon={<ChevronLeftRegular />}
@@ -111,15 +155,6 @@ const Body: React.FC<IPaginationProps> = (props) => {
       props.onGoToPage?.(Number(data.optionValue));
     }
   };
-
-  const range = (() => {
-    if (typeof total !== "number" || !props.pageSize) {
-      return undefined;
-    }
-    const from = total === 0 ? 0 : (page - 1) * props.pageSize + 1;
-    const to = Math.min(page * props.pageSize, total);
-    return `${from}–${to} of ${total}`;
-  })();
 
   return (
     <div className={styles.root}>

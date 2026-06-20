@@ -20,6 +20,8 @@ export class SmartMultiSelectOptionSet extends SmartFieldBase<
         required={this.resolveRequired(metadata)}
         disabled={this.props.disabled}
         readOnly={this.props.readOnly}
+        hint={this.resolveHint(metadata)}
+        labelPosition={this.props.labelPosition}
         errorMessage={this.props.errorMessage}
         options={metadata.options ?? []}
         selectedValues={this.props.value}

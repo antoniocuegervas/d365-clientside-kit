@@ -19,6 +19,12 @@ export interface ISearchBarProps {
   disabled?: boolean;
   /** Show an explicit search button beside the box. Default true. */
   showButton?: boolean;
+  /**
+   * When set, typing fires `onSearch` this many ms after the user stops (live
+   * search), in addition to Enter. Debounced so it does not query the org on
+   * every keystroke. Omit for explicit-only (Enter / button) search.
+   */
+  debounceMs?: number;
 }
 
 const useStyles = makeStyles({
@@ -27,6 +33,8 @@ const useStyles = makeStyles({
 });
 
 export class SearchBar extends ObserverComponent<ISearchBarProps> {
+  private debounceTimer?: ReturnType<typeof setTimeout>;
+
   constructor(props: ISearchBarProps) {
     super(props);
     this.observe(props.searchText);
@@ -38,17 +46,38 @@ export class SearchBar extends ObserverComponent<ISearchBarProps> {
   ): void => {
     this.props.searchText.value = data.value;
     this.props.onSearchTextChanged?.(data.value);
+    if (this.props.debounceMs !== undefined && this.props.onSearch) {
+      // Live search: fire after the user pauses, not on every keystroke.
+      this.clearDebounce();
+      const value = data.value;
+      this.debounceTimer = setTimeout(() => this.props.onSearch?.(value), this.props.debounceMs);
+    }
   };
 
   private readonly handleKeyDown = (event: React.KeyboardEvent): void => {
     if (event.key === "Enter") {
+      // Enter searches now; cancel any pending debounced search so the same
+      // query does not fire twice.
+      this.clearDebounce();
       this.props.onSearch?.(this.props.searchText.value);
     }
   };
 
   private readonly handleSearchClick = (): void => {
+    this.clearDebounce();
     this.props.onSearch?.(this.props.searchText.value);
   };
+
+  private clearDebounce(): void {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = undefined;
+    }
+  }
+
+  protected override onUnmount(): void {
+    this.clearDebounce();
+  }
 
   override render(): React.ReactNode {
     return (

@@ -28,6 +28,7 @@ export interface ISmartNumberFieldProps extends ISmartFieldProps<number | null> 
  */
 export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumberFieldProps> {
   private resolvedCurrencySymbol?: string;
+  private resolvedCurrencyPrecision?: number;
 
   protected override usesFormatting(): boolean {
     return true;
@@ -46,11 +47,26 @@ export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumber
       const info = await this.vmContext.metadata.getCurrencySymbol(transactionCurrencyId);
       if (!this.isDisposed) {
         this.resolvedCurrencySymbol = info.symbol;
+        this.resolvedCurrencyPrecision = info.precision;
         this.forceUpdate();
       }
     } catch {
       // Non-fatal: fall back to the supplied/default symbol.
     }
+  }
+
+  /**
+   * Resolves the money precision the platform would use. PrecisionSource 1 means
+   * the record currency's precision applies (it rides in on getCurrencySymbol);
+   * source 0 and the default use the attribute precision. Source 2 (org pricing
+   * precision) is not fetched and falls back to the attribute precision; see the
+   * money-precision gotcha.
+   */
+  private moneyPrecision(metadata: IAttributeMetadata): number {
+    if (metadata.precisionSource === 1 && this.resolvedCurrencyPrecision !== undefined) {
+      return this.resolvedCurrencyPrecision;
+    }
+    return metadata.precision ?? 2;
   }
 
   protected renderField(metadata: IAttributeMetadata): React.ReactNode {
@@ -60,6 +76,8 @@ export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumber
       required: this.resolveRequired(metadata),
       disabled: this.props.disabled,
       readOnly: this.props.readOnly,
+      hint: this.resolveHint(metadata),
+      labelPosition: this.props.labelPosition,
       errorMessage: this.props.errorMessage,
       value: this.props.value,
       onChange: this.commitChange,
@@ -73,7 +91,7 @@ export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumber
         <CurrencyField
           {...common}
           currencySymbol={this.props.currencySymbol ?? this.resolvedCurrencySymbol}
-          precision={metadata.precision ?? 2}
+          precision={this.moneyPrecision(metadata)}
         />
       );
     }

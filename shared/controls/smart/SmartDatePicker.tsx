@@ -1,4 +1,5 @@
 import * as React from "react";
+import type { DatePickerProps } from "@fluentui/react-datepicker-compat";
 import type { IAttributeMetadata } from "../../context/IViewModelContext";
 import { DateTimeField } from "../presentational/DateTimeField";
 import { SmartFieldBase, type ISmartFieldProps } from "./SmartFieldBase";
@@ -8,7 +9,15 @@ import {
   toFirstDayOfWeek,
 } from "./localeDateFormatting";
 
-export type ISmartDatePickerProps = ISmartFieldProps<Date | null>;
+export interface ISmartDatePickerProps extends ISmartFieldProps<Date | null> {
+  /**
+   * Override the first day of the calendar week (0 = Sunday ... 6 = Saturday).
+   * Default follows the host. Dataverse ties the first day to the user's
+   * Language, not the Format locale, so a UK-format user gets Sunday (matching
+   * native UCI); pass this to honor the locale per deployment. See the gotcha.
+   */
+  firstDayOfWeek?: DatePickerProps["firstDayOfWeek"];
+}
 
 /**
  * Date / date-time field. Date-only vs date+time comes from the attribute; the
@@ -28,12 +37,17 @@ export class SmartDatePicker extends SmartFieldBase<Date | null, ISmartDatePicke
         required={this.resolveRequired(metadata)}
         disabled={this.props.disabled}
         readOnly={this.props.readOnly}
+        hint={this.resolveHint(metadata)}
+        labelPosition={this.props.labelPosition}
         errorMessage={this.props.errorMessage}
         value={this.props.value}
         onChange={this.commitChange}
         includeTime={metadata.kind === "datetime"}
         strings={dateFormatInfo ? buildDatePickerStrings(dateFormatInfo) : undefined}
-        firstDayOfWeek={dateFormatInfo ? toFirstDayOfWeek(dateFormatInfo) : undefined}
+        firstDayOfWeek={
+          this.props.firstDayOfWeek ??
+          (dateFormatInfo ? toFirstDayOfWeek(dateFormatInfo) : undefined)
+        }
         formatDate={dateFormatInfo ? makeFormatDate(dateFormatInfo) : undefined}
       />
     );

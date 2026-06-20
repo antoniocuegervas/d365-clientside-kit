@@ -82,11 +82,44 @@ describe("SmartTextField (declarative block)", () => {
     expect(textarea.tagName).toBe("TEXTAREA");
   });
 
-  it("shows a readable error when metadata fails", async () => {
+  it("shows a friendly fallback, not raw SDK text, when metadata fails", async () => {
     const { context } = createFakeViewModelContext(); // nothing scripted -> load throws
     const value = new Observable<string | null>(null);
     renderWith(context, <SmartTextField entity="account" attribute="missing" value={value} />);
-    expect(await screen.findByText(/Could not load metadata for account.missing/)).toBeTruthy();
+    expect(await screen.findByText(/Unavailable in this environment/)).toBeTruthy();
+    expect(screen.queryByText(/Could not load metadata/)).toBeNull();
+  });
+
+  it("uses the attribute Description as the field hint", async () => {
+    const { context } = createFakeViewModelContext({
+      attributes: {
+        "account.name": { displayName: "Account Name", kind: "text", description: "The legal business name." },
+      },
+    });
+    renderWith(
+      context,
+      <SmartTextField entity="account" attribute="name" value={new Observable<string | null>("")} />
+    );
+    expect(await screen.findByText("The legal business name.")).toBeTruthy();
+  });
+
+  it("a hint prop overrides the metadata Description", async () => {
+    const { context } = createFakeViewModelContext({
+      attributes: {
+        "account.name": { displayName: "Account Name", kind: "text", description: "The legal business name." },
+      },
+    });
+    renderWith(
+      context,
+      <SmartTextField
+        entity="account"
+        attribute="name"
+        value={new Observable<string | null>("")}
+        hint="Type the trading name"
+      />
+    );
+    expect(await screen.findByText("Type the trading name")).toBeTruthy();
+    expect(screen.queryByText("The legal business name.")).toBeNull();
   });
 });
 
@@ -415,6 +448,37 @@ describe("SmartNumberField locale + currency", () => {
       expect(calls.find((c) => c.api === "getCurrencySymbol")).toBeDefined();
     });
     expect(await screen.findByText("€")).toBeTruthy();
+  });
+
+  it("uses the currency precision over the attribute precision when PrecisionSource is currency", async () => {
+    const { context } = createFakeViewModelContext({
+      attributes: {
+        "opportunity.estimatedvalue": {
+          displayName: "Est. Value",
+          kind: "money",
+          precision: 2,
+          precisionSource: 1,
+        },
+      },
+      currencies: {
+        "55550000-0000-0000-0000-000000000005": { symbol: "€", precision: 3 },
+      },
+      formatting: { decimalSymbol: ".", numberSeparator: "," },
+    });
+    const value = new Observable<number | null>(1000);
+    renderWith(
+      context,
+      <SmartNumberField
+        entity="opportunity"
+        attribute="estimatedvalue"
+        value={value}
+        transactionCurrencyId="55550000-0000-0000-0000-000000000005"
+      />
+    );
+    // 3 decimals (currency precision), not 2 (the attribute precision).
+    await waitFor(() => {
+      expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("1,000.000");
+    });
   });
 
   it("an explicit currencySymbol prop wins over resolution", async () => {

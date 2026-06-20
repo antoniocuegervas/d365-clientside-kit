@@ -100,10 +100,15 @@ export class MetadataService implements IMetadataApi {
       `EntityDefinitions(LogicalName='${entityLogicalName}')` +
         `?$select=LogicalName,DisplayName,EntitySetName,PrimaryIdAttribute,PrimaryNameAttribute`
     );
+    const entitySetName = (raw.EntitySetName as string) ?? "";
+    // Teach the convention-based pluralizer this entity's real set name, so the
+    // cds-client write/query/bind paths use the authoritative name instead of a
+    // guess for any custom entity the convention would miss.
+    LibraryUtils.cacheEntitySetName(entityLogicalName, entitySetName);
     return {
       logicalName: entityLogicalName,
       displayName: localizedLabel(raw.DisplayName) ?? entityLogicalName,
-      entitySetName: (raw.EntitySetName as string) ?? "",
+      entitySetName,
       primaryIdAttribute: (raw.PrimaryIdAttribute as string) ?? "",
       primaryNameAttribute: (raw.PrimaryNameAttribute as string) ?? "",
     };
@@ -235,10 +240,15 @@ export class MetadataService implements IMetadataApi {
         return;
       }
       case "money": {
+        // PrecisionSource decides which precision actually applies: 0 the
+        // attribute Precision, 1 the record currency's precision, 2 the org
+        // pricing precision. Fetch both so the money control can pick the right
+        // one instead of always using the attribute Precision.
         const raw = await this.client.get(
-          `${basePath}/Microsoft.Dynamics.CRM.MoneyAttributeMetadata?$select=Precision`
+          `${basePath}/Microsoft.Dynamics.CRM.MoneyAttributeMetadata?$select=Precision,PrecisionSource`
         );
         metadata.precision = raw.Precision as number | undefined;
+        metadata.precisionSource = raw.PrecisionSource as number | undefined;
         return;
       }
       default:
@@ -258,7 +268,8 @@ export class MetadataService implements IMetadataApi {
       // Default public grid view for the entity (querytype 0).
       const result = await this.client.retrieveMultiple(
         "savedqueries",
-        `${select}&$filter=returnedtypecode eq '${entityLogicalName}' and querytype eq 0 and isdefault eq true&$top=1`
+        `${select}&$filter=returnedtypecode eq '${entityLogicalName}' and querytype eq 0 ` +
+          `and isdefault eq true and statecode eq 0&$top=1`
       );
       if (result.entities.length === 0) {
         throw new Error(`No default grid view found for entity '${entityLogicalName}'`);
