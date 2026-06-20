@@ -7,13 +7,6 @@ one shared library. Built on React 18 + TypeScript. The spiritual successor to
 [SparkleXrm](https://github.com/scottdurow/SparkleXrm), carried forward to UCI fidelity
 and modern host coverage.
 
-## Provenance
-
-This kit distills patterns the author has built by hand across years of D365 client
-work. This public version was assembled with heavy AI assistance: the architecture, the
-constraints, and the API design are the author's; the bulk of the implementation was
-generated against that design. The judgment is human, the typing was not.
-
 ## Why it exists
 
 In normal D365 work, when configuration cannot express exactly what the user needs, you
@@ -102,6 +95,13 @@ plus ViewModel plus Observables stays re-legible: open the ViewModel, see the da
 rules; open the View, see the controls. It reads like the form scripts these developers
 already maintain. See [docs/architectural-stance.md](docs/architectural-stance.md) for
 the full rationale, written so future contributors do not modernize it away by accident.
+
+## Provenance
+
+This kit distills patterns the author has built by hand across years of D365 client
+work. This public version was assembled with heavy AI assistance: the architecture, the
+constraints, and the API design are the author's; the bulk of the implementation was
+generated against that design. The judgment is human, the typing was not.
 
 ## Delivery surfaces
 
