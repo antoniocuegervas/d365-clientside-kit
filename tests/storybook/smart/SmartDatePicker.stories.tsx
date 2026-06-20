@@ -113,3 +113,22 @@ export const ReadOnly: Story = {
 <SmartDatePicker entity="contact" attribute="birthdate" value={birthday} readOnly />`
   ),
 };
+
+export const MondayFirst: Story = {
+  name: "First day of week overridden (Monday)",
+  render: () => (
+    <SmartDatePicker entity="contact" attribute="birthdate" value={birthday} firstDayOfWeek={1} />
+  ),
+  parameters: sample(
+    `// Dataverse ties the calendar's first day to the user's Language, not their
+// Format locale, so a UK-format user still gets Sunday-first (matching native).
+// Pass firstDayOfWeek to honor the locale per deployment (1 = Monday).
+<SmartDatePicker
+  entity="contact"
+  attribute="birthdate"
+  value={birthday}
+  firstDayOfWeek={1}
+/>`,
+    "First day of week defaults to the host (Dataverse derives it from Language, so Sunday for en-US). Override it with firstDayOfWeek; here Monday (1). See the date-picker gotcha."
+  ),
+};

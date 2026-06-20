@@ -6,6 +6,15 @@ import { personas } from "../../fixtures";
 const meta: Meta<typeof PersonaList> = {
   title: "Presentational Controls/PersonaList",
   component: PersonaList,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Persona list for contact or user layouts the native form cannot host. Items are " +
+          "supplied by the host; click handling is the host's.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof PersonaList>;

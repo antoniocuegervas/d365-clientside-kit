@@ -186,6 +186,10 @@ class MasterDetailDemo extends ObserverComponent {
 
   constructor(props: object) {
     super(props);
+    // Pre-seed a selection so the demo opens on the full master -> detail -> form
+    // flow rather than an empty "select an account" idle state that reads as broken.
+    this.onAccountSelected(accountRows[0]);
+    this.onContactSelected(contactsByAccount[accountRows[0].key][0].id);
     this.observe(this.selectedAccountKey, this.selectedContactId, this.saveMessage);
   }
 

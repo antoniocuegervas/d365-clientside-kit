@@ -1,0 +1,39 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Overview" />
+
+# D365 Client-Side UI Kit
+
+A portable client-side kit for Dynamics 365 and Dataverse: native-looking
+(refreshed UCI, Fluent UI v9) custom UI with code-level control, shipped across
+webresources, PCFs, and form scripts from one shared library (React 18 plus
+TypeScript).
+
+This Storybook is the kit's visual contract. Each control runs here so its look,
+states, and behavior are reviewable side by side with the native model-driven
+controls they stand in for.
+
+## The three tiers
+
+**Smart controls.** The metadata-aware tier, and the one to look at first. A smart
+control resolves its label, options, format, currency, and lookup behavior from
+Dataverse metadata through a host context, then threads plain values into a
+presentational control underneath. In Storybook they run against an in-memory
+metadata fake (no org), so their resolution is visible without a live environment.
+
+**Presentational controls.** The CRM-agnostic building blocks the smart tier
+renders underneath: values in, events out, no host and no metadata. They render
+the native UCI look over fixture data, which is why every one of them runs in
+Storybook with zero mocks.
+
+**Sample patterns.** Composed scenarios that show the tiers working together for
+the cases a single native control cannot cover: a merged grid over heterogeneous
+sources, a unified activities list, a master and detail layout, a multi-step
+wizard, and more.
+
+## How to read a story
+
+Open a control, then the **Show code** panel under each sample is the real usage:
+the props a host passes and the shape of the data it supplies. Presentational
+stories take fixtures directly; smart stories take an entity and attribute and let
+the metadata fake do the resolving.

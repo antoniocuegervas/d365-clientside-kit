@@ -62,7 +62,14 @@ function withClientQuerySemantics(context: IViewModelContext): IViewModelContext
 export const fieldContext: IViewModelContext = withClientQuerySemantics(
   createFakeViewModelContext({
   attributes: {
-    "contact.firstname": { displayName: "First Name", kind: "text", maxLength: 100, required: true },
+    "contact.firstname": {
+      displayName: "First Name",
+      kind: "text",
+      maxLength: 100,
+      required: true,
+      // Description flows through as the field hint (see fieldContractNote).
+      description: "The contact's given name, as it appears on correspondence.",
+    },
     "contact.description": { displayName: "Description", kind: "memo" },
     "contact.gendercode": {
       displayName: "Gender",
@@ -292,12 +299,12 @@ export function makeRequired<T>(
  * component description reads as a complete explanation on its own.
  */
 export const fieldContractNote =
-  "Pass an `entity`, an `attribute`, and a value `Observable`: the ViewModel owns that " +
-  "Observable, and the control writes the user's edit back into it (and raises `onChange`). " +
-  "Any metadata-derived default can be overridden by a prop (`label`, `required`, `disabled`, " +
-  "`readOnly`, `errorMessage`), exactly like overriding a field on a form. The smart tier keeps " +
-  "a deliberately narrow prop surface: presentation-only props such as `placeholder` or `hint` " +
-  "are not offered here, because what a smart field shows should come from metadata, not from " +
-  "the call site. These run against an in-memory metadata fake (no Dataverse host); each story's " +
-  "Show code panel includes the seeded metadata and the host Observable so the sample reads like " +
-  "real ViewModel/View code.";
+  "These run against an in-memory metadata fake (no Dataverse host); each story's Show code " +
+  "panel includes the seeded metadata and the host Observable so the sample reads like real " +
+  "ViewModel/View code. Pass an `entity`, an `attribute`, and a value `Observable`: the " +
+  "ViewModel owns that Observable, and the control writes the user's edit back into it (and " +
+  "raises `onChange`). Any metadata-derived default can be overridden by a prop (`label`, " +
+  "`required`, `hint`, `labelPosition`, `disabled`, `readOnly`, `errorMessage`), exactly like " +
+  "overriding a field on a form. The `hint` defaults to the attribute's Dataverse Description; a " +
+  "free-form `placeholder` is still not offered, because what a smart field shows should come " +
+  "from metadata, not the call site.";

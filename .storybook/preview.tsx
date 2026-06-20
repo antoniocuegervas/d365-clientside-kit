@@ -1,6 +1,6 @@
 import * as React from "react";
 import type { Preview } from "@storybook/react-vite";
-import { FluentProvider } from "@fluentui/react-components";
+import { FluentProvider, tokens } from "@fluentui/react-components";
 import { d365Theme } from "../shared/theme/d365Theme";
 
 /**
@@ -13,7 +13,13 @@ const preview: Preview = {
   tags: ["autodocs"],
   decorators: [
     (Story) => (
-      <FluentProvider theme={d365Theme}>
+      // Paint the kit's neutral surface and fill the canvas, so controls render
+      // on the light app background (not the bare Storybook canvas) in the
+      // non-docs view too.
+      <FluentProvider
+        theme={d365Theme}
+        style={{ backgroundColor: tokens.colorNeutralBackground1, minHeight: "100vh" }}
+      >
         <div style={{ maxWidth: 720, padding: 16 }}>
           <Story />
         </div>
@@ -23,11 +29,12 @@ const preview: Preview = {
   parameters: {
     layout: "padded",
     docs: { source: { state: "open" } },
-    // Sidebar order: the two control tiers first (presentational, then the
-    // metadata-aware smart tier), then the composed sample patterns.
+    // Sidebar order: the Overview lands first, then the metadata-aware smart tier
+    // (the headline of the kit), then the presentational controls it builds on,
+    // then the composed sample patterns.
     options: {
       storySort: {
-        order: ["Presentational Controls", "Smart Controls", "Sample Patterns"],
+        order: ["Overview", "Smart Controls", "Presentational Controls", "Sample Patterns"],
       },
     },
   },

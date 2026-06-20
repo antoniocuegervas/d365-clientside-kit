@@ -18,10 +18,10 @@ const meta: Meta<typeof SmartNumberField> = {
     docs: {
       description: {
         component:
-          "Numeric field for whole, decimal, and money attributes. Precision and min/max come " +
-          "from metadata, and the decimal symbol and group separator follow the user's locale. " +
-          "A money attribute renders a currency field, with the symbol resolved from the record's " +
-          "transaction currency (or an explicit `currencySymbol`). " +
+          "Currency-aware numeric field. A money attribute renders a currency field, with the " +
+          "symbol resolved from the record's transaction currency (or an explicit `currencySymbol`). " +
+          "It also handles whole, decimal, and double attributes; precision and min/max come from " +
+          "metadata, and the decimal symbol and group separator follow the user's locale. " +
           fieldContractNote,
       },
     },

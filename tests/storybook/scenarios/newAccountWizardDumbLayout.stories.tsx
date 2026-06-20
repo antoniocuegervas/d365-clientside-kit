@@ -40,7 +40,18 @@ const useStyles = makeStyles({
     rowGap: tokens.spacingVerticalM,
     padding: tokens.spacingHorizontalXXL,
     boxSizing: "border-box",
-    maxWidth: "560px",
+  },
+  // Match the live View: a content-sized card so Back/Next sit in a footer under
+  // the fields instead of floating at the bottom of the canvas.
+  card: {
+    display: "flex",
+    flexDirection: "column",
+    rowGap: tokens.spacingVerticalM,
+    maxWidth: "640px",
+    padding: tokens.spacingHorizontalL,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusLarge,
+    backgroundColor: tokens.colorNeutralBackground1,
   },
   fields: { display: "flex", flexDirection: "column", rowGap: tokens.spacingVerticalM },
   review: { display: "flex", flexDirection: "column", rowGap: tokens.spacingVerticalS },
@@ -69,6 +80,11 @@ class NewAccountWizardDemo extends ObserverComponent {
 
   constructor(props: object) {
     super(props);
+    // Pre-seed the first step so the wizard opens mid-flow with Next enabled,
+    // rather than an empty step whose disabled Next reads as broken. Clearing the
+    // field still demonstrates the per-step gating.
+    this.accountName.value = "Fabrikam Coffee";
+    this.recompute();
     this.observe(this.currentIndex, this.completed, this.summary);
   }
 
@@ -130,12 +146,14 @@ const Body: React.FC<{ demo: NewAccountWizardDemo }> = ({ demo }) => {
     return (
       <div className={styles.page}>
         <Title3>New Account Wizard</Title3>
-        <div className={styles.result}>
-          <Text>{demo.summary.value}</Text>
-          <div>
-            <Button appearance="primary" onClick={demo.startOver}>
-              Start over
-            </Button>
+        <div className={styles.card}>
+          <div className={styles.result}>
+            <Text>{demo.summary.value}</Text>
+            <div>
+              <Button appearance="primary" onClick={demo.startOver}>
+                Start over
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -145,17 +163,19 @@ const Body: React.FC<{ demo: NewAccountWizardDemo }> = ({ demo }) => {
   return (
     <div className={styles.page}>
       <Title3>New Account Wizard</Title3>
-      <Stepper
-        steps={demo.steps}
-        currentIndex={demo.currentIndex}
-        canAdvance={demo.canAdvance}
-        finishLabel="Create"
-        onBack={demo.back}
-        onNext={demo.next}
-        onFinish={demo.finish}
-      >
-        <StepBody demo={demo} />
-      </Stepper>
+      <div className={styles.card}>
+        <Stepper
+          steps={demo.steps}
+          currentIndex={demo.currentIndex}
+          canAdvance={demo.canAdvance}
+          finishLabel="Create"
+          onBack={demo.back}
+          onNext={demo.next}
+          onFinish={demo.finish}
+        >
+          <StepBody demo={demo} />
+        </Stepper>
+      </div>
     </div>
   );
 };

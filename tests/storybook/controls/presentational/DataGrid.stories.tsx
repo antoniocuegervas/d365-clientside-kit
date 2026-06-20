@@ -9,6 +9,17 @@ import { accountColumns, accountRows } from "../../fixtures";
 const meta: Meta<typeof DataGrid> = {
   title: "Presentational Controls/DataGrid",
   component: DataGrid,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Read-only data grid, the limitation-bypass control. Renders supplied rows " +
+          "with native model-driven grid styling; where the rows come from (a single view, " +
+          "merged queries, normalized activities) is entirely the host's business. Supports " +
+          "row selection, multi-select, client or server sort, and a loading skeleton.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof DataGrid>;

@@ -6,6 +6,15 @@ import { SearchBar } from "../../../../shared/controls/presentational/SearchBar"
 const meta: Meta<typeof SearchBar> = {
   title: "Presentational Controls/SearchBar",
   component: SearchBar,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Search command bar: text in, onSearch out. The host runs the query when onSearch " +
+          "fires and renders the results wherever it likes.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof SearchBar>;

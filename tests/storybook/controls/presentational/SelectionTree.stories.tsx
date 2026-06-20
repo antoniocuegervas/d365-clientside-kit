@@ -7,6 +7,15 @@ import { territoryNodes } from "../../fixtures";
 const meta: Meta<typeof SelectionTree> = {
   title: "Presentational Controls/SelectionTree",
   component: SelectionTree,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Hierarchical multi-select tree. Nodes are supplied and the checked set is host-owned; " +
+          "the tree only renders and raises change events.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof SelectionTree>;

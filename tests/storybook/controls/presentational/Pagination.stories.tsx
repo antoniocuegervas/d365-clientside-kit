@@ -6,24 +6,45 @@ import { Pagination } from "../../../../shared/controls/presentational/Paginatio
 const meta: Meta<typeof Pagination> = {
   title: "Presentational Controls/Pagination",
   component: Pagination,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Pagination control that displays the supplied page state and raises intent. It always " +
+          "shows the record range it can compute from the page and page size (for example " +
+          "'Showing records 21-40'), appending 'of N' when a total is known. Simple mode " +
+          "(previous / Page N / next) suits Dataverse forward-cookie paging; rich mode adds " +
+          "first / last / jump-to-page when the host drives server-side page and total count.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof Pagination>;
 
-/** The story plays the smart grid: it owns the page/hasNext observables. */
-const make = (initialPage: number, hasNext: boolean) => {
+/**
+ * The story plays the smart grid: it owns the page/hasNext observables. pageSize
+ * and pageRecordCount drive the range label ("1-20"), which shows even with no
+ * total; the last page reports a short count so the range ends accurately.
+ */
+const make = (initialPage: number, hasNext: boolean, lastPageRecords = 20) => {
   const page = new Observable(initialPage);
   const hasNextPage = new Observable(hasNext);
+  const pageRecordCount = new Observable<number | null>(hasNext ? 20 : lastPageRecords);
   return {
     page,
     hasNextPage,
+    pageSize: 20,
+    pageRecordCount,
     onPrevious: () => {
       if (page.value > 1) page.value -= 1;
       hasNextPage.value = true;
+      pageRecordCount.value = 20;
     },
     onNext: () => {
       page.value += 1;
       hasNextPage.value = page.value < 4; // pretend there are 4 pages
+      pageRecordCount.value = page.value < 4 ? 20 : lastPageRecords; // last page is short
     },
   };
 };
@@ -35,7 +56,8 @@ export const MiddlePage: Story = {
   render: () => <Pagination {...make(2, true)} />,
 };
 export const LastPage: Story = {
-  render: () => <Pagination {...make(4, false)} />,
+  name: "Last page (short, range ends exactly)",
+  render: () => <Pagination {...make(4, false, 7)} />,
 };
 export const Interactive: Story = {
   name: "Interactive (4 pages)",

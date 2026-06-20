@@ -9,10 +9,15 @@ import type { StorybookConfig } from "@storybook/react-vite";
  */
 const config: StorybookConfig = {
   framework: "@storybook/react-vite",
-  stories: ["../tests/storybook/**/*.stories.tsx"],
+  stories: ["../tests/storybook/**/*.mdx", "../tests/storybook/**/*.stories.tsx"],
   // addon-docs renders an autodocs page per component with the source under each
   // sample (enabled in preview.tsx).
   addons: ["@storybook/addon-docs"],
+  // No "what's new" marketing notification in the manager: this is a portfolio
+  // Storybook, not a fresh-install onboarding surface. The "Get started"
+  // checklist is dev-only (it is gated on CONFIG_TYPE === "DEVELOPMENT") and does
+  // not render in the published static build.
+  core: { disableWhatsNewNotifications: true },
 };
 
 export default config;

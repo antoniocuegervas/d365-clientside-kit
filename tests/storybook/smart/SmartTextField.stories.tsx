@@ -118,3 +118,39 @@ export const ReadOnly: Story = {
 <SmartTextField entity="account" attribute="name" value={accountName} readOnly />`
   ),
 };
+
+export const HintOverride: Story = {
+  name: "Hint (from metadata, overridable)",
+  render: () => (
+    <SmartTextField
+      entity="contact"
+      attribute="firstname"
+      value={firstName}
+      hint="Override: enter the preferred first name."
+    />
+  ),
+  parameters: sample(
+    `// contact.firstname carries a Description in metadata, shown as a hint by
+// default. Pass hint to override it, or hint="" to suppress.
+<SmartTextField
+  entity="contact"
+  attribute="firstname"
+  value={firstName}
+  hint="Override: enter the preferred first name."
+/>`,
+    "The hint defaults to the attribute's Dataverse Description; the hint prop overrides it, and an empty hint suppresses it. A free-form placeholder is still not offered."
+  ),
+};
+
+export const LabelStart: Story = {
+  name: "Label beside the field (labelPosition)",
+  render: () => (
+    <SmartTextField entity="account" attribute="name" value={accountName} labelPosition="start" />
+  ),
+  parameters: sample(
+    `// labelPosition "start" places the label beside the field on the leading edge
+// (left in LTR, right in RTL, via Fluent). The default is "top".
+<SmartTextField entity="account" attribute="name" value={accountName} labelPosition="start" />`,
+    "labelPosition is top (default) or start; start places the label on the leading edge, RTL-aware via Fluent's Field orientation."
+  ),
+};
