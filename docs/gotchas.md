@@ -188,3 +188,52 @@ panel: { overflowY: "auto", overflowX: "hidden" },
 Most panels never show this, because their padding leaves more than 1px of room
 around the fields and absorbs the bleed. It turns up only where a field reaches
 the panel edge with no padding, like the wizard's step area.
+
+## Opening an activity from a grid leans on the activitytypecode label
+
+`SmartViewGrid` opens an activity row's real form (phonecall, task, appointment)
+by reading the row's `activitytypecode` formatted value, because
+`activitypointer` itself has no openable form. That formatted value is the entity
+logical name in an English org, which is why it works. The kit trims it and
+lowercases it, but it cannot rescue a localized label: in a non-English org the
+formatted value can come back localized (for example "Telefonanruf"), which is
+not a logical name and will not open. If you run activity grids in a non-English
+org, supply your own `onItemInvoked` that maps the row to a logical name (for
+example from the numeric type code) rather than relying on the label.
+
+## Entity set names are a convention first, metadata-learned second
+
+The cds-client paths (the V8 write methods, `fetchPage`, bound `executeAction`,
+and `@odata.bind` via `LibraryUtils.odataBind`) need an entity SET name, not a
+logical name. `LibraryUtils.entitySetName` derives it by Dataverse pluralization,
+which is right for the vast majority of entities. For the rare custom entity whose
+set name breaks the convention, the guess would be wrong, so `MetadataService`
+teaches the pluralizer the real `EntitySetName` whenever it loads an entity's
+metadata: any later resolution for that entity returns the authoritative name.
+This is opportunistic, an entity whose metadata has never been loaded still uses
+the convention. Where you know the convention is wrong and no metadata has been
+loaded, pass the explicit set name (for example the `entitySet` argument on
+`odataBind`).
+
+## Money precision comes from PrecisionSource, not just the attribute
+
+A money attribute's own `Precision` is not always the precision the platform
+shows. `PrecisionSource` decides which one applies: 0 uses the attribute
+`Precision`, 1 uses the record currency's precision, 2 uses the org pricing
+precision. `SmartNumberField` resolves 0 and 1 exactly (the currency precision
+rides in on `getCurrencySymbol`). Source 2 (org pricing precision) is uncommon
+and is not fetched: those fields fall back to the attribute precision, so treat
+their displayed decimals as best-effort.
+
+## The date picker's first day of week follows Language, not the Format locale
+
+Dataverse derives the calendar's first day of week from the user's Language, not
+their Format/Region locale. English ships only as en-US (1033), so a user with UK
+formatting (dd/MM/yyyy) but English language still gets a Sunday-first calendar.
+This is not a kit bug: the native model-driven date picker shows Sunday too, so
+the kit matches it rather than disagreeing with the native pickers beside it. If a
+deployment wants the calendar to follow the format locale (Monday for the UK),
+pass `firstDayOfWeek` to `SmartDatePicker` (0 = Sunday ... 6 = Saturday), computed
+however the deployment prefers (for example
+`new Intl.Locale("en-GB").weekInfo?.firstDay`). The default stays
+matched-to-platform on purpose.

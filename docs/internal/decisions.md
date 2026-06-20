@@ -762,3 +762,47 @@ snippet to include the seeded metadata and the host value Observable, so the
 sample reads like real ViewModel/View code rather than a bare JSX tag. Revisit if
 the smart group starts needing bespoke per-control metadata that the shared fake
 can't express; until then, the shared seeded contexts cover it.
+
+## D-042, smart fields take a metadata-sourced hint, amending the earlier no-hint decline
+
+Smart field controls now expose a `hint` that defaults to the attribute's
+Dataverse Description and can be overridden by a prop (or suppressed with `""`).
+This amends the earlier decision to offer neither `placeholder` nor `hint` on the
+smart tier. The reasoning then was that a smart field's presentation should come
+from metadata, not a free-form call-site value, and that still holds for
+`placeholder` (it has no metadata source, so it stays out). A `hint` is different:
+sourced from the field Description it IS metadata-driven, so it fits the smart
+tier; the prop is just the escape hatch for the rare override. The plumbing
+already existed (the presentational `FieldShell` threads `hint` to Fluent
+`Field`), so the change is `SmartFieldBase.resolveHint` (the prop, else
+`metadata.description`) threaded through each smart field control. Description is
+fetched by the MetadataService today and keeps coming from the native
+`getEntityMetadata` after the offline-first metadata rework, so the consumer side
+is unaffected by that.
+
+## D-043, label position is configurable (top default vs start), RTL-aware via Fluent
+
+Field controls take a `labelPosition` of "top" (default) or "start", mapped to
+Fluent `Field`'s `orientation` ("vertical" / "horizontal"). "start" places the
+label on the leading edge, so it is left in LTR and right in RTL for free (Fluent
+handles the direction). The label text override itself was already supported
+(`label` prop, else metadata display name); this adds only the placement. Fluent
+`Field` has no label-after-field ("end") option, so the kit does not invent one:
+offering top and start covers the form-designer cases without leaving the Fluent
+Field chrome, which would forfeit its accessibility and spacing. A host that truly
+needs an end-placed label composes that layout itself.
+
+## D-044, date picker first day of week is overridable, default matched to native
+
+The calendar's first day of week defaults to what the host reports, which
+Dataverse derives from the user's Language (en-US is the only English that ships),
+not the Format locale. So a UK-format English user gets Sunday-first, and so does
+the native model-driven picker, so the kit matches native rather than "fixing" it:
+a mismatch against the native pickers sitting next to it would be worse than the
+locale quirk. For deployments that do want locale-first behaviour, `SmartDatePicker`
+takes a `firstDayOfWeek` override (0 = Sunday ... 6 = Saturday), computed per
+deployment (for example from `Intl.Locale(...).weekInfo`). An automatic derive
+from the Format locale would need the format `localeid` on the context surface,
+which the kit does not expose yet; that pairs naturally with the offline-first
+metadata rework (which already touches the host surface), so it is deferred there
+rather than bolted on now.
