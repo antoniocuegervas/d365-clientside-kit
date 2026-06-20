@@ -6,7 +6,7 @@ import type { IEntityReference } from "../../../../shared/utils/EntityModel";
 import { contactRefs } from "../../fixtures";
 
 const meta: Meta<typeof MultiLookupField> = {
-  title: "Controls/MultiLookupField",
+  title: "Presentational Controls/MultiLookupField",
   component: MultiLookupField,
 };
 export default meta;
@@ -62,9 +62,4 @@ export const Disabled: Story = {
 };
 export const ReadOnly: Story = {
   render: () => <MultiLookupField label="Stakeholders" readOnly {...make(contactRefs)} />,
-};
-export const WithError: Story = {
-  render: () => (
-    <MultiLookupField label="Stakeholders" errorMessage="Add at least one stakeholder." {...make([])} />
-  ),
 };

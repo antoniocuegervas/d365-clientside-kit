@@ -4,7 +4,7 @@ import { Observable } from "../../../../shared/reactivity/Observable";
 import { Stepper, type IStepperStep } from "../../../../shared/controls/presentational/Stepper";
 
 const meta: Meta<typeof Stepper> = {
-  title: "Controls/Stepper",
+  title: "Presentational Controls/Stepper",
   component: Stepper,
 };
 export default meta;

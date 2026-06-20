@@ -4,7 +4,7 @@ import { Observable } from "../../../../shared/reactivity/Observable";
 import { NumberField } from "../../../../shared/controls/presentational/NumberField";
 
 const meta: Meta<typeof NumberField> = {
-  title: "Controls/NumberField",
+  title: "Presentational Controls/NumberField",
   component: NumberField,
 };
 export default meta;
@@ -52,17 +52,6 @@ export const Disabled: Story = {
 };
 export const ReadOnly: Story = {
   render: () => <NumberField label="Number of Employees" precision={0} readOnly {...make(250)} />,
-};
-export const WithError: Story = {
-  render: () => (
-    <NumberField
-      label="Number of Employees"
-      precision={0}
-      min={0}
-      errorMessage="Value must be zero or more."
-      {...make(-5)}
-    />
-  ),
 };
 export const WithBounds: Story = {
   name: "Min/max clamping (type and blur)",

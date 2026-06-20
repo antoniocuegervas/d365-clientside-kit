@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { WaitingMessage } from "../../../../shared/controls/presentational/WaitingMessage";
 
 const meta: Meta<typeof WaitingMessage> = {
-  title: "Controls/WaitingMessage",
+  title: "Presentational Controls/WaitingMessage",
   component: WaitingMessage,
 };
 export default meta;

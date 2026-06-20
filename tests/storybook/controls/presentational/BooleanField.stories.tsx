@@ -4,7 +4,7 @@ import { Observable } from "../../../../shared/reactivity/Observable";
 import { BooleanField } from "../../../../shared/controls/presentational/BooleanField";
 
 const meta: Meta<typeof BooleanField> = {
-  title: "Controls/BooleanField",
+  title: "Presentational Controls/BooleanField",
   component: BooleanField,
 };
 export default meta;
@@ -43,11 +43,6 @@ export const Disabled: Story = {
 };
 export const ReadOnly: Story = {
   render: () => <BooleanField label="Do Not Allow Emails" readOnly {...make(false)} />,
-};
-export const WithError: Story = {
-  render: () => (
-    <BooleanField label="Do Not Allow Emails" errorMessage="A choice is required." {...make(null)} />
-  ),
 };
 export const CustomLabels: Story = {
   name: "Metadata labels (supplied)",

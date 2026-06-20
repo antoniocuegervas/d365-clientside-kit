@@ -5,7 +5,7 @@ import { OptionSetField } from "../../../../shared/controls/presentational/Optio
 import { industryOptions } from "../../fixtures";
 
 const meta: Meta<typeof OptionSetField> = {
-  title: "Controls/OptionSetField",
+  title: "Presentational Controls/OptionSetField",
   component: OptionSetField,
 };
 export default meta;
@@ -53,9 +53,6 @@ export const Disabled: Story = {
 };
 export const ReadOnly: Story = {
   render: () => <OptionSetField label="Industry" readOnly {...make(1)} />,
-};
-export const WithError: Story = {
-  render: () => <OptionSetField label="Industry" errorMessage="Select an industry." {...make(null)} />,
 };
 export const AsyncLoadedOptions: Story = {
   name: "Options arrive async (host-owned observable)",

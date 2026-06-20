@@ -4,7 +4,7 @@ import { Observable } from "../../../../shared/reactivity/Observable";
 import { SearchBar } from "../../../../shared/controls/presentational/SearchBar";
 
 const meta: Meta<typeof SearchBar> = {
-  title: "Controls/SearchBar",
+  title: "Presentational Controls/SearchBar",
   component: SearchBar,
 };
 export default meta;

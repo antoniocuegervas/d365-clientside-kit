@@ -5,7 +5,7 @@ import { MultiSelectOptionSetField } from "../../../../shared/controls/presentat
 import { industryOptions } from "../../fixtures";
 
 const meta: Meta<typeof MultiSelectOptionSetField> = {
-  title: "Controls/MultiSelectOptionSetField",
+  title: "Presentational Controls/MultiSelectOptionSetField",
   component: MultiSelectOptionSetField,
 };
 export default meta;
@@ -49,11 +49,6 @@ export const Disabled: Story = {
 };
 export const ReadOnly: Story = {
   render: () => <MultiSelectOptionSetField label="Service Lines" readOnly {...make([5, 7])} />,
-};
-export const WithError: Story = {
-  render: () => (
-    <MultiSelectOptionSetField label="Service Lines" errorMessage="Pick at least one." {...make([])} />
-  ),
 };
 export const Overflow: Story = {
   name: "Overflow (many selections)",

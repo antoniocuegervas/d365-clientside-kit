@@ -4,7 +4,7 @@ import { Observable } from "../../../../shared/reactivity/Observable";
 import { Pagination } from "../../../../shared/controls/presentational/Pagination";
 
 const meta: Meta<typeof Pagination> = {
-  title: "Controls/Pagination",
+  title: "Presentational Controls/Pagination",
   component: Pagination,
 };
 export default meta;

@@ -4,7 +4,7 @@ import { Observable } from "../../../../shared/reactivity/Observable";
 import { DateTimeField } from "../../../../shared/controls/presentational/DateTimeField";
 
 const meta: Meta<typeof DateTimeField> = {
-  title: "Controls/DateTimeField",
+  title: "Presentational Controls/DateTimeField",
   component: DateTimeField,
 };
 export default meta;
@@ -48,11 +48,6 @@ export const Disabled: Story = {
 };
 export const ReadOnly: Story = {
   render: () => <DateTimeField label="Est. Close Date" readOnly {...make(sampleDate)} />,
-};
-export const WithError: Story = {
-  render: () => (
-    <DateTimeField label="Est. Close Date" errorMessage="Date must be in the future." {...make(null)} />
-  ),
 };
 export const LocalizedCalendar: Story = {
   name: "Localized strings + first day Monday",

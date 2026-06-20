@@ -5,7 +5,7 @@ import { TextField } from "../../../../shared/controls/presentational/TextField"
 import { longText } from "../../fixtures";
 
 const meta: Meta<typeof TextField> = {
-  title: "Controls/TextField",
+  title: "Presentational Controls/TextField",
   component: TextField,
 };
 export default meta;
@@ -45,11 +45,6 @@ export const Disabled: Story = {
 };
 export const ReadOnly: Story = {
   render: () => <TextField label="Account Name" readOnly {...make("Contoso Ltd")} />,
-};
-export const WithError: Story = {
-  render: () => (
-    <TextField label="Account Name" errorMessage="Account Name is required." {...make(null)} />
-  ),
 };
 export const Overflow: Story = {
   render: () => <TextField label="Account Name" {...make(longText)} />,

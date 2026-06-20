@@ -5,7 +5,7 @@ import { MultilineTextField } from "../../../../shared/controls/presentational/M
 import { longText } from "../../fixtures";
 
 const meta: Meta<typeof MultilineTextField> = {
-  title: "Controls/MultilineTextField",
+  title: "Presentational Controls/MultilineTextField",
   component: MultilineTextField,
 };
 export default meta;
@@ -44,11 +44,6 @@ export const Disabled: Story = {
 };
 export const ReadOnly: Story = {
   render: () => <MultilineTextField label="Description" readOnly {...make("Read-only notes")} />,
-};
-export const WithError: Story = {
-  render: () => (
-    <MultilineTextField label="Description" errorMessage="Too long." {...make(longText)} />
-  ),
 };
 export const Overflow: Story = {
   render: () => (

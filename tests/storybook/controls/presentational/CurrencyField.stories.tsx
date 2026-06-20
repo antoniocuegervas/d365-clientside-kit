@@ -4,7 +4,7 @@ import { Observable } from "../../../../shared/reactivity/Observable";
 import { CurrencyField } from "../../../../shared/controls/presentational/CurrencyField";
 
 const meta: Meta<typeof CurrencyField> = {
-  title: "Controls/CurrencyField",
+  title: "Presentational Controls/CurrencyField",
   component: CurrencyField,
 };
 export default meta;
@@ -47,9 +47,4 @@ export const Disabled: Story = {
 };
 export const ReadOnly: Story = {
   render: () => <CurrencyField label="Annual Revenue" readOnly {...make(310000)} />,
-};
-export const WithError: Story = {
-  render: () => (
-    <CurrencyField label="Annual Revenue" errorMessage="Enter a valid amount." {...make(null)} />
-  ),
 };

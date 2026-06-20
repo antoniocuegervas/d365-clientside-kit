@@ -6,7 +6,7 @@ import type { IEntityReference } from "../../../../shared/utils/EntityModel";
 import { accountRefs } from "../../fixtures";
 
 const meta: Meta<typeof LookupField> = {
-  title: "Controls/LookupField",
+  title: "Presentational Controls/LookupField",
   component: LookupField,
 };
 export default meta;
@@ -67,11 +67,6 @@ export const Disabled: Story = {
 };
 export const ReadOnly: Story = {
   render: () => <LookupField label="Parent Account" readOnly {...make(accountRefs[1])} />,
-};
-export const WithError: Story = {
-  render: () => (
-    <LookupField label="Parent Account" errorMessage="Select a parent account." {...make(null)} />
-  ),
 };
 export const Searching: Story = {
   name: "Busy state while host searches",

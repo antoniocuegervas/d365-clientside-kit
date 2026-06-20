@@ -5,7 +5,7 @@ import { SelectionTree } from "../../../../shared/controls/presentational/Select
 import { territoryNodes } from "../../fixtures";
 
 const meta: Meta<typeof SelectionTree> = {
-  title: "Controls/SelectionTree",
+  title: "Presentational Controls/SelectionTree",
   component: SelectionTree,
 };
 export default meta;

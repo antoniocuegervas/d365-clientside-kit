@@ -4,7 +4,7 @@ import { PersonaList } from "../../../../shared/controls/presentational/PersonaL
 import { personas } from "../../fixtures";
 
 const meta: Meta<typeof PersonaList> = {
-  title: "Controls/PersonaList",
+  title: "Presentational Controls/PersonaList",
   component: PersonaList,
 };
 export default meta;

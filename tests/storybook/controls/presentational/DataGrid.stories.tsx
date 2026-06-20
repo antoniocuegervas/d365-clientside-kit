@@ -7,7 +7,7 @@ import { DataGrid, type IGridRow } from "../../../../shared/controls/presentatio
 import { accountColumns, accountRows } from "../../fixtures";
 
 const meta: Meta<typeof DataGrid> = {
-  title: "Controls/DataGrid",
+  title: "Presentational Controls/DataGrid",
   component: DataGrid,
 };
 export default meta;
