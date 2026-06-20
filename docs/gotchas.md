@@ -161,17 +161,30 @@ const useStyles = makeStyles({ divider: { flexGrow: 0 } });
 <Divider className={styles.divider} />
 ```
 
-## `overflowY: "auto"` quietly enables a horizontal scrollbar too
+## `overflowY: "auto"` also turns on a left-right scrollbar
 
-Setting only `overflowY: "auto"` on a scroll container looks like "let it scroll
-vertically". The browser does more than that: when one axis is a scrolling value
-and the other is `visible`, the `visible` one is computed to `auto` as well. So
-the container can show a *horizontal* scrollbar whenever its content is even 1px
-too wide. That 1px is easy to hit, a focused field is enough: Fluent's input
-focus underline is an `::after` inset `-1px` on each side, so it bleeds just past
-the edge, and a horizontal scrollbar pops in on focus and vanishes on blur.
+What you see: you click into a text field and a scrollbar flickers in along the
+bottom of the panel, then disappears when you click away. It only appears while a
+field has focus, which makes it look random.
 
-For a container that should only scroll vertically, set `overflowX: "hidden"`
-alongside `overflowY: "auto"`. (Containers with generous padding hide the symptom
-because the padding absorbs the 1px; the ones where content reaches the edge,
-like a stepper body, do not.)
+Two small things are meeting here. First, the panel sets `overflowY: "auto"` so a
+long form can scroll up and down. CSS quietly switches on left-right scrolling at
+the same time: if you make one direction scrollable and leave the other one
+alone, the browser makes both scrollable. So the panel will show a horizontal
+scrollbar the moment anything inside it is even slightly wider than the panel.
+
+Second, a focused field is just wide enough to trip it. Fluent draws the focus
+underline 1px past each side of the field (the underline is a `::after` element
+set to `-1px` on the left and right). When the field sits flush against the panel
+edge, that 1px tips the content over the edge and the scrollbar appears; on blur
+the underline goes away and so does the scrollbar.
+
+The fix is to say explicitly that only up-and-down scrolling is wanted:
+
+```ts
+panel: { overflowY: "auto", overflowX: "hidden" },
+```
+
+Most panels never show this, because their padding leaves more than 1px of room
+around the fields and absorbs the bleed. It turns up only where a field reaches
+the panel edge with no padding, like the wizard's step area.
