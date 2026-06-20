@@ -7,6 +7,8 @@ one shared library. Built on React 18 + TypeScript. The spiritual successor to
 [SparkleXrm](https://github.com/scottdurow/SparkleXrm), carried forward to UCI fidelity
 and modern host coverage.
 
+![sample apps running inside a powerapps host](sample.gif)
+
 ## Why it exists
 
 In normal D365 work, when configuration cannot express exactly what the user needs, you
