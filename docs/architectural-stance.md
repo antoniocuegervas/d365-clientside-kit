@@ -57,8 +57,9 @@ to be generated against.
 
 ```ts
 export class CompanySearchViewModel {
-  // 1. Public Observables, named for CRM concepts
-  readonly searchRows = new Observable<IGridRow[]>([]);
+  // 1. Public reactive state, named for CRM concepts (an ObservableArray for the
+  //    grid rows, a plain Observable for single values)
+  readonly searchRows = new ObservableArray<IGridRow>();
   readonly selectedAccountId = new Observable<string | null>(null);
 
   // 2. Constructor receives IViewModelContext, kicks initial load

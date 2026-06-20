@@ -14,7 +14,11 @@ export {
   type ObservableCallback,
   type ISubscribable,
 } from "./reactivity/Observable";
-export { ObservableArray } from "./reactivity/ObservableArray";
+export {
+  ObservableArray,
+  valueOfList,
+  type OrObservableList,
+} from "./reactivity/ObservableArray";
 export { ObservableEvent } from "./reactivity/ObservableEvent";
 export { SubscriptionTracker } from "./reactivity/SubscriptionTracker";
 export { ObserverComponent } from "./reactivity/ObserverComponent";

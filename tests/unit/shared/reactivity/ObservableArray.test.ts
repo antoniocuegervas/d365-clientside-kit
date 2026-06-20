@@ -1,4 +1,5 @@
-import { ObservableArray } from "../../../../shared/reactivity/ObservableArray";
+import { Observable } from "../../../../shared/reactivity/Observable";
+import { ObservableArray, valueOfList } from "../../../../shared/reactivity/ObservableArray";
 
 interface Row {
   id: string;
@@ -178,5 +179,19 @@ describe("ObservableArray", () => {
     expect(calls).toEqual(["a", "b"]);
     list.push(2);
     expect(calls).toEqual(["a", "b", "b"]);
+  });
+});
+
+describe("valueOfList", () => {
+  it("reads a plain array straight through", () => {
+    expect(valueOfList([1, 2, 3])).toEqual([1, 2, 3]);
+  });
+
+  it("reads the array out of an Observable", () => {
+    expect(valueOfList(new Observable<number[]>([4, 5]))).toEqual([4, 5]);
+  });
+
+  it("reads the array out of an ObservableArray", () => {
+    expect(valueOfList(new ObservableArray<number>([6, 7]))).toEqual([6, 7]);
   });
 });

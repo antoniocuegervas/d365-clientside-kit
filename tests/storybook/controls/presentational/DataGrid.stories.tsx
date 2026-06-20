@@ -1,6 +1,8 @@
 import * as React from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Button } from "@fluentui/react-components";
 import { Observable } from "../../../../shared/reactivity/Observable";
+import { ObservableArray } from "../../../../shared/reactivity/ObservableArray";
 import { DataGrid, type IGridRow } from "../../../../shared/controls/presentational/DataGrid";
 import { accountColumns, accountRows } from "../../fixtures";
 
@@ -38,6 +40,39 @@ export const RowSelection: Story = {
       />
     );
   },
+};
+
+/**
+ * Rows held in an ObservableArray. The buttons change the list through its own
+ * methods, and the grid updates on its own (it is observing the list), with no
+ * new prop passed in. Editing a row uses updateAt, which returns a new row, so
+ * the cell refreshes.
+ */
+const ObservableArrayDemo: React.FC = () => {
+  const rows = React.useRef(new ObservableArray<IGridRow>(accountRows)).current;
+  return (
+    <div style={{ display: "grid", gap: "12px" }}>
+      <div style={{ display: "flex", gap: "8px" }}>
+        <Button onClick={() => rows.updateAt(0, (r) => ({ ...r, name: `${String(r.name)} (edited)` }))}>
+          Edit first row
+        </Button>
+        <Button
+          onClick={() =>
+            rows.push({ key: `new-${rows.length}`, name: "New Account", city: "Somewhere", phone: "", revenue: 0 })
+          }
+        >
+          Add a row
+        </Button>
+        <Button onClick={() => rows.removeAt(0)}>Remove first row</Button>
+      </div>
+      <DataGrid columns={accountColumns} rows={rows} />
+    </div>
+  );
+};
+
+export const ObservableArrayRows: Story = {
+  name: "Rows in an ObservableArray (live per-row edit)",
+  render: () => <ObservableArrayDemo />,
 };
 
 export const AsyncRows: Story = {

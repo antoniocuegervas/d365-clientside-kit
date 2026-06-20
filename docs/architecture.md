@@ -20,7 +20,7 @@ flowchart TB
     end
 
     subgraph kit [shared/, portable kit]
-        Reactivity["Observable · ObservableEvent · SubscriptionTracker"]
+        Reactivity["Observable · ObservableArray · ObservableEvent · SubscriptionTracker"]
         Smart["Smart controls (entity + attribute → metadata)"]
         Pres["Presentational controls (values in, events out)"]
         Meta["MetadataService (cached OData metadata)"]

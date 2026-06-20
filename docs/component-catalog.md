@@ -43,6 +43,7 @@ rebuild spec §1.3.
    option pruning) → Smart control's override props (`filter`,
    `filterOptions`, `onChange`), before writing a ViewModel pipeline.
 
-Presentational controls accept `T | Observable<T>` for display inputs and
-require host-owned `Observable`s for values, both the options list and the
-selected value belong to the host (§4.2 exemplar contract).
+Presentational controls accept `T | Observable<T>` for display inputs (the data
+grid also takes an `ObservableArray` for its rows) and require host-owned
+`Observable`s for values, both the options list and the selected value belong to
+the host (§4.2 exemplar contract).

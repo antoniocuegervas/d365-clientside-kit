@@ -7,6 +7,7 @@ import type {
   IViewDefinition,
 } from "../../context/IViewModelContext";
 import { Observable, type Unsubscribe } from "../../reactivity/Observable";
+import { ObservableArray } from "../../reactivity/ObservableArray";
 import type { ObservableEvent } from "../../reactivity/ObservableEvent";
 import { LibraryUtils } from "../../utils/LibraryUtils";
 import { DataGrid, type IGridColumn, type IGridRow } from "../presentational/DataGrid";
@@ -112,7 +113,7 @@ interface ISmartViewGridState {
 export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartViewGridState> {
   /** This wrapper is the host for grid data. */
   private readonly columns = new Observable<IGridColumn[]>([]);
-  private readonly rows = new Observable<IGridRow[]>([]);
+  private readonly rows = new ObservableArray<IGridRow>();
   private readonly loading = new Observable<boolean>(true);
   private readonly page = new Observable<number>(1);
   private readonly hasNextPage = new Observable<boolean>(false);

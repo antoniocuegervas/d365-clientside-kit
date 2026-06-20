@@ -14,6 +14,7 @@ import {
 } from "@fluentui/react-components";
 import { ObserverComponent } from "../../reactivity/ObserverComponent";
 import { valueOf, type Observable, type OrObservable } from "../../reactivity/Observable";
+import { valueOfList, type OrObservableList } from "../../reactivity/ObservableArray";
 
 /**
  * Read-only data grid, THE limitation-bypass control. Renders
@@ -49,7 +50,7 @@ export interface IGridRow {
 
 export interface IDataGridProps {
   columns: OrObservable<IGridColumn[]>;
-  rows: OrObservable<IGridRow[]>;
+  rows: OrObservableList<IGridRow>;
   /** Skeleton shimmer while the host loads (no layout shift). */
   loading?: OrObservable<boolean>;
   emptyMessage?: string;
@@ -155,7 +156,7 @@ export class DataGrid extends ObserverComponent<IDataGridProps, IDataGridState> 
   };
 
   private sortedRows(): IGridRow[] {
-    const rows = [...valueOf(this.props.rows)];
+    const rows = [...valueOfList(this.props.rows)];
     // Server-sort mode: rows arrive pre-sorted; never reorder in memory.
     if (this.props.onColumnSort) {
       return rows;

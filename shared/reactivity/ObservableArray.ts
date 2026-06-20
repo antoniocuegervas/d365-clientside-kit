@@ -1,4 +1,4 @@
-import type { ISubscribable, ObservableCallback, Unsubscribe } from "./Observable";
+import { Observable, type ISubscribable, type ObservableCallback, type Unsubscribe } from "./Observable";
 
 /**
  * In development builds, locks the list and each item in it so an accidental
@@ -273,4 +273,24 @@ export class ObservableArray<T> implements ISubscribable {
       listener(this._value, previous);
     }
   }
+}
+
+/**
+ * A list prop a control can take three ways: a plain array (a fixed list, handy
+ * for stories), an `Observable` of an array (the existing reactive list), or an
+ * `ObservableArray` (the reactive list with safe per-item changes). Use it for
+ * the list props a host might fill with an `ObservableArray`, grid rows being
+ * the case that matters.
+ */
+export type OrObservableList<T> = readonly T[] | Observable<T[]> | ObservableArray<T>;
+
+/** Reads the current array out of an {@link OrObservableList}, whichever of the three it holds. */
+export function valueOfList<T>(source: OrObservableList<T>): readonly T[] {
+  if (source instanceof ObservableArray) {
+    return source.value;
+  }
+  if (source instanceof Observable) {
+    return source.value;
+  }
+  return source;
 }

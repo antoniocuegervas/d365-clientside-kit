@@ -35,7 +35,7 @@ hallucinate than hand-wired FetchXML and option-list plumbing.
   date formats for standard fields.
 - **Presentational + ViewModel only when data is custom** (merged queries,
   multi-entity lists): ViewModel fetches and normalizes into an
-  `Observable<IGridRow[]>`; `DataGrid` displays it.
+  `ObservableArray<IGridRow>`; `DataGrid` displays it.
 - **One ViewModel shape** (see architectural-stance.md), constructors take
   `IViewModelContext`, handlers are arrow properties, async callbacks check
   `tracker.isDisposed`.

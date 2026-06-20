@@ -135,3 +135,9 @@ that goes unnoticed. Two ways to handle it:
   and so on), which always refresh the view, and in development it catches an
   accidental in-place edit by throwing instead of leaving the grid stale. You
   observe it exactly like an `Observable`.
+
+`DataGrid` takes its `rows` this way (a plain array, an `Observable`, or an
+`ObservableArray`), so a grid bound to an `ObservableArray` updates when you
+change a row through one of those methods. The other list props (selection,
+lookup results, options) stay on a plain `Observable`: they hold ids or lists
+that are replaced whole, so there is nothing to reach into.

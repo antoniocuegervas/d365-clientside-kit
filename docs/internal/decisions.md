@@ -660,27 +660,51 @@ the plain array the View built from it. That is the layer split working as
 intended (domain shape in the ViewModel, presentational shape in the View), not a
 workaround, which is why the samples needed no change to the controls.
 
-The boundary, and why it is not a silent trap. The control list props are typed
-`OrObservable<IGridRow[]>` (a plain array, or a plain `Observable` of one). An
-`ObservableArray` is neither, so handing one straight to a control is a compile
-error, not a quiet runtime break:
+The boundary worth keeping in mind. The ViewModel holds the list in its domain
+shape (`ObservableArray<IAccountRow>`), while the grid wants presentational rows
+(`IGridRow`). So even where `DataGrid.rows` accepts an `ObservableArray` (see
+D-039), it accepts one of grid rows, not domain rows, and the View still maps
+through `.value`:
 
 ```tsx
-// error TS2322: ObservableArray<IGridRow> is not assignable to
-// OrObservable<IGridRow[]>. Map through `.value` instead (as above).
+// Still a type error: IAccountRow has no `key`, so it is not an IGridRow. The
+// View maps domain rows to grid rows through `.value` (as above); it does not
+// hand the domain list to the grid raw.
 return <DataGrid rows={vm.searchResults} columns={columns} />;
 ```
 
-What is left undone, stated plainly. Letting the controls bind an
-`ObservableArray` directly (so a smart control's own internal row list, or a
-story that binds a reactive list with no mapping View, could hold one) is a real,
-implementable feature, not a principled limit. The single point in favor of
-leaving it is uniformity: every presentational prop today is one shape,
-`OrObservable<T>`, and special-casing the list props with a second reactive type
-chips at that. That is a weak reason. The samples genuinely do not need it (they
-map through `.value`), which is why it was not built alongside them, but if a
-smart control or a direct-bind story wants it, the change is small: widen the
-list props to `T[] | Observable<T[]> | ObservableArray<T>` and teach the unwrap
-helper (`valueOf`) to read `.value` from either reactive type. The deeper
-(all-the-way-down) development lock was also left out, for speed on large grids;
-revisit it if a call site needs nested row objects guarded too.
+Update (D-039). The grid path this entry first deferred is now built:
+`DataGrid.rows` takes an `OrObservableList` (a plain array, an `Observable`, or
+an `ObservableArray`), so `SmartViewGrid` can hold its own rows in an
+`ObservableArray`. The other list props (selection sets, lookup results, option
+items) stay on a plain `Observable` on purpose: they are primitive-id sets or
+wholesale-replaced lists with no per-item editing, so they gain nothing. The
+deeper (all-the-way-down) development lock is still left out, for speed on large
+grids; revisit it if a call site needs nested row objects guarded too.
+
+## D-039, grid rows take an OrObservableList, so a host can bind an ObservableArray
+
+D-038 deferred one piece: the controls did not accept an `ObservableArray`, so a
+smart control could not hold its rows in one. That is now built, scoped to the
+only list state with a real per-item-editing risk: the grid rows. (Selection
+state is primitive ids, which cannot have the in-place-edit problem, and the
+other object lists, lookup results and option items, are replaced wholesale, so
+none of them gain anything.)
+
+What changed:
+
+- `OrObservableList<T>` (a plain `T[]`, an `Observable<T[]>`, or an
+  `ObservableArray<T>`) plus `valueOfList`, which reads the current array out of
+  whichever of the three it is given. Both live in `shared/reactivity`.
+- `DataGrid.rows` now takes `OrObservableList<IGridRow>`. Reads go through
+  `valueOfList`; `observe(...)` already accepted all three (it only needs
+  `subscribe`), so the subscription path was untouched, and a plain static array
+  still works for the stories.
+- `SmartViewGrid` holds its rows in an `ObservableArray<IGridRow>`. Its loads
+  still replace the whole list; the gain is that a per-row change is now one safe
+  call, and an accidental in-place edit throws in development.
+
+Kept narrow on purpose. `DataGrid.columns` stays an `OrObservable` (columns are
+built once, never edited), and the selection props stay plain `Observable`, so
+the second reactive type shows up only where it earns its place. Revisit if a
+control grows genuine per-item state somewhere other than the grid.
