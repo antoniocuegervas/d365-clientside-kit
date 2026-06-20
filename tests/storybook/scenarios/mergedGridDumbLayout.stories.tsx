@@ -16,6 +16,19 @@ import { mergedOpportunityColumns, mergedOpportunityRows } from "../fixtures";
  */
 const meta: Meta = {
   title: "Sample Patterns/Merged Grid",
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "One grid whose rows come from two separate queries, merged into a single list no " +
+          "native subgrid can produce: my open pipeline plus the deals my team won in the last 30 " +
+          "days. The rendered demo composes the presentational DataGrid over fixture rows so a " +
+          "reviewer can compare it against a native subgrid pixel for pixel. The Show code panel " +
+          "is the real version: a ViewModel that runs both queries, tags each row with its source, " +
+          "and concatenates them for the grid.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj;
@@ -99,4 +112,43 @@ const Body: React.FC<IMergedBody> = (props) => {
 export const Layout: Story = {
   name: "Merged multi-query grid",
   render: () => <MergedGridDemo />,
+  parameters: {
+    docs: {
+      source: {
+        language: "tsx",
+        code: `// One grid, rows merged from TWO queries no single native subgrid can show:
+//   1) my open opportunities
+//   2) opportunities my team won in the last 30 days
+// The ViewModel runs both, tags each row with where it came from, then
+// concatenates. The View binds the merged rows to a DataGrid (native look).
+class PipelineViewModel {
+  readonly rows = new Observable<IGridRow[]>([]);
+  readonly selectedKey = new Observable<string | null>(null);
+
+  async load(ctx: IViewModelContext): Promise<void> {
+    const [open, won] = await Promise.all([
+      ctx.webAPI.fetch("opportunity", MY_OPEN_FETCHXML),
+      ctx.webAPI.fetch("opportunity", TEAM_WON_LAST_30_DAYS_FETCHXML),
+    ]);
+    this.rows.value = [
+      ...open.entities.map((e) => toRow(e, "My open")),
+      ...won.entities.map((e) => toRow(e, "Team won (30d)")),
+    ];
+  }
+
+  open(row: IGridRow, ctx: IViewModelContext): void {
+    void ctx.navigation.openForm("opportunity", String(row.key));
+  }
+}
+
+// The View is an ObserverComponent that observes vm.rows and renders the grid.
+<DataGrid
+  columns={mergedOpportunityColumns}
+  rows={vm.rows}
+  selectedKey={vm.selectedKey}
+  onRowClick={(row) => vm.open(row, ctx)}
+/>`,
+      },
+    },
+  },
 };

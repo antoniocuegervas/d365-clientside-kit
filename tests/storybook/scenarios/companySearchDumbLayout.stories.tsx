@@ -23,6 +23,18 @@ import { accountRefs, accountColumns, accountRows, industryOptions } from "../fi
  */
 const meta: Meta = {
   title: "Sample Patterns/Company Search",
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "A quick-find grid drives a detail form: type to filter accounts, pick a row, edit it " +
+          "below. The rendered demo is composed from presentational controls over fixtures so a " +
+          "reviewer can exercise it without an org. The Show code panel is the real version: " +
+          "SmartViewGrid with a quick-find, and a detail form of smart fields that resolve their " +
+          "labels and options from account metadata.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj;
@@ -161,4 +173,45 @@ const Body: React.FC<ICompanySearchBody> = (props) => {
 export const Layout: Story = {
   name: "Search, grid, detail",
   render: () => <CompanySearchDemo />,
+  parameters: {
+    docs: {
+      source: {
+        language: "tsx",
+        code: `// A quick-find grid drives a detail form. The ViewModel owns the search text,
+// the selected id, and one Observable per detail field.
+class CompanySearchViewModel {
+  readonly quickFind = new Observable("");
+  readonly selectedId = new Observable<string | null>(null);
+  readonly name = new Observable<string | null>(null);
+  readonly industry = new Observable<number | null>(null);
+  readonly parent = new Observable<IEntityReference | null>(null);
+
+  async select(id: string, ctx: IViewModelContext): Promise<void> {
+    this.selectedId.value = id;
+    const record = await ctx.webAPI.retrieveRecord(
+      "account",
+      id,
+      "?$select=name,industrycode,_parentaccountid_value"
+    );
+    this.name.value = record.name as string;
+    this.industry.value = record.industrycode as number;
+    // ...map the parent lookup, etc.
+  }
+}
+
+// The View: SearchBar -> quick-find grid -> detail form of smart fields. The
+// grid filters server-side on quickFind; each field resolves from metadata.
+<SearchBar searchText={vm.quickFind} placeholder="Search active accounts by name" />
+<SmartViewGrid
+  entity="account"
+  quickFind={vm.quickFind}
+  selectedRecordId={vm.selectedId}
+  onRecordSelected={(id) => vm.select(id, ctx)}
+/>
+<SmartTextField entity="account" attribute="name" value={vm.name} />
+<SmartOptionSet entity="account" attribute="industrycode" value={vm.industry} />
+<SmartLookup entity="account" attribute="parentaccountid" value={vm.parent} />`,
+      },
+    },
+  },
 };

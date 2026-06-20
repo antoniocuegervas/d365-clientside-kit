@@ -17,6 +17,18 @@ import { territoryRefs, accountRefs, contactRefs, contactMethodOptions } from ".
  */
 const meta: Meta = {
   title: "Sample Patterns/Territory Cascade",
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Cascading lookups: pick a territory and the account lookup enables and scopes to that " +
+          "territory; pick an account and the contact lookup enables and scopes to its contacts. " +
+          "Changing an upstream pick clears everything below it. The rendered demo runs over " +
+          "fixtures. The Show code panel is the real version: each SmartLookup is gated on its " +
+          "parent and scoped with a `filter` built from the parent's id.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj;
@@ -193,4 +205,47 @@ const Body: React.FC<ITerritoryBody> = (props) => {
 export const Layout: Story = {
   name: "Cascading lookups, option set",
   render: () => <TerritoryCascadeDemo />,
+  parameters: {
+    docs: {
+      source: {
+        language: "tsx",
+        code: `// Cascading lookups. The ViewModel clears every downstream pick when an
+// upstream one changes, so a stale child can never survive a parent edit.
+class TerritoryCascadeViewModel {
+  readonly territory = new Observable<IEntityReference | null>(null);
+  readonly account = new Observable<IEntityReference | null>(null);
+  readonly contact = new Observable<IEntityReference | null>(null);
+
+  onTerritory = (v: IEntityReference | null) => {
+    this.territory.value = v;
+    this.account.value = null; // reset everything below
+    this.contact.value = null;
+  };
+  onAccount = (v: IEntityReference | null) => {
+    this.account.value = v;
+    this.contact.value = null;
+  };
+}
+
+// Each SmartLookup is gated on its parent (disabled until set) and scoped with
+// a filter built from the parent's id, so the search only offers valid records.
+<SmartLookup entity="lead" attribute="territoryid" value={vm.territory} onChange={vm.onTerritory} />
+<SmartLookup
+  entity="lead"
+  attribute="parentaccountid"
+  value={vm.account}
+  onChange={vm.onAccount}
+  disabled={!vm.territory.value}
+  filter={\`_territoryid_value eq \${vm.territory.value?.id}\`}
+/>
+<SmartLookup
+  entity="lead"
+  attribute="parentcontactid"
+  value={vm.contact}
+  disabled={!vm.account.value}
+  filter={\`_parentcustomerid_value eq \${vm.account.value?.id}\`}
+/>`,
+      },
+    },
+  },
 };

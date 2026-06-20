@@ -24,6 +24,18 @@ import { accountRefs, ratingOptions } from "../fixtures";
  */
 const meta: Meta = {
   title: "Sample Patterns/Opportunity Search",
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "A kitchen-sink filter form, one of every control type, that drives a results grid: set " +
+          "the filters and press Search to narrow the grid. The rendered demo filters fixtures " +
+          "with a client-side predicate so a reviewer can exercise it. The Show code panel is the " +
+          "real version: a ViewModel that snapshots the filter fields into SmartViewGrid `filters` " +
+          "and a quick-find, so the grid re-queries server-side on Search.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj;
@@ -275,4 +287,36 @@ const Body: React.FC<IOpportunityBody> = (props) => {
 export const Layout: Story = {
   name: "Filter form, results",
   render: () => <OpportunitySearchDemo />,
+  parameters: {
+    docs: {
+      source: {
+        language: "tsx",
+        code: `// A filter form of every control type drives a results grid. The ViewModel
+// holds one Observable per filter, plus the applied "filters" the grid reads.
+// Search snapshots the live fields into that list, so editing a filter does not
+// move the grid until you press Search, exactly like the real app.
+class OpportunitySearchViewModel {
+  readonly topic = new Observable<string>("");
+  readonly customer = new Observable<IEntityReference | null>(null);
+  readonly rating = new Observable<number | null>(null);
+  readonly filters = new Observable<ISmartViewGridFilter[]>([]);
+
+  search = () => {
+    this.filters.value = [
+      this.customer.value && { attribute: "customerid", value: this.customer.value.id },
+      this.rating.value != null && { attribute: "opportunityratingcode", value: this.rating.value },
+    ].filter(Boolean) as ISmartViewGridFilter[];
+  };
+}
+
+// The View: a grid of filter fields, then SmartViewGrid bound to the snapshot.
+<SmartTextField entity="opportunity" attribute="name" value={vm.topic} />
+<SmartLookup entity="opportunity" attribute="customerid" value={vm.customer} />
+<SmartOptionSet entity="opportunity" attribute="opportunityratingcode" value={vm.rating} />
+<Button appearance="primary" onClick={vm.search}>Search</Button>
+
+<SmartViewGrid entity="opportunity" filters={vm.filters} quickFind={vm.topic} />`,
+      },
+    },
+  },
 };

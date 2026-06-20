@@ -17,6 +17,18 @@ import { industryOptions } from "../fixtures";
  */
 const meta: Meta = {
   title: "Sample Patterns/New Account Wizard",
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "A gated multi-step wizard: each step gates Next until its required field is set, a draft " +
+          "carries across steps, and Create commits it. The rendered demo runs over fixtures and " +
+          "starts over on finish. The Show code panel is the real version: a concrete " +
+          "`WizardViewModel` that declares the steps, validates each, and commits the draft to " +
+          "Dataverse, with smart fields inside each step.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj;
@@ -225,4 +237,57 @@ const ReviewRow: React.FC<{ label: string; value: string | null }> = ({ label, v
 export const Layout: Story = {
   name: "Gated multi-step wizard",
   render: () => <NewAccountWizardDemo />,
+  parameters: {
+    docs: {
+      source: {
+        language: "tsx",
+        code: `// A concrete WizardViewModel declares the steps, validates each one, and
+// commits the draft. The base class owns currentIndex/canAdvance/next/back and
+// re-evaluates the current step's gate whenever a draft Observable changes.
+class NewAccountWizardViewModel extends WizardViewModel {
+  readonly steps = [
+    { key: "account", label: "Account" },
+    { key: "contact", label: "Primary contact" },
+    { key: "review", label: "Review" },
+  ];
+
+  readonly accountName = new Observable<string | null>(null);
+  readonly industry = new Observable<number | null>(null);
+  readonly lastName = new Observable<string | null>(null);
+
+  protected isStepValid(index: number): boolean {
+    if (index === 0) return !!this.accountName.value?.trim();
+    if (index === 1) return !!this.lastName.value?.trim();
+    return true; // review
+  }
+
+  protected async commit(): Promise<void> {
+    const account = await this.ctx.webAPI.createRecord("account", {
+      name: this.accountName.value,
+      industrycode: this.industry.value,
+    });
+    await this.ctx.webAPI.createRecord("contact", {
+      lastname: this.lastName.value,
+      "parentcustomerid_account@odata.bind": \`/accounts(\${account.id})\`,
+    });
+    await this.ctx.navigation.openForm("account", account.id);
+  }
+}
+
+// The View hosts the Stepper and puts smart fields in each step.
+<Stepper
+  steps={vm.steps}
+  currentIndex={vm.currentIndex}
+  canAdvance={vm.canAdvance}
+  finishLabel="Create"
+  onBack={vm.back}
+  onNext={vm.next}
+  onFinish={vm.finish}
+>
+  <SmartTextField entity="account" attribute="name" value={vm.accountName} />
+  <SmartOptionSet entity="account" attribute="industrycode" value={vm.industry} />
+</Stepper>`,
+      },
+    },
+  },
 };

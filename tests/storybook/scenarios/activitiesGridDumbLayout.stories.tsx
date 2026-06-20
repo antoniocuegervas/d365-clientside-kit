@@ -16,6 +16,19 @@ import { activityColumns, activityRows } from "../fixtures";
  */
 const meta: Meta = {
   title: "Sample Patterns/Activities Grid",
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Tasks, phone calls, and appointments in one list, the unified activity view a single " +
+          "native subgrid cannot show (each native subgrid is one activity type). The rendered " +
+          "demo composes the presentational DataGrid over fixture rows. The Show code panel is the " +
+          "real version: query `activitypointer` once (it spans every activity type) and keep each " +
+          "row's real `activitytypecode` so a double-click opens the right form, not the " +
+          "activitypointer placeholder. SmartViewGrid handles that activity-type routing for you.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj;
@@ -99,4 +112,33 @@ const Body: React.FC<IActivitiesBody> = (props) => {
 export const Layout: Story = {
   name: "Unified activity list",
   render: () => <ActivitiesGridDemo />,
+  parameters: {
+    docs: {
+      source: {
+        language: "tsx",
+        code: `// One list of mixed activity types (Task + Phone Call + Appointment) that no
+// single native subgrid shows. activitypointer spans every activity type, so
+// one query returns them all; keep each row's real activitytypecode so invoke
+// opens the right form (phonecall/task/appointment), not the placeholder.
+class ActivitiesViewModel {
+  readonly rows = new Observable<IGridRow[]>([]);
+
+  async load(ctx: IViewModelContext): Promise<void> {
+    const result = await ctx.webAPI.retrieveMultipleRecords(
+      "activitypointer",
+      "?$select=activityid,subject,activitytypecode,scheduledend,statecode" +
+        \`&$filter=ownerid eq \${ctx.user.id} and statecode eq 0\` +
+        "&$orderby=scheduledend asc"
+    );
+    this.rows.value = result.entities.map(toActivityRow);
+  }
+}
+
+// Simplest real version: point SmartViewGrid at activitypointer. It renders
+// every activity type in one grid and, on invoke, opens each row's REAL type
+// (it reads activitytypecode), so you do not have to wire the routing yourself.
+<SmartViewGrid entity="activitypointer" viewName="My Activities" />`,
+      },
+    },
+  },
 };

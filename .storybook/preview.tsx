@@ -23,6 +23,13 @@ const preview: Preview = {
   parameters: {
     layout: "padded",
     docs: { source: { state: "open" } },
+    // Sidebar order: the two control tiers first (presentational, then the
+    // metadata-aware smart tier), then the composed sample patterns.
+    options: {
+      storySort: {
+        order: ["Presentational Controls", "Smart Controls", "Sample Patterns"],
+      },
+    },
   },
 };
 

@@ -32,6 +32,19 @@ import { accountColumns, accountRows } from "../fixtures";
  */
 const meta: Meta = {
   title: "Sample Patterns/Master Detail",
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "A master grid of accounts drives a detail form of contacts: select an account to load " +
+          "its contacts, pick one, and edit a form with one field of every out-of-box type. The " +
+          "rendered demo composes presentational controls over fixtures. The Show code panel is " +
+          "the real version: SmartViewGrid for the master, then a detail form where every field is " +
+          "a smart control resolving its label, options, currency, and format from contact " +
+          "metadata.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj;
@@ -355,4 +368,43 @@ const Body: React.FC<IMasterDetailBody> = ({ demo }) => {
 export const Layout: Story = {
   name: "Master grid, contact picker, detail form",
   render: () => <MasterDetailDemo />,
+  parameters: {
+    docs: {
+      source: {
+        language: "tsx",
+        code: `// Master grid (accounts) drives a detail form (contacts). The ViewModel owns
+// the selected account, the selected contact, and one Observable per field.
+class MasterDetailViewModel {
+  readonly selectedAccountId = new Observable<string | null>(null);
+  readonly selectedContactId = new Observable<string | null>(null);
+  readonly firstName = new Observable<string | null>(null);
+  readonly preferredUser = new Observable<IEntityReference | null>(null);
+  readonly gender = new Observable<number | null>(null);
+  readonly doNotEmail = new Observable<boolean | null>(null);
+  readonly creditLimit = new Observable<number | null>(null);
+  readonly currencyId = new Observable<string | undefined>(undefined);
+  readonly birthDate = new Observable<Date | null>(null);
+  readonly description = new Observable<string | null>(null);
+  // ...load the contact's fields on selection from Dataverse
+}
+
+// The View: a master grid, then a detail form of smart fields. One control of
+// every out-of-box type, each resolving from contact metadata.
+<SmartViewGrid entity="account" onRecordSelected={vm.selectAccount} />
+
+<SmartTextField entity="contact" attribute="firstname" value={vm.firstName} />
+<SmartLookup entity="contact" attribute="preferredsystemuserid" value={vm.preferredUser} />
+<SmartOptionSet entity="contact" attribute="gendercode" value={vm.gender} />
+<SmartBooleanField entity="contact" attribute="donotemail" value={vm.doNotEmail} />
+<SmartNumberField
+  entity="contact"
+  attribute="creditlimit"
+  value={vm.creditLimit}
+  transactionCurrencyId={vm.currencyId.value}
+/>
+<SmartDatePicker entity="contact" attribute="birthdate" value={vm.birthDate} />
+<SmartTextField entity="contact" attribute="description" value={vm.description} />`,
+      },
+    },
+  },
 };
