@@ -19,6 +19,27 @@ not two days of effect-dependency archaeology.
 | Class components, explicit lifecycle | PCF roots and CRM handlers are already class-shaped |
 | Smart controls absorb metadata wiring | ViewModels stay thin for the 99%-native case |
 
+## Legible to intermittent intelligences, human and model
+
+The point above (that fluency with hooks fades, and you pay to relearn it) is
+something the owner saw firsthand, with several strong D365 developers who hit
+the same wall after a couple of months on other work. There is a second reason,
+also from experience and more forward-looking, that points the same way: what
+keeps this code easy to re-read for a developer who comes back twice a year is
+the same thing that keeps it easy for a **coding agent to generate from scratch**.
+
+An agent writing a new View and ViewModel starts cold, with none of the prior
+context, just like the developer who returns twice a year. Plain class lifecycle
+methods, one way of thinking per file, and layer boundaries the linter enforces
+are exactly what make a generated app likely to be right the first time and easy
+to check against the sample apps. The mistakes an agent is most likely to make,
+and that are hardest to catch in review, are the hook-specific ones: the order
+hooks have to run in, dependency arrays, and values that go stale inside a
+closure. So "write for the reader who shows up with no context" serves two
+readers at once: the consultant returning to a webresource, and the model writing
+the next one. See `docs/prompt-friendly-development.md` for how the kit is meant
+to be generated against.
+
 ## The rules
 
 1. **Hosts own state.** ViewModels, smart wrappers, and PCF roots create
