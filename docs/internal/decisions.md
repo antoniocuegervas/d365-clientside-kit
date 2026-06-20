@@ -740,16 +740,25 @@ The spec keeps Storybook on fixture data with zero CRM mocks, which is right for
 the presentational tier (those controls are host-agnostic, so a mock would only
 hide that). But it left the metadata-aware controls, the thing the kit is most
 about, entirely unshown, since they cannot render without metadata. The
-compromise: a single "Smart Controls (Metadata-aware)" section that runs them
-against the existing in-memory `createFakeViewModelContext` (a canned slice of
-contact/account metadata plus a few records), provided through a
-`ViewModelContextProvider` decorator. The label/option/format/lookup resolution
-on screen is the real control behaviour; only the metadata behind it is fixture
-data.
+compromise: a "Smart Controls" group that runs them against the existing
+in-memory `createFakeViewModelContext` (a canned slice of contact/account
+metadata plus a few records), provided through a `ViewModelContextProvider`
+decorator. The label/option/format/lookup resolution on screen is the real
+control behaviour; only the metadata behind it is fixture data.
+
+The group mirrors the presentational structure exactly: the presentational
+controls live under a "Presentational Controls" group, one node per component
+with each component's states (required, disabled, read-only, error, and so on)
+grouped beneath it, so "Smart Controls" follows suit with one story file per
+control (`SmartTextField`, `SmartOptionSet`, and the rest) and the same state
+coverage plus control-specific variants. The seeded contexts and helpers are
+shared from a single non-story module (`tests/storybook/smart/smartStoryHarness`).
 
 Scoped on purpose: the presentational stories stay zero-mocks (unchanged), and
 the fake is the same one the smart-control unit tests already use, so there is
 no second mock to maintain. Also enabled autodocs (`@storybook/addon-docs`) with
-the source shown under each sample, so the hosted Storybook reads as browsable
-examples. Revisit if the smart section starts needing bespoke per-control metadata
-that the shared fake can't express; until then, one seeded context covers it.
+the source shown under each sample; each smart story curates its "Show code"
+snippet to include the seeded metadata and the host value Observable, so the
+sample reads like real ViewModel/View code rather than a bare JSX tag. Revisit if
+the smart group starts needing bespoke per-control metadata that the shared fake
+can't express; until then, the shared seeded contexts cover it.
