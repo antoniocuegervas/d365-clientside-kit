@@ -1,9 +1,8 @@
 import * as React from "react";
 import { Button, Divider, Title3, makeStyles, tokens } from "@fluentui/react-components";
-import { ArrowClockwiseRegular } from "@fluentui/react-icons";
 import { ObserverComponent } from "../../../shared/reactivity/ObserverComponent";
 import { SearchBar } from "../../../shared/controls/presentational/SearchBar";
-import { DataGrid, type IGridRow } from "../../../shared/controls/presentational/DataGrid";
+import { GridCommandBar } from "../../../shared/controls/presentational/GridCommandBar";
 import { WaitingMessage } from "../../../shared/controls/presentational/WaitingMessage";
 import { SmartViewGrid } from "../../../shared/controls/smart/SmartViewGrid";
 import { SmartTextField } from "../../../shared/controls/smart/SmartTextField";
@@ -40,13 +39,14 @@ const useStyles = makeStyles({
 
 /**
  * View layout (top to bottom, like a form):
- *   search bar, then grid (saved view until a search runs), then detail panel.
+ *   search bar, then the saved-view grid (filtered live by its quick-find), then
+ *   the detail panel.
  */
 export class CompanySearchView extends ObserverComponent<ICompanySearchViewProps> {
   constructor(props: ICompanySearchViewProps) {
     super(props);
     const vm = props.viewModel;
-    this.observe(vm.hasSearched, vm.searchResults, vm.selectedAccountId, vm.detailLoading, vm.saveMessage);
+    this.observe(vm.selectedAccountId, vm.selectedAccountIds, vm.detailLoading, vm.saveMessage);
   }
 
   override render(): React.ReactNode {
@@ -56,12 +56,6 @@ export class CompanySearchView extends ObserverComponent<ICompanySearchViewProps
 
 const Body: React.FC<ICompanySearchViewProps> = ({ viewModel: vm }) => {
   const styles = useStyles();
-  const rows: IGridRow[] = vm.searchResults.value.map((row) => ({
-    key: row.id,
-    name: row.name,
-    city: row.city,
-    phone: row.phone,
-  }));
   return (
     <div className={styles.page}>
       <Title3>Company Search</Title3>
@@ -69,43 +63,32 @@ const Body: React.FC<ICompanySearchViewProps> = ({ viewModel: vm }) => {
       <div className={styles.toolbar}>
         <SearchBar
           searchText={vm.searchText}
-          onSearch={(text) => void vm.onSearch(text)}
+          showButton={false}
           placeholder="Search active accounts by name"
         />
-        <Button
-          icon={<ArrowClockwiseRegular />}
-          onClick={() => vm.refreshViewGrid.publish()}
-          appearance="subtle"
-        >
-          Refresh
-        </Button>
       </div>
 
-      {vm.hasSearched.value ? (
-        <DataGrid
-          columns={[
-            { key: "name", name: "Account Name", width: 260 },
-            { key: "city", name: "City", width: 160 },
-            { key: "phone", name: "Main Phone", width: 160 },
-          ]}
-          rows={rows}
-          loading={vm.searching}
-          emptyMessage="No accounts match your search."
-          selectedKey={vm.selectedAccountId}
-          onRowClick={(row) => void vm.onAccountSelected(row.key)}
-        />
-      ) : (
-        // 99%-native path: the entity's saved grid view, exactly as the form
-        // designer defined it, impossible to embed natively in a webresource.
-        // Paged server-side and double-click a row to open the record.
-        <SmartViewGrid
-          entity="account"
-          pageSize={25}
-          refresh={vm.refreshViewGrid}
-          selectedRecordId={vm.selectedAccountId}
-          onRecordSelected={(id) => void vm.onAccountSelected(id)}
-        />
-      )}
+      <GridCommandBar
+        selectedCount={vm.selectedAccountIds.value.length}
+        onNew={vm.onNew}
+        onDelete={() => void vm.onDeleteSelected()}
+        onRefresh={() => vm.refreshViewGrid.publish()}
+      />
+
+      {/* The entity's saved grid view, exactly as the form designer defined it,
+          impossible to embed natively in a webresource. The search box feeds the
+          grid's own quick-find, so one grid both lists and searches: server-paged,
+          server-filtered, with the view's columns. Double-click a row to open it. */}
+      <SmartViewGrid
+        entity="account"
+        pageSize={25}
+        refresh={vm.refreshViewGrid}
+        quickFind={vm.searchText}
+        multiSelect
+        selectedRecordIds={vm.selectedAccountIds}
+        selectedRecordId={vm.selectedAccountId}
+        onRecordSelected={(id) => void vm.onAccountSelected(id)}
+      />
 
       <Divider className={styles.divider} />
 

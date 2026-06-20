@@ -31,6 +31,7 @@ const useStyles = makeStyles({
     height: "100%",
     boxSizing: "border-box",
   },
+  intro: { color: tokens.colorNeutralForeground3, maxWidth: "640px" },
   picker: { maxWidth: "420px" },
   // Fluent's Divider defaults to flex-grow: 1; in a flex column that makes it grow
   // vertically and push the hosted sample down, so pin it to 0.
@@ -74,6 +75,12 @@ const Body: React.FC<ISamplesHubProps & { selectedKey: Observable<string | null>
   return (
     <div className={styles.page}>
       <Title3>Sample Apps</Title3>
+      <div className={styles.intro}>
+        One deployed webresource hosts every sample and swaps between them at runtime, the
+        kit's <code>?app=</code> registry in action. Pick a sample to run a metadata-aware
+        View and ViewModel, built from the shared controls, live against this org. Each one
+        targets standard Dataverse entities, so it works on any environment.
+      </div>
       <div className={styles.picker}>
         <Dropdown
           placeholder="Pick a sample to run"

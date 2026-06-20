@@ -16,9 +16,19 @@ const useStyles = makeStyles({
     flexDirection: "column",
     rowGap: tokens.spacingVerticalM,
     padding: tokens.spacingHorizontalXXL,
-    height: "100%",
     boxSizing: "border-box",
-    maxWidth: "560px",
+  },
+  // The wizard is a card sized to its content, so Back/Next sit in a footer right
+  // under the fields instead of floating at the viewport bottom.
+  card: {
+    display: "flex",
+    flexDirection: "column",
+    rowGap: tokens.spacingVerticalM,
+    maxWidth: "640px",
+    padding: tokens.spacingHorizontalL,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusLarge,
+    backgroundColor: tokens.colorNeutralBackground1,
   },
   fields: { display: "flex", flexDirection: "column", rowGap: tokens.spacingVerticalM },
   review: { display: "flex", flexDirection: "column", rowGap: tokens.spacingVerticalS },
@@ -46,12 +56,14 @@ const Body: React.FC<INewAccountWizardViewProps> = ({ viewModel: vm }) => {
     return (
       <div className={styles.page}>
         <Title3>New Account Wizard</Title3>
-        <div className={styles.result}>
-          <Text>{vm.summary.value}</Text>
-          <div>
-            <Button appearance="primary" onClick={vm.openCreatedAccount}>
-              Open account
-            </Button>
+        <div className={styles.card}>
+          <div className={styles.result}>
+            <Text>{vm.summary.value}</Text>
+            <div>
+              <Button appearance="primary" onClick={vm.openCreatedAccount}>
+                Open account
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -61,18 +73,20 @@ const Body: React.FC<INewAccountWizardViewProps> = ({ viewModel: vm }) => {
   return (
     <div className={styles.page}>
       <Title3>New Account Wizard</Title3>
-      <Stepper
-        steps={vm.steps}
-        currentIndex={vm.currentIndex}
-        canAdvance={vm.canAdvance}
-        isBusy={vm.isBusy}
-        finishLabel="Create"
-        onBack={vm.back}
-        onNext={vm.next}
-        onFinish={() => void vm.finish()}
-      >
-        <StepBody vm={vm} />
-      </Stepper>
+      <div className={styles.card}>
+        <Stepper
+          steps={vm.steps}
+          currentIndex={vm.currentIndex}
+          canAdvance={vm.canAdvance}
+          isBusy={vm.isBusy}
+          finishLabel="Create"
+          onBack={vm.back}
+          onNext={vm.next}
+          onFinish={() => void vm.finish()}
+        >
+          <StepBody vm={vm} />
+        </Stepper>
+      </div>
     </div>
   );
 };
