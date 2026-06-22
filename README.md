@@ -56,22 +56,33 @@ metadata already live in a model-driven app, and you have hit the edge of what
 configuration expresses. Embedding a custom page there carries costs that are easy
 to underestimate:
 
-- **It does not look native.** A custom page renders in its own visual language and
-  reads as a foreign object beside UCI forms. Matching the refreshed Fluent v9 look
-  is this kit's whole point.
-- **It does not inherit your metadata.** Option set labels, number precision, date
-  and locale behavior, lookup targets: you redefine the data and rebuild that
-  formatting yourself. A metadata-aware control resolves it from Dataverse directly.
-- **It is a paradigm to staff and maintain.** Power Fx beside React beside your form
-  scripts is three mental models. This kit is React on the metadata you already
-  have, in source control and CI, reviewed like the rest of your code.
-- **It fights programmable data.** Merged queries, multi-activity lists, custom
-  lookup filtering, the cases this kit targets, are where a layout-first low-code
-  tool is most awkward.
+- **It sits beside the form, not in it.** A custom page attaches as a full page, a
+  dialog, a side pane, or a section-embedded canvas app. None of those is a bound
+  subgrid or a form-field control, so for work that belongs in the grid or on the
+  field (an editable subgrid, a lookup, a cell editor) a custom page can render near
+  it but cannot be it. A PCF from this kit can.
+- **It resolves metadata per binding, not comprehensively.** A custom page is not
+  metadata-blind: `Choices()` reads live option-set labels and `DataSourceInfo()`
+  exposes column facts. The difference is coverage and default. The kit's smart
+  controls resolve labels, option sets, number precision and `PrecisionSource`, date
+  and locale behavior, lookup targets, and the record currency from Dataverse by
+  default, where a custom page wires each one binding by binding and leaves the
+  awkward cases to you.
+- **It is a second paradigm to staff and maintain.** Power Fx beside React beside
+  your form scripts is three mental models, re-learned by a team that returns to a
+  surface twice a year. The kit is one: React on the metadata you already have, in
+  source control and CI, reviewed like the rest of your code, and legible enough
+  that the intermittent maintainer, or a coding agent generating the next surface,
+  can re-read it cold.
+- **It is awkward for programmable data shapes.** Merged or normalized result sets,
+  lists spanning multiple activity types, lookups with custom ranking or multi-step
+  filtering, the cases this kit targets, are where a layout-first tool is most
+  strained and where code-first, metadata-aware controls are most at home.
 
 Short version: canvas and custom pages are the right tool when you build *beside*
-your model-driven app. This kit is the right tool when you build *inside* it and
-need a native-feeling, programmable seam.
+your model-driven app. This kit is the right tool when you build *inside* it, in the
+grid or on the field, and need a native-feeling, programmable, metadata-aware seam
+that stays in your codebase.
 
 ## Architectural stance
 
