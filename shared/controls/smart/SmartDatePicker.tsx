@@ -6,6 +6,7 @@ import { SmartFieldBase, type ISmartFieldProps } from "./SmartFieldBase";
 import {
   buildDatePickerStrings,
   makeFormatDate,
+  makeParseDate,
   toFirstDayOfWeek,
 } from "./localeDateFormatting";
 
@@ -49,6 +50,7 @@ export class SmartDatePicker extends SmartFieldBase<Date | null, ISmartDatePicke
           (dateFormatInfo ? toFirstDayOfWeek(dateFormatInfo) : undefined)
         }
         formatDate={dateFormatInfo ? makeFormatDate(dateFormatInfo) : undefined}
+        parseDate={dateFormatInfo ? makeParseDate(dateFormatInfo) : undefined}
       />
     );
   }

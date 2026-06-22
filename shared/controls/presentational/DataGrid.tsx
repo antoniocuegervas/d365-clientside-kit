@@ -99,26 +99,35 @@ const useStyles = makeStyles({
     userSelect: "none",
   },
   row: { cursor: "default" },
-  clickableRow: { cursor: "pointer" },
+  // Hover tint on a clickable row, matching the native UCI read-only grid (the
+  // whole row greys on hover).
+  clickableRow: {
+    cursor: "pointer",
+    ":hover": { backgroundColor: tokens.colorNeutralBackground1Hover },
+  },
   selectionCell: { width: "36px" },
-  // Selected row: the neutral selected tint alone is easy to miss, so add a left
-  // accent bar (the way native subgrids mark the active row) for a clear highlight.
+  // Selected row, matching native UCI: a light-blue fill from the brand-inverted
+  // ramp plus a left accent bar (the way native subgrids mark the active row).
+  // Hovering a selected row deepens the blue, and the cell under the cursor gets
+  // an extra translucent grey on top, the way native stacks hover over selection.
   selectedRow: {
-    backgroundColor: tokens.colorNeutralBackground1Selected,
+    backgroundColor: tokens.colorBrandBackgroundInvertedHover,
     boxShadow: `inset 3px 0 0 0 ${tokens.colorBrandStroke1}`,
+    ":hover": { backgroundColor: tokens.colorBrandBackgroundInvertedSelected },
+    "& td:hover": { backgroundColor: "rgba(0, 0, 0, 0.1)" },
   },
   empty: {
     padding: tokens.spacingVerticalXXL,
     textAlign: "center",
     color: tokens.colorNeutralForeground3,
   },
-  // Darken the loading skeleton a step. Fluent's default stencil is nearly
-  // invisible on a white surface (fine on a designer's monitor, gone on a
-  // laptop panel), so override the two stencil colours the SkeletonItem gradient
-  // reads: a darker base and a lighter shimmer above it.
+  // The loading skeleton reads as a moving wave between two stencil colours.
+  // Fluent's defaults sit too close together to see on a white surface, so widen
+  // the gap: a darker base (the bar) and a bright sweep on top, so the animation
+  // is actually perceptible, not just the bars.
   loadingSkeleton: {
     "--colorNeutralStencil1": tokens.colorNeutralStroke1,
-    "--colorNeutralStencil2": tokens.colorNeutralStencil1,
+    "--colorNeutralStencil2": tokens.colorNeutralBackground1,
   },
 });
 

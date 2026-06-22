@@ -19,7 +19,9 @@ const meta: Meta<typeof SmartOptionSet> = {
       description: {
         component:
           "Choice field. The option list and the selected label load from the attribute's option " +
-          "set, and `filterOptions` prunes or reorders the choices before display. " +
+          "set, and `filterOptions` prunes or reorders the choices before display. Single-select " +
+          "only (multi-select choices are a separate control). Global (shared) option sets and " +
+          "status fields (statecode/statuscode) resolve the same way, by `entity` + `attribute`. " +
           fieldContractNote,
       },
     },
@@ -61,6 +63,7 @@ export const FilterOptions: Story = {
   parameters: sample(
     `// filterOptions runs over the metadata options before display, so a
 // ViewModel can prune or reorder choices without restating the list.
+// o.value is the numeric option code from metadata (here 1 = Male).
 const gender = new Observable<number | null>(null);
 
 <SmartOptionSet
@@ -85,8 +88,8 @@ export const Required: Story = {
     />
   ),
   parameters: sample(
-    `// The ViewModel owns the value and the error, and clears the error as soon
-// as an option is chosen, so the message tracks the selection.
+    `// The control writes gender itself when an option is picked; this onChange
+// only keeps the error in step, clearing it once a selection is made.
 const gender = new Observable<number | null>(null);
 const error = new Observable<string | undefined>("Gender is required.");
 const onChange = (v: number | null) => {
@@ -101,7 +104,7 @@ const onChange = (v: number | null) => {
   errorMessage={error}
   onChange={onChange}
 />`,
-    "The required message clears the moment an option is selected, mirroring live form validation."
+    "The control writes the value Observable itself; the onChange shown only clears the error, which tracks the selection the way live form validation does."
   ),
 };
 
@@ -110,7 +113,8 @@ export const Disabled: Story = {
   parameters: sample(
     `const gender = new Observable<number | null>(2);
 
-<SmartOptionSet entity="contact" attribute="gendercode" value={gender} disabled />`
+<SmartOptionSet entity="contact" attribute="gendercode" value={gender} disabled />`,
+    "Disabled greys the dropdown and blocks interaction; the current selection stays visible. It is a prop the ViewModel drives from business rules, not a metadata default. Use readOnly when the value should stay readable without dimming."
   ),
 };
 
@@ -119,6 +123,7 @@ export const ReadOnly: Story = {
   parameters: sample(
     `const gender = new Observable<number | null>(2);
 
-<SmartOptionSet entity="contact" attribute="gendercode" value={gender} readOnly />`
+<SmartOptionSet entity="contact" attribute="gendercode" value={gender} readOnly />`,
+    "Read-only renders the selected label as locked text (no dropdown); disabled dims the whole control and blocks focus."
   ),
 };

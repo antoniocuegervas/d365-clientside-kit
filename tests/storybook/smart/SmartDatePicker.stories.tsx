@@ -38,10 +38,16 @@ export const DateOnly: Story = {
   parameters: sample(
     `// contact.birthdate is date-only, so the picker hides the time part. The
 // calendar strings, first day of week, and display format follow the user's
-// locale (resolved through getFormatting on the host).
+// Language and Format settings in Dataverse.
+//
+// Dataverse returns a date-only value as a plain string ("1985-04-14"), not a
+// Date. Build it with local parts to avoid a UTC-midnight off-by-one:
+//   const [y, m, d] = record.birthdate.split("-").map(Number);
+//   const birthday = new Observable(new Date(y, m - 1, d));
 const birthday = new Observable<Date | null>(new Date(1985, 3, 14));
 
-<SmartDatePicker entity="contact" attribute="birthdate" value={birthday} />`
+<SmartDatePicker entity="contact" attribute="birthdate" value={birthday} />`,
+    "Date-only attributes hide the time part. Construct the Date from the value's local calendar parts (not new Date(\"1985-04-14\"), which parses as UTC midnight and can shift a day in negative-offset time zones)."
   ),
 };
 
@@ -72,8 +78,8 @@ export const Required: Story = {
     />
   ),
   parameters: sample(
-    `// The ViewModel owns the value and the error, and clears the error once a
-// date is picked, so the message tracks input.
+    `// The control writes birthday itself when a date is picked; this onChange
+// only keeps the error in step, clearing it once a date is present.
 const birthday = new Observable<Date | null>(null);
 const error = new Observable<string | undefined>("Birthday is required.");
 const onChange = (v: Date | null) => {
@@ -88,7 +94,7 @@ const onChange = (v: Date | null) => {
   errorMessage={error}
   onChange={onChange}
 />`,
-    "The required message clears the moment a date is picked, mirroring live form validation."
+    "The control writes the value Observable itself; the onChange shown only clears the error, which tracks input the way live form validation does."
   ),
 };
 
@@ -99,7 +105,8 @@ export const Disabled: Story = {
   parameters: sample(
     `const birthday = new Observable<Date | null>(new Date(1985, 3, 14));
 
-<SmartDatePicker entity="contact" attribute="birthdate" value={birthday} disabled />`
+<SmartDatePicker entity="contact" attribute="birthdate" value={birthday} disabled />`,
+    "Disabled greys the picker and blocks interaction; the date stays visible. It is a prop the ViewModel drives from business rules, not a metadata default. Use readOnly when the value should stay readable without dimming."
   ),
 };
 
@@ -110,7 +117,8 @@ export const ReadOnly: Story = {
   parameters: sample(
     `const birthday = new Observable<Date | null>(new Date(1985, 3, 14));
 
-<SmartDatePicker entity="contact" attribute="birthdate" value={birthday} readOnly />`
+<SmartDatePicker entity="contact" attribute="birthdate" value={birthday} readOnly />`,
+    "Read-only renders the formatted date as locked text (no calendar button); disabled dims the whole control and blocks focus. This is distinct from Dataverse field-level security, which also produces a read-only field via metadata."
   ),
 };
 

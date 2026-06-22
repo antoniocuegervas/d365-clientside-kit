@@ -34,6 +34,7 @@ export default meta;
 type Story = StoryObj<typeof SmartLookup>;
 
 const company = new Observable<IEntityReference | null>(null);
+const customer = new Observable<IEntityReference | null>(null);
 const companyView = new Observable<IEntityReference | null>(null);
 const companyViewById = new Observable<IEntityReference | null>(null);
 const companyDialog = new Observable<IEntityReference | null>(null);
@@ -58,6 +59,35 @@ const company = new Observable<IEntityReference | null>(null);
 
 <SmartLookup entity="contact" attribute="parentcustomerid" value={company} />`,
     "Inline mode is embedded search-as-you-type. The target entity and its name/id fields come from the attribute's lookup metadata. (Stories set searchDebounceMs={0} so search fires immediately.)"
+  ),
+};
+
+export const Polymorphic: Story = {
+  name: "Polymorphic lookup (targetEntity)",
+  render: () => (
+    <SmartLookup
+      entity="incident"
+      attribute="customerid"
+      value={customer}
+      targetEntity="account"
+      searchDebounceMs={0}
+    />
+  ),
+  parameters: sample(
+    `// incident.customerid is a Customer lookup: its metadata lists TWO targets
+// (account and contact), so the control cannot guess which to search. Pass
+// targetEntity to pick one (here account). Single-target lookups (like
+// parentcustomerid above) resolve their target from metadata and need no
+// targetEntity. The same applies to Owner lookups (systemuser or team).
+const customer = new Observable<IEntityReference | null>(null);
+
+<SmartLookup
+  entity="incident"
+  attribute="customerid"
+  value={customer}
+  targetEntity="account"
+/>`,
+    "Customer and Owner lookups (and any polymorphic lookup) list more than one target entity, so metadata cannot pick one. Pass targetEntity to choose which entity to search and select from."
   ),
 };
 
@@ -102,7 +132,7 @@ const company = new Observable<IEntityReference | null>(null);
   value={company}
   mode="dialog"
 />`,
-    "Dialog mode is browse-only: you don't type, you click Browse to open the native picker (via lookupObjects). Here the fake commits a seeded record so you can see the result. Same value Observable as inline mode."
+    "Dialog mode is browse-only: you click Browse to open the native picker instead of typing. Reach for it when you want the platform picker's recently-used list, view switching, or create-new, rather than embedded search-as-you-type. The Browse button calls lookupObjects, a Dataverse host API, so it only opens a real picker inside a model-driven host (here the fake commits a seeded record to show the resolved state). Same value Observable as inline mode."
   ),
 };
 
@@ -202,8 +232,8 @@ export const Required: Story = {
     />
   ),
   parameters: sample(
-    `// The ViewModel owns the value and the error, and clears the error once a
-// record is chosen, so the message tracks the selection.
+    `// The control writes company itself when a record is chosen or cleared; this
+// onChange only keeps the error in step, clearing it once a record is present.
 const company = new Observable<IEntityReference | null>(null);
 const error = new Observable<string | undefined>("Company is required.");
 const onChange = (v: IEntityReference | null) => {
@@ -218,7 +248,7 @@ const onChange = (v: IEntityReference | null) => {
   errorMessage={error}
   onChange={onChange}
 />`,
-    "The required message clears the moment a record is chosen, mirroring live form validation."
+    "The control writes the value Observable itself; the onChange shown only clears the error, which tracks the selection the way live form validation does."
   ),
 };
 
@@ -239,7 +269,8 @@ export const Disabled: Story = {
   name: "Contoso Ltd",
 });
 
-<SmartLookup entity="contact" attribute="parentcustomerid" value={company} disabled />`
+<SmartLookup entity="contact" attribute="parentcustomerid" value={company} disabled />`,
+    "Disabled greys the field and blocks interaction; the selected record stays visible but cannot be changed or cleared. Use readOnly to keep the record readable (as a link) without dimming."
   ),
 };
 
@@ -260,6 +291,7 @@ export const ReadOnly: Story = {
   name: "Contoso Ltd",
 });
 
-<SmartLookup entity="contact" attribute="parentcustomerid" value={company} readOnly />`
+<SmartLookup entity="contact" attribute="parentcustomerid" value={company} readOnly />`,
+    "Read-only shows the selected record as non-editable text (no search or clear); disabled dims the whole field and blocks focus."
   ),
 };

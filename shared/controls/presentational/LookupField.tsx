@@ -115,14 +115,19 @@ const Body: React.FC<
 
   if (props.mode === "dialog") {
     return (
-      <FieldShell {...props}>
+      <FieldShell {...props} readOnlyText={current?.name ?? ""}>
         <div className={styles.row}>
           <Input
             className={styles.combo}
             readOnly
             value={current?.name ?? ""}
-            placeholder={readOnly ? undefined : placeholder ?? "No record selected"}
+            placeholder={readOnly ? undefined : placeholder ?? "Select a record"}
             disabled={disabled}
+            // Browse-only: there is no inline search, so clicking the field (the
+            // natural action) opens the picker instead of doing nothing. The
+            // pointer cursor signals it acts as a button, not a text box.
+            onClick={interactive ? props.onBrowse : undefined}
+            input={interactive ? { style: { cursor: "pointer" } } : undefined}
           />
           {interactive ? (
             <Button
@@ -148,7 +153,7 @@ const Body: React.FC<
   }
 
   return (
-    <FieldShell {...props}>
+    <FieldShell {...props} readOnlyText={current?.name ?? ""}>
       <div className={styles.row}>
         <div className={styles.combo}>
           <Combobox

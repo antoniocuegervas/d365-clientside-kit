@@ -14,6 +14,12 @@ export interface IDateTimeFieldProps extends ICommonFieldProps {
   includeTime?: boolean;
   /** Date display formatter, host supplies locale-correct formatting. */
   formatDate?: (date: Date) => string;
+  /**
+   * Parses typed text back into a Date using the user's date pattern. Without it
+   * the picker falls back to the browser's m/d/y parsing, which misreads a value
+   * typed in a d/m/y locale. The smart tier supplies this from user settings.
+   */
+  parseDate?: (value: string) => Date;
   /** Localized calendar strings (month/day names), smart tier supplies from metadata. */
   strings?: DatePickerProps["strings"];
   /** First day of the week (0 = Sunday). Smart tier supplies from user settings. */
@@ -76,17 +82,22 @@ const Body: React.FC<
   }
 > = (props) => {
   const styles = useStyles();
-  const { value, disabled, readOnly, includeTime, formatDate, strings, firstDayOfWeek, placeholder } =
+  const { value, disabled, readOnly, includeTime, formatDate, parseDate, strings, firstDayOfWeek, placeholder } =
     props;
   const current = value.value;
+  const formatForDisplay = formatDate ?? defaultFormatDate;
+  const readOnlyText = current
+    ? `${formatForDisplay(current)}${includeTime ? ` ${formatDateToTimeString(current)}` : ""}`
+    : "";
   return (
-    <FieldShell {...props}>
+    <FieldShell {...props} readOnlyText={readOnlyText}>
       <div className={styles.row}>
         <div className={styles.date}>
           <DatePicker
             value={current}
             onSelectDate={props.onDateSelect}
-            formatDate={(date) => (date ? (formatDate ?? defaultFormatDate)(date) : "")}
+            formatDate={(date) => (date ? formatForDisplay(date) : "")}
+            parseDateFromString={parseDate}
             strings={strings}
             firstDayOfWeek={firstDayOfWeek}
             disabled={disabled || readOnly}

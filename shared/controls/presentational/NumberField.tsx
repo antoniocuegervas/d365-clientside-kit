@@ -132,8 +132,10 @@ export class NumberField extends ObserverComponent<INumberFieldProps, INumberFie
   override render(): React.ReactNode {
     const { value, disabled, readOnly, prefix } = this.props;
     const text = this.state.editingText ?? this.format(value.value);
+    const readOnlyText =
+      value.value === null ? "" : `${prefix ? `${prefix} ` : ""}${this.format(value.value)}`;
     return (
-      <FieldShell {...this.props}>
+      <FieldShell {...this.props} readOnlyText={readOnlyText}>
         <Input
           value={text}
           contentBefore={prefix ? <span>{prefix}</span> : undefined}

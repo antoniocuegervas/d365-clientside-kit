@@ -47,7 +47,7 @@ export class OptionSetField extends ObserverComponent<IOptionSetFieldProps> {
       current === null ? "" : options.find((o) => o.value === current)?.label ?? String(current);
 
     return (
-      <FieldShell {...this.props}>
+      <FieldShell {...this.props} readOnlyText={currentLabel}>
         <Dropdown
           value={currentLabel}
           selectedOptions={current === null ? [] : [String(current)]}

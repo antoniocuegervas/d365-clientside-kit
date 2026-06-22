@@ -31,7 +31,7 @@ export class MultilineTextField extends ObserverComponent<IMultilineTextFieldPro
   override render(): React.ReactNode {
     const { value, disabled, readOnly, maxLength, placeholder, rows } = this.props;
     return (
-      <FieldShell {...this.props}>
+      <FieldShell {...this.props} readOnlyText={value.value ?? ""}>
         <Textarea
           value={value.value ?? ""}
           onChange={this.handleChange}

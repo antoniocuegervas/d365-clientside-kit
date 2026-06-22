@@ -89,11 +89,68 @@ export const fieldContext: IViewModelContext = withClientQuerySemantics(
       ],
     },
     "contact.numberofchildren": { displayName: "No. of Children", kind: "integer" },
+    "account.exchangerate": { displayName: "Exchange Rate", kind: "decimal", precision: 4 },
     "contact.creditlimit": { displayName: "Credit Limit", kind: "money", precision: 2 },
     "contact.birthdate": { displayName: "Birthday", kind: "date" },
     "appointment.scheduledstart": { displayName: "Start Time", kind: "datetime" },
     "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+    // Polymorphic (Customer) lookup: two targets, so the call site must pick one
+    // via targetEntity. Drives the SmartLookup "Polymorphic" story.
+    "incident.customerid": {
+      displayName: "Customer",
+      kind: "lookup",
+      targets: ["account", "contact"],
+    },
     "account.name": { displayName: "Account Name", kind: "text" },
+  },
+  // User locale formatting, so the date and number stories resolve their format
+  // from metadata (date pattern, separators, calendar names) the way a real host
+  // would, instead of falling back to whatever locale the browser happens to use.
+  formatting: {
+    decimalSymbol: ",",
+    numberSeparator: ".",
+    dateFormatInfo: {
+      dayNames: [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ],
+      monthNames: [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ],
+      shortestDayNames: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+      abbreviatedMonthNames: [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ],
+      firstDayOfWeek: 0,
+      shortDatePattern: "d/M/yyyy",
+    },
   },
   // The money story resolves this symbol from the record's transaction currency.
   currencies: {

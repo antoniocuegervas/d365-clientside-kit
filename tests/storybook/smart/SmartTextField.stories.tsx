@@ -77,10 +77,10 @@ export const Required: Story = {
     />
   ),
   parameters: sample(
-    `// account.name is not required in metadata; the required prop forces the
-// marker on, like a form-level override. The ViewModel owns both the value
-// and the error, and clears the error as soon as a value is typed, so the
-// message tracks input rather than sticking.
+    `// account.name is not required in metadata, so the required prop forces the
+// marker on (a form-level override). A field that is required IN metadata needs
+// no prop. The control writes accountName itself on each edit; this onChange
+// only keeps the error message in step, so it clears the moment a value is typed.
 const accountName = new Observable<string | null>(null);
 const error = new Observable<string | undefined>("Account Name is required.");
 const onChange = (v: string | null) => {
@@ -95,7 +95,7 @@ const onChange = (v: string | null) => {
   errorMessage={error}
   onChange={onChange}
 />`,
-    "Required can come from metadata or be forced by the prop. The error clears the moment a value is entered, mirroring live form validation."
+    "Required can come from metadata (no prop needed) or be forced by the prop, as shown here on a non-required attribute. The control writes the value Observable itself; the onChange shown only clears the error, mirroring live form validation."
   ),
 };
 
@@ -104,7 +104,10 @@ export const Disabled: Story = {
   parameters: sample(
     `const accountName = new Observable<string | null>("Contoso Ltd");
 
-<SmartTextField entity="account" attribute="name" value={accountName} disabled />`
+// Disabled greys the field and drops it from the tab order; the value stays
+// visible but cannot be focused or copied.
+<SmartTextField entity="account" attribute="name" value={accountName} disabled />`,
+    "Disabled greys the field and removes it from the tab order. Reach for readOnly instead when the value should stay readable and selectable without being editable."
   ),
 };
 
@@ -113,9 +116,10 @@ export const ReadOnly: Story = {
   parameters: sample(
     `const accountName = new Observable<string | null>("Contoso Ltd");
 
-// Read-only shows the value as plain locked text, distinct from disabled
-// (which dims the control); both come straight from SmartFieldBase.
-<SmartTextField entity="account" attribute="name" value={accountName} readOnly />`
+// Read-only shows the value as plain locked text, still readable and
+// selectable, distinct from disabled (which dims the control and blocks focus).
+<SmartTextField entity="account" attribute="name" value={accountName} readOnly />`,
+    "Read-only renders the value as locked text that stays readable and selectable; disabled dims the whole control and removes it from the tab order."
   ),
 };
 

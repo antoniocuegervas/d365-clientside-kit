@@ -3,6 +3,7 @@ import { Button, Title3, makeStyles, tokens } from "@fluentui/react-components";
 import { ArrowClockwiseRegular } from "@fluentui/react-icons";
 import { ObserverComponent } from "../../../shared/reactivity/ObserverComponent";
 import { DataGrid, type IGridRow } from "../../../shared/controls/presentational/DataGrid";
+import { Pagination } from "../../../shared/controls/presentational/Pagination";
 import type { ActivitiesGridViewModel } from "./ActivitiesGridViewModel";
 
 export interface IActivitiesGridViewProps {
@@ -25,7 +26,7 @@ const useStyles = makeStyles({
 export class ActivitiesGridView extends ObserverComponent<IActivitiesGridViewProps> {
   constructor(props: IActivitiesGridViewProps) {
     super(props);
-    this.observe(props.viewModel.activities);
+    this.observe(props.viewModel.activities, props.viewModel.page);
   }
 
   override render(): React.ReactNode {
@@ -35,7 +36,11 @@ export class ActivitiesGridView extends ObserverComponent<IActivitiesGridViewPro
 
 const Body: React.FC<IActivitiesGridViewProps> = ({ viewModel: vm }) => {
   const styles = useStyles();
-  const rows: IGridRow[] = vm.activities.value.map((row) => ({
+  // Client-side paging over the in-memory merged set: slice the current page.
+  const all = vm.activities.value;
+  const start = (vm.page.value - 1) * vm.pageSize;
+  const pageItems = all.slice(start, start + vm.pageSize);
+  const rows: IGridRow[] = pageItems.map((row) => ({
     key: `${row.entity}-${row.id}`,
     type: row.type,
     subject: row.subject,
@@ -70,6 +75,18 @@ const Body: React.FC<IActivitiesGridViewProps> = ({ viewModel: vm }) => {
         emptyMessage="No open activities."
         onRowClick={(row) => vm.onOpenActivity(String(row.entity), String(row.recordId))}
       />
+      {all.length > vm.pageSize ? (
+        <Pagination
+          page={vm.page}
+          pageSize={vm.pageSize}
+          pageRecordCount={pageItems.length}
+          totalRecordCount={all.length}
+          hasNextPage={start + vm.pageSize < all.length}
+          onPrevious={vm.previousPage}
+          onNext={vm.nextPage}
+          disabled={vm.loading}
+        />
+      ) : null}
     </div>
   );
 };

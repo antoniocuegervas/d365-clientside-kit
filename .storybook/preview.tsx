@@ -12,13 +12,17 @@ const preview: Preview = {
   // sample so the code is browsable next to the rendered control.
   tags: ["autodocs"],
   decorators: [
-    (Story) => (
-      // Paint the kit's neutral surface and fill the canvas, so controls render
-      // on the light app background (not the bare Storybook canvas) in the
-      // non-docs view too.
+    (Story, context) => (
+      // Paint the kit's neutral surface so controls render on the light app
+      // background, not the bare Storybook canvas. Fill the viewport only in the
+      // Canvas view: on Docs pages each story is embedded, so a 100vh fill would
+      // make every block a full screen tall and push the code far below it.
       <FluentProvider
         theme={d365Theme}
-        style={{ backgroundColor: tokens.colorNeutralBackground1, minHeight: "100vh" }}
+        style={{
+          backgroundColor: tokens.colorNeutralBackground1,
+          minHeight: context.viewMode === "docs" ? undefined : "100vh",
+        }}
       >
         <div style={{ maxWidth: 720, padding: 16 }}>
           <Story />

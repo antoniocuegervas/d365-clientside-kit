@@ -44,6 +44,63 @@ export function makeFormatDate(info: IDateFormatInfo): ((date: Date) => string) 
   return (date: Date): string => formatByPattern(date, pattern, info);
 }
 
+/**
+ * A parser for typed dates that honors the user's short date pattern, so a value
+ * typed as it is displayed (e.g. "01/06/2001" under "dd/MM/yyyy" is 1 June) is
+ * read back correctly. Without this the Fluent picker falls back to the browser's
+ * m/d/y parsing and misreads d/m/y input. Returns an Invalid Date for anything
+ * that does not parse (the picker then keeps the previous value). Returns
+ * undefined when no pattern is known, so the control keeps its default parsing.
+ */
+export function makeParseDate(info: IDateFormatInfo): ((value: string) => Date) | undefined {
+  const pattern = info.shortDatePattern;
+  if (!pattern) {
+    return undefined;
+  }
+  // Field order (day/month/year) as it appears in the pattern: "M" is month,
+  // "d" day, "y" year. Each field is recorded once, on its first token char.
+  const order: Array<"d" | "m" | "y"> = [];
+  const seen = { d: false, m: false, y: false };
+  for (const char of pattern) {
+    const lower = char.toLowerCase();
+    if (lower === "d" && !seen.d) {
+      order.push("d");
+      seen.d = true;
+    } else if (lower === "m" && !seen.m) {
+      order.push("m");
+      seen.m = true;
+    } else if (lower === "y" && !seen.y) {
+      order.push("y");
+      seen.y = true;
+    }
+  }
+  return (value: string): Date => {
+    const invalid = new Date(NaN);
+    const parts = value.split(/\D+/).filter((part) => part !== "");
+    if (parts.length < 3 || order.length < 3) {
+      return invalid;
+    }
+    const fields: Record<"d" | "m" | "y", number> = { d: NaN, m: NaN, y: NaN };
+    order.forEach((field, index) => {
+      fields[field] = Number(parts[index]);
+    });
+    const { d, m } = fields;
+    let { y } = fields;
+    if (Number.isNaN(d) || Number.isNaN(m) || Number.isNaN(y)) {
+      return invalid;
+    }
+    if (y < 100) {
+      y += y < 50 ? 2000 : 1900; // two-digit-year heuristic, matching the platform
+    }
+    const date = new Date(y, m - 1, d);
+    // Reject out-of-range parts (e.g. 31/02) by checking the round-trip.
+    if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) {
+      return invalid;
+    }
+    return date;
+  };
+}
+
 const TOKEN = /yyyy|yy|MMMM|MMM|MM|M|dd|d/g;
 
 function formatByPattern(date: Date, pattern: string, info: IDateFormatInfo): string {

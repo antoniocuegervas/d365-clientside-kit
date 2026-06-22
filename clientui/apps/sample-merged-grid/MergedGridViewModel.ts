@@ -22,6 +22,8 @@ export interface IPipelineRow {
 export class MergedGridViewModel {
   readonly results = new ObservableArray<IPipelineRow>();
   readonly loading = new Observable<boolean>(true);
+  /** Neutral message when the queries fail to run (e.g. the entity is absent). */
+  readonly loadError = new Observable<string | null>(null);
 
   private readonly tracker = new SubscriptionTracker();
 
@@ -31,6 +33,7 @@ export class MergedGridViewModel {
 
   readonly load = async (): Promise<void> => {
     this.loading.value = true;
+    this.loadError.value = null;
     try {
       const openFetch = `
         <fetch version='1.0' output-format='xml-platform' mapping='logical' top='25'>
@@ -71,6 +74,15 @@ export class MergedGridViewModel {
         ...open.entities.map((record) => this.toRow(record, "My open")),
         ...recentlyWon.entities.map((record) => this.toRow(record, "Won (last 30 days)")),
       ];
+    } catch (error) {
+      if (!this.tracker.isDisposed) {
+        // A failed query (e.g. the opportunity entity is not in this environment)
+        // must not read as an empty pipeline. Never surface raw SDK text: log it
+        // for developers and show a neutral degraded banner instead.
+        console.error("Merged grid load failed", error);
+        this.results.value = [];
+        this.loadError.value = "This data could not be loaded in this environment.";
+      }
     } finally {
       if (!this.tracker.isDisposed) {
         this.loading.value = false;

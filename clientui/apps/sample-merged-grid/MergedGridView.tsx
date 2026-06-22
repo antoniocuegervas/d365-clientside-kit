@@ -3,6 +3,7 @@ import { Button, Title3, makeStyles, tokens } from "@fluentui/react-components";
 import { ArrowClockwiseRegular } from "@fluentui/react-icons";
 import { ObserverComponent } from "../../../shared/reactivity/ObserverComponent";
 import { DataGrid, type IGridRow } from "../../../shared/controls/presentational/DataGrid";
+import { DegradedState } from "../../../shared/controls/presentational/DegradedState";
 import type { MergedGridViewModel } from "./MergedGridViewModel";
 
 export interface IMergedGridViewProps {
@@ -25,7 +26,7 @@ const useStyles = makeStyles({
 export class MergedGridView extends ObserverComponent<IMergedGridViewProps> {
   constructor(props: IMergedGridViewProps) {
     super(props);
-    this.observe(props.viewModel.results);
+    this.observe(props.viewModel.results, props.viewModel.loadError);
   }
 
   override render(): React.ReactNode {
@@ -53,18 +54,22 @@ const Body: React.FC<IMergedGridViewProps> = ({ viewModel: vm }) => {
           Refresh
         </Button>
       </div>
-      <DataGrid
-        columns={[
-          { key: "topic", name: "Topic", width: 280 },
-          { key: "customer", name: "Customer", width: 200 },
-          { key: "value", name: "Est. Value", width: 130 },
-          { key: "source", name: "Source Query", width: 170 },
-        ]}
-        rows={rows}
-        loading={vm.loading}
-        emptyMessage="Nothing in the pipeline."
-        onRowClick={(row) => vm.onOpenRecord(String(row.recordId))}
-      />
+      {vm.loadError.value ? (
+        <DegradedState message={vm.loadError.value} />
+      ) : (
+        <DataGrid
+          columns={[
+            { key: "topic", name: "Topic", width: 280 },
+            { key: "customer", name: "Customer", width: 200 },
+            { key: "value", name: "Est. Value", width: 130 },
+            { key: "source", name: "Source Query", width: 170 },
+          ]}
+          rows={rows}
+          loading={vm.loading}
+          emptyMessage="Nothing in the pipeline."
+          onRowClick={(row) => vm.onOpenRecord(String(row.recordId))}
+        />
+      )}
     </div>
   );
 };

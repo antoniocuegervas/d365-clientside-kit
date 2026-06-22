@@ -22,16 +22,33 @@ export interface IActivityRow {
  * calls, and appointments unified into ONE native-looking list. Native subgrids
  * show one activity type; this ViewModel runs three FetchXML queries,
  * normalizes the rows, merges, and sorts; the View maps the result to grid rows.
+ *
+ * This deliberately hand-merges per type rather than querying activitypointer
+ * (which would let a single SmartViewGrid do it): the point is the multi-source
+ * merge pattern you reach for when each type needs its own columns or filters.
+ * Because the merged set lives in memory, paging is client-side (see the View).
  */
 export class ActivitiesGridViewModel {
   readonly activities = new ObservableArray<IActivityRow>();
   readonly loading = new Observable<boolean>(true);
+  /** Current 1-based page for the in-memory client-side pager. */
+  readonly page = new Observable<number>(1);
+  /** Rows per page. The merged set is small, so a modest page keeps it scannable. */
+  readonly pageSize = 20;
 
   private readonly tracker = new SubscriptionTracker();
 
   constructor(private readonly context: IViewModelContext) {
     void this.load();
   }
+
+  readonly nextPage = (): void => {
+    this.page.value = this.page.value + 1;
+  };
+
+  readonly previousPage = (): void => {
+    this.page.value = Math.max(1, this.page.value - 1);
+  };
 
   readonly load = async (): Promise<void> => {
     this.loading.value = true;
@@ -48,6 +65,9 @@ export class ActivitiesGridViewModel {
       this.activities.value = [...tasks, ...calls, ...appointments].sort((a, b) =>
         String(a.dueSort ?? "9999").localeCompare(String(b.dueSort ?? "9999"))
       );
+      // A reload (e.g. Refresh) resets to the first page so the pager can't point
+      // past the new result set.
+      this.page.value = 1;
     } finally {
       if (!this.tracker.isDisposed) {
         this.loading.value = false;

@@ -1,9 +1,9 @@
 # Roadmap and open ideas
 
 The original forward-looking items here have shipped (recorded under "Shipped").
-Three directions are open: an offline-capable metadata rework (native-first),
-in-app release communication, and an offline paging demo. One idea stays parked
-for lack of a v8 environment.
+Four directions are open: an offline-capable metadata rework (native-first),
+in-app release communication, an offline paging demo, and a real tooltip with the
+hint made opt-in. One idea stays parked for lack of a v8 environment.
 
 ## Direction: native-first, offline-capable metadata (scheduled)
 
@@ -239,6 +239,39 @@ the two sample apps as its proof. It folds in none of the other roadmap items, b
 leans on the native-first metadata direction insofar as the offline data reads go
 through native `Xrm.WebApi`, so it is naturally picked up after, or alongside,
 that work.
+
+## Direction: a real tooltip, and the hint made opt-in
+
+### The gap
+
+The `hint` prop (item 20) renders as always-visible helper text under the label
+(Fluent `Field` hint). That is not what an info affordance usually means: the
+common pattern is a small info icon beside the label whose text appears in a
+tooltip on hover or focus, shown only on demand. The kit has no such tooltip
+control today, and `hint` got conflated with it.
+
+### The correction (two parts)
+
+1. Stop defaulting `hint` from metadata. Today `SmartFieldBase.resolveHint` falls
+   back to the attribute's Dataverse `Description`, so any field with a Description
+   shows always-on helper text whether the author wanted it or not. Make `hint`
+   opt-in: render it only when a `hint` prop is passed, and drop the
+   metadata-`Description` default. This revises the item-20 decision (and the note
+   under the native-first metadata direction that lists item 20 as folding in
+   `Description`).
+2. Add a proper tooltip affordance. A presentational info control (an info icon by
+   the label whose text shows in a Fluent `Tooltip` on hover or focus, dismissible
+   and keyboard accessible) for on-demand help, distinct from the always-visible
+   `hint`. The smart tier may optionally source its content from the attribute
+   `Description` (the original intent), now behind an explicit opt-in rather than
+   an always-on default.
+
+### Why later
+
+Both are behavior changes to a shipped prop plus a new control. Batch them with
+the docs pass that is already revisiting the smart-field stories, and update the
+shared `fieldContractNote`, which currently tells readers the hint defaults to the
+attribute Description.
 
 ## Shipped (were roadmap items)
 

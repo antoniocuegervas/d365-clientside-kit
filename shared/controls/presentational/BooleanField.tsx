@@ -28,15 +28,18 @@ export class BooleanField extends ObserverComponent<IBooleanFieldProps> {
   };
 
   override render(): React.ReactNode {
-    const { value, disabled, readOnly, trueLabel, falseLabel } = this.props;
+    const { value, disabled, trueLabel, falseLabel } = this.props;
     const checked = value.value === true;
+    const currentLabel = checked ? trueLabel ?? "Yes" : falseLabel ?? "No";
+    // Read-only renders the label as flat text via FieldShell; null shows "---".
+    const readOnlyText = value.value === null ? "" : currentLabel;
     return (
-      <FieldShell {...this.props}>
+      <FieldShell {...this.props} readOnlyText={readOnlyText}>
         <Switch
           checked={checked}
           onChange={this.handleChange}
-          disabled={disabled || readOnly}
-          label={checked ? trueLabel ?? "Yes" : falseLabel ?? "No"}
+          disabled={disabled}
+          label={currentLabel}
         />
       </FieldShell>
     );

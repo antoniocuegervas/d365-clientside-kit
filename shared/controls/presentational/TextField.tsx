@@ -30,7 +30,7 @@ export class TextField extends ObserverComponent<ITextFieldProps> {
   override render(): React.ReactNode {
     const { value, disabled, readOnly, maxLength, placeholder } = this.props;
     return (
-      <FieldShell {...this.props}>
+      <FieldShell {...this.props} readOnlyText={value.value ?? ""}>
         <Input
           value={value.value ?? ""}
           onChange={this.handleChange}
