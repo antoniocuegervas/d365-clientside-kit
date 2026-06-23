@@ -41,6 +41,8 @@ import type {
   INavigation,
   INavigationOptions,
   IOpenFileOptions,
+  IChangeSetRequest,
+  IChangeSetResponse,
   IRecordWriteResult,
   IUserInfo,
   IViewModelContext,
@@ -247,6 +249,12 @@ class ModernWebApi implements IWebApi {
         makeExecuteResponse(response.status, response.statusText, await response.text())
       )
     );
+  }
+
+  executeChangeSet(requests: IChangeSetRequest[]): Promise<IChangeSetResponse[]> {
+    // Rides cds-client even on the modern host: the native execute surface
+    // cannot express content-id references inside a transactional change set.
+    return this.client.executeChangeSet(requests);
   }
 }
 

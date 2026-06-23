@@ -719,8 +719,9 @@ describe("SmartViewGrid (read-only view grid)", () => {
       context,
       <SmartViewGrid entity="account" multiSelect selectedRecordIds={selectedRecordIds} />
     );
-    await screen.findByText("Contoso Ltd");
-    await userEvent.click(screen.getByLabelText("Select row a1a00000-0000-0000-0000-000000000001"));
+    // With multi-select on (and no row-click handler), clicking the row toggles
+    // its selection, the way Fluent's data grid selects rows.
+    await userEvent.click(await screen.findByText("Contoso Ltd"));
     expect(selectedRecordIds.value).toEqual(["a1a00000-0000-0000-0000-000000000001"]);
   });
 

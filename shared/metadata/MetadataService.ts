@@ -1,6 +1,7 @@
 import type { CdsClient } from "../data/CdsClient";
 import type {
   AttributeKind,
+  IActivityTypeInfo,
   IAttributeMetadata,
   ICurrencyInfo,
   IEntityMetadata,
@@ -11,6 +12,19 @@ import type {
 import type { IOptionItem } from "../utils/EntityModel";
 import { normalizeGuid } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
+
+/**
+ * Out-of-box activity entities that are not created directly from a grid's New
+ * action (activitypointer itself, recurring master, and system-written types), so they
+ * are kept out of the activity-type picker.
+ */
+const NON_CREATABLE_ACTIVITY_TYPES = new Set([
+  "activitypointer",
+  "recurringappointmentmaster",
+  "untrackedemail",
+  "socialactivity",
+  "bulkoperation",
+]);
 
 /**
  * MetadataService, cached, context-mediated Dataverse metadata.
@@ -27,6 +41,7 @@ export class MetadataService implements IMetadataApi {
   private readonly viewCache = new Map<string, Promise<IViewDefinition>>();
   private readonly currencyCache = new Map<string, Promise<ICurrencyInfo>>();
   private readonly iconCache = new Map<string, Promise<string | undefined>>();
+  private activityTypesPromise?: Promise<IActivityTypeInfo[]>;
 
   constructor(client: CdsClient) {
     this.client = client;
@@ -62,6 +77,11 @@ export class MetadataService implements IMetadataApi {
       this.viewCache.set(key, cached);
     }
     return cached;
+  }
+
+  getActivityTypes(): Promise<IActivityTypeInfo[]> {
+    this.activityTypesPromise ??= this.loadActivityTypes();
+    return this.activityTypesPromise;
   }
 
   getCurrencySymbol(transactionCurrencyId: string): Promise<ICurrencyInfo> {
@@ -299,6 +319,30 @@ export class MetadataService implements IMetadataApi {
     return objectTypeCode !== undefined && objectTypeCode !== null
       ? `${base}/_imgs/svg_${objectTypeCode}.svg`
       : undefined;
+  }
+
+  /**
+   * Lists the directly-creatable activity types, ordered by display name. Filters
+   * to out-of-box activities (IsCustomEntity false) and drops the system ones that
+   * are not created directly from a grid (recurring master, untracked email,
+   * social activity), so the list reads like the native "New activity" menu. Add-on
+   * and custom activity types are out by design; widen this if a deployment needs
+   * its own custom activity in the picker.
+   */
+  private async loadActivityTypes(): Promise<IActivityTypeInfo[]> {
+    const raw = await this.client.get(
+      "EntityDefinitions?$filter=IsActivity eq true and IsCustomEntity eq false" +
+        "&$select=LogicalName,DisplayName,ObjectTypeCode"
+    );
+    const rows = (raw.value as Array<Record<string, unknown>> | undefined) ?? [];
+    return rows
+      .map((row) => ({
+        logicalName: (row.LogicalName as string) ?? "",
+        displayName: localizedLabel(row.DisplayName) ?? (row.LogicalName as string) ?? "",
+        objectTypeCode: (row.ObjectTypeCode as number) ?? 0,
+      }))
+      .filter((type) => type.logicalName && !NON_CREATABLE_ACTIVITY_TYPES.has(type.logicalName))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
   }
 
   /** Resolves a transaction currency's symbol + precision by id. */

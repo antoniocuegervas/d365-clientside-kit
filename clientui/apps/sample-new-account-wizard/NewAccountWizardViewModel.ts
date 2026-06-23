@@ -48,37 +48,42 @@ export class NewAccountWizardViewModel extends WizardViewModel {
 
   protected async commit(): Promise<void> {
     try {
-      // Production hardening (not implemented here): commit the whole draft in a
-      // single server-side transaction so a mid-flow failure cannot orphan a
-      // record. The commit() seam is built so this is a drop-in replacement.
-      //
-      // const result = await this.context.webAPI.executeAction("new_CommitNewAccountWizard", {
-      //   AccountName: this.accountName.value,
-      //   IndustryCode: this.industry.value,
-      //   ContactFirstName: this.firstName.value,
-      //   ContactLastName: this.lastName.value,
-      //   ContactEmail: this.email.value,
-      // });
-      // this.createdAccountId.value = (result as { AccountId: string }).AccountId;
-
-      // First cut: sequential client-side writes, no server component required.
-      const account = await this.context.webAPI.createRecord("account", {
-        name: this.accountName.value,
-        industrycode: this.industry.value,
-      });
-      const contact = await this.context.webAPI.createRecord("contact", {
-        firstname: this.firstName.value,
-        lastname: this.lastName.value,
-        emailaddress1: this.email.value,
-        "parentcustomerid_account@odata.bind": `/accounts(${account.id})`,
-      });
-      await this.context.webAPI.updateRecord("account", account.id, {
-        "primarycontactid@odata.bind": `/contacts(${contact.id})`,
-      });
+      // Atomic client-side commit, no server component required: one $batch
+      // change set creates the account, creates the contact bound to that
+      // account, and sets the account's primary contact, all committing or
+      // rolling back as a unit. Content-id references link the rows before any
+      // of them have ids: the contact binds to the account at "$1" (the first
+      // operation), and the account's primary contact binds to the contact at
+      // "$2". A mid-flow failure leaves nothing behind. For commits that need
+      // real server logic or ordering beyond content-id, the fallback is a
+      // plugin or a Custom API (see the decision-log note beside this sample).
+      const [account] = await this.context.webAPI.executeChangeSet([
+        {
+          method: "POST",
+          entityLogicalName: "account",
+          data: { name: this.accountName.value, industrycode: this.industry.value },
+        },
+        {
+          method: "POST",
+          entityLogicalName: "contact",
+          data: {
+            firstname: this.firstName.value,
+            lastname: this.lastName.value,
+            emailaddress1: this.email.value,
+            "parentcustomerid_account@odata.bind": "$1",
+          },
+        },
+        {
+          method: "PATCH",
+          entityLogicalName: "account",
+          id: "$1",
+          data: { "primarycontactid@odata.bind": "$2" },
+        },
+      ]);
       if (this.tracker.isDisposed) {
         return;
       }
-      this.createdAccountId.value = account.id;
+      this.createdAccountId.value = account.id ?? null;
       this.summary.value = `Created ${this.accountName.value} with a primary contact.`;
     } catch (error) {
       if (!this.tracker.isDisposed) {

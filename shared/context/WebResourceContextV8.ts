@@ -5,6 +5,8 @@ import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
 import type {
   IAlertStrings,
+  IChangeSetRequest,
+  IChangeSetResponse,
   IClientUILaunchOptions,
   IConfirmStrings,
   IContextUtils,
@@ -257,6 +259,10 @@ export class CdsWebApi implements IWebApi {
 
   executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]> {
     return this.client.executeMultiple(requests);
+  }
+
+  executeChangeSet(requests: IChangeSetRequest[]): Promise<IChangeSetResponse[]> {
+    return this.client.executeChangeSet(requests);
   }
 }
 

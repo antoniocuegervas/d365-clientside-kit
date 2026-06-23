@@ -1,4 +1,5 @@
 import type {
+  IActivityTypeInfo,
   IAppProperties,
   IAttributeMetadata,
   ICurrencyInfo,
@@ -28,6 +29,8 @@ export interface IFakeContextOptions {
   attributes?: Record<string, Partial<IAttributeMetadata>>; // key: "entity.attribute"
   entities?: Record<string, Partial<IEntityMetadata>>;
   views?: Record<string, Partial<IViewDefinition>>; // key: savedQueryId or "default:entity"
+  /** Activity types returned by getActivityTypes. Default empty. */
+  activityTypes?: IActivityTypeInfo[];
   /** Scripted results returned by retrieveMultipleRecords/fetch, FIFO per entity. */
   queryResults?: Record<string, Array<IRetrieveMultipleResult>>;
   /** Scripted pages returned by retrieveMultipleByUrl (nextLink paging), FIFO. */
@@ -36,6 +39,8 @@ export interface IFakeContextOptions {
   actionResults?: Record<string, unknown>;
   /** Scripted bodies returned by execute/executeMultiple, keyed by operationName. */
   executeResults?: Record<string, unknown>;
+  /** Scripted created ids returned by executeChangeSet, by request position. */
+  changeSetIds?: Array<string | undefined>;
   /** Records the native lookup dialog resolves with. Default empty. */
   lookupResults?: IEntityReference[];
   /** Locale formatting returned by getFormatting(). Default empty (controls use defaults). */
@@ -257,6 +262,21 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
           makeExecuteResponse(options.executeResults?.[request.getMetadata().operationName ?? ""])
         );
       },
+      executeChangeSet: async (requests) => {
+        record("executeChangeSet", requests);
+        await maybeDelay();
+        // Mirror the platform's content-id behavior: each create yields a new id
+        // a later request can have referenced. Scripted ids fall back to a stable
+        // per-position guid so callers get a deterministic created id back.
+        return requests.map((request, index) => ({
+          entityType: request.entityLogicalName,
+          id:
+            request.method === "POST"
+              ? options.changeSetIds?.[index] ??
+                `00000000-0000-0000-0000-0000000000${String(index + 1).padStart(2, "0")}`
+              : undefined,
+        }));
+      },
     },
     metadata: {
       getEntityMetadata: async (entity) => {
@@ -315,6 +335,11 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
           columns: [],
           ...overrides,
         };
+      },
+      getActivityTypes: async () => {
+        record("getActivityTypes");
+        await maybeDelay();
+        return options.activityTypes ?? [];
       },
       getCurrencySymbol: async (transactionCurrencyId) => {
         record("getCurrencySymbol", transactionCurrencyId);

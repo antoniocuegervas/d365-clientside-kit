@@ -1,4 +1,9 @@
-import type { IExecuteResponse, IWebApiRequest } from "../context/IViewModelContext";
+import type {
+  IChangeSetRequest,
+  IChangeSetResponse,
+  IExecuteResponse,
+  IWebApiRequest,
+} from "../context/IViewModelContext";
 import { LibraryUtils } from "../utils/LibraryUtils";
 import { normalizeGuid } from "../utils/EntityModel";
 
@@ -299,6 +304,90 @@ export class CdsClient {
     );
   }
 
+  /**
+   * Commits several writes as ONE transactional change set, the transactional
+   * counterpart to the flat {@link executeMultiple}. Emits a single $batch with a
+   * single change-set boundary, so every operation commits together or rolls
+   * back together. Content-id references ("$1", the 1-based request position) let
+   * a later operation bind to a record created earlier in the same change set,
+   * either as the PATCH/DELETE target or inside an `@odata.bind` value. Returns
+   * one result per request in order, carrying the new id for each create.
+   *
+   * Unlike the flat batch (which returns 200 even when an operation fails), a
+   * failing change set comes back non-2xx, so a single status check is the
+   * all-or-nothing signal; on success every part is parsed for its created id.
+   */
+  async executeChangeSet(requests: IChangeSetRequest[]): Promise<IChangeSetResponse[]> {
+    if (requests.length === 0) {
+      return [];
+    }
+    const batchBoundary = LibraryUtils.newBatchBoundary();
+    // A distinct, conventionally-prefixed boundary for the nested change set.
+    const changeSetBoundary = LibraryUtils.newBatchBoundary().replace(/^batch_/, "changeset_");
+    const body = this.buildChangeSetBody(requests, batchBoundary, changeSetBoundary);
+    // send (not request) so the raw status is inspected directly: a successful
+    // change set is 2xx, a rolled-back one is non-2xx with the failing op's error.
+    const response = await this.send("POST", `${this.apiUrl}$batch`, body, {
+      "Content-Type": `multipart/mixed;boundary=${batchBoundary}`,
+    });
+    if (response.status < 200 || response.status >= 300) {
+      throw new CdsClientError(response.status, extractErrorMessage(response), response.responseText);
+    }
+    return mapChangeSetResponses(requests, response.responseText);
+  }
+
+  /**
+   * Encodes a set of change-set requests as a $batch carrying one change set:
+   * an outer batch part whose body is a nested multipart/mixed change set, each
+   * operation tagged with a 1-based Content-ID so later operations can reference
+   * it as "$N".
+   */
+  private buildChangeSetBody(
+    requests: IChangeSetRequest[],
+    batchBoundary: string,
+    changeSetBoundary: string
+  ): string {
+    const lines: string[] = [
+      `--${batchBoundary}`,
+      `Content-Type: multipart/mixed;boundary=${changeSetBoundary}`,
+      "",
+    ];
+    requests.forEach((request, index) => {
+      const contentId = index + 1;
+      lines.push(
+        `--${changeSetBoundary}`,
+        "Content-Type: application/http",
+        "Content-Transfer-Encoding: binary",
+        `Content-ID: ${contentId}`,
+        "",
+        `${request.method} ${this.changeSetOperationUrl(request)} HTTP/1.1`,
+        "Content-Type: application/json;type=entry",
+        "",
+        request.data !== undefined ? JSON.stringify(request.data) : ""
+      );
+    });
+    lines.push(`--${changeSetBoundary}--`, `--${batchBoundary}--`, "");
+    return lines.join("\r\n");
+  }
+
+  /**
+   * Builds the request URL for one change-set operation. A create targets the
+   * entity set; an update/delete targets a record by id, OR, when the id is a
+   * content-id reference ("$1"), the prior operation's result directly.
+   */
+  private changeSetOperationUrl(request: IChangeSetRequest): string {
+    const entitySet = LibraryUtils.entitySetName(request.entityLogicalName);
+    if (request.method === "POST") {
+      return `${this.apiUrl}${entitySet}`;
+    }
+    const id = request.id ?? "";
+    if (id.startsWith("$")) {
+      // Reference a record created earlier in the same change set by content id.
+      return id;
+    }
+    return `${this.apiUrl}${entitySet}(${normalizeGuid(id)})`;
+  }
+
   /** Encodes a set of execute requests as a multipart/mixed $batch body. */
   private buildBatchBody(requests: IWebApiRequest[], boundary: string): string {
     const lines: string[] = [];
@@ -549,6 +638,39 @@ function parseBatchResponse(responseText: string): IBatchResponsePart[] {
     });
   }
   return parts;
+}
+
+/**
+ * Maps a successful change-set response back to one result per request. The
+ * response is a nested multipart (the change set inside the batch); each
+ * operation part carries its Content-ID and, for a create, an OData-EntityId
+ * header with the new record's URL. Results are returned in request order, with
+ * the created id filled in for each POST.
+ */
+function mapChangeSetResponses(
+  requests: IChangeSetRequest[],
+  responseText: string
+): IChangeSetResponse[] {
+  const idByContentId = new Map<number, string>();
+  // Split on every boundary delimiter (outer batch and inner change set); a
+  // segment is an operation only when it carries a status line.
+  for (const segment of responseText.split(/\r?\n--/)) {
+    if (!/HTTP\/[\d.]+\s+\d{3}/.test(segment)) {
+      continue;
+    }
+    const contentId = /Content-ID:\s*(\d+)/i.exec(segment)?.[1];
+    const entityId = /OData-EntityId:\s*(\S+)/i.exec(segment)?.[1];
+    if (contentId && entityId) {
+      const guid = /\(([^)]+)\)/.exec(entityId)?.[1];
+      if (guid) {
+        idByContentId.set(Number(contentId), normalizeGuid(guid));
+      }
+    }
+  }
+  return requests.map((request, index) => ({
+    entityType: request.entityLogicalName,
+    id: idByContentId.get(index + 1),
+  }));
 }
 
 /** Returns the body after the blank line that ends an HTTP part's headers. */

@@ -806,3 +806,210 @@ from the Format locale would need the format `localeid` on the context surface,
 which the kit does not expose yet; that pairs naturally with the offline-first
 metadata rework (which already touches the host surface), so it is deferred there
 rather than bolted on now.
+
+## D-045, a transactional change-set commit beside the flat executeMultiple, and the wizard is now genuinely atomic
+
+`CdsClient.executeMultiple` is a FLAT $batch by design: each operation is an
+independent top-level part, so one failing does not roll back the others, and
+`IViewModelContext` documents that honestly. That contract is unchanged. Added
+beside it is `executeChangeSet`, a separate transactional method that emits one
+$batch with a single change-set boundary, so the operations all commit or all
+roll back. It supports content-id references ("$1", the 1-based request position)
+so a later operation can bind to a record created earlier in the same change set,
+either as the PATCH/DELETE target or inside an `@odata.bind` value, and it returns
+the created ids in request order. It rides cds-client on every host (including the
+modern one): the native execute surface cannot express content-id references, so a
+uniform path is both simpler and the only one that supports the feature.
+
+Verified against a live dev org before relying on it: a change set that creates an
+account, creates a contact bound to that account at "$1", and patches the account's
+primary contact to the contact at "$2" commits all three as a unit (three 204s),
+and a change set with a failing operation rolls the whole thing back (the would-be
+account does not persist). Two platform behaviours worth recording, both found in
+that check: Dataverse PATCH is an upsert (patching a non-existent id creates it, so
+a "patch a missing record" probe is not a valid failure test), and a failing change
+set returns a non-2xx status at the $batch envelope (unlike the flat batch, which
+returns 200 even when a part fails), so a single status check is the all-or-nothing
+signal.
+
+With this, `sample-new-account-wizard`'s `commit()` is one `executeChangeSet`
+instead of three sequential writes, so the sample is genuinely atomic with zero
+server code, and "atomic" is now an earned word for it rather than a deferred
+aspiration. The honest config baseline for the wizard is a custom page plus a
+commit, or a Business Process Flow when one fits (BPF is the cheapest answer when
+the record is not already on a different process, the data density suits a stage
+bar, and mutating the target record is acceptable). The kit's edge here is narrow
+but real: a custom page has no client-side atomic multi-entity write (Power Fx
+cannot), so config would need a Custom API to match the guarantee, while the kit
+needs none. The fallback the kit does NOT replace: commits that need real server
+logic, or ordering beyond what content-id expresses, still want a plugin or a
+Custom API. Revisit if the platform ever exposes a client-side multi-entity
+transactional write outside $batch, or if a host's native execute grows
+content-id support worth special-casing.
+
+## D-046, Seam A counterparty dataset PCF, and its logic lives WITH the control, not in shared
+
+Seam A is the flagship Tier 1 capability proof: a cross-type activity grid for an
+account with a synthesized COUNTERPARTY column (the external party on the other
+end) and a ROLE column (its participationtypemask), neither expressible in the
+supertype-bound native view. It ships as a dataset PCF (`pcfs/KitCounterpartyGrid`)
+because the point is host placement: a PCF can BE the account's Activities subgrid,
+a slot a custom page cannot occupy. That is a capability line, not a convenience
+one.
+
+The party-resolution logic (classify by target type, one activityparty query per
+page, summarize to a counterparty + role) is application-specific to this control,
+so it lives WITH the control (`KitCounterpartyGrid/counterparty.ts`), not in
+`shared`. It is a showcase of what the kit makes easy, not a kit capability;
+hoisting it into the portable library would be a context-free abstraction for a
+single consumer. The kit pieces it reuses (the IViewModelContext data surface,
+LibraryUtils, the presentational DataGrid) are the reuse story; the resolver is
+not. The presentational side is covered by a Storybook scenario over fixtures
+(the cross-type list with the single/multi-party/internal-only cases); the PCF
+itself, like every control under `pcfs/`, builds with its own toolchain outside
+the root verify gate.
+
+Mechanism verified against a live org before building: one `activityparty` query
+filtered by the page's activity ids returns, inline as annotations, the party name
+(`_partyid_value@OData.Community.Display.V1.FormattedValue`), the party target type
+(`_partyid_value@Microsoft.Dynamics.CRM.lookuplogicalname`), and the role label
+(`participationtypemask@...FormattedValue`) for account/contact parties, so there
+are no N+1 lookups. Resolving by TARGET TYPE (account/contact external,
+systemuser/team/queue internal) rather than by `directioncode` (which is
+subtype-only, absent on the supertype) is what makes it cover every activity type,
+custom ones included. The auto-created systemuser "Owner" party has no inline name,
+which is moot because it is internal and never a counterparty. Testing against a
+live org with seeded data surfaced one disambiguation rule that theory missed:
+every activity regarding the account auto-carries that account as a party with the
+"Regarding" role (participationtypemask 8), and account is an external type, so the
+host record would show as its own counterparty (and its Regarding party has no
+inline name). The resolver excludes the Regarding party from the candidates, which
+is also what makes a genuinely internal-only activity (a task with only an owner)
+fall through to blank. The honest caveats
+(internal-only rows blank, multi-party "(+N more)", non-person targets ignored,
+the host record excluded as a counterparty, render-only columns not available to
+Export/Advanced Find/views, two-phase render, FLS degrades to blank, the native
+"Include related" rollup not reproduced) are in the control's README, beside the config-counterpart description (the Open Activity
+Associated View, which cannot add either column: a PartyList is not an addable grid
+column and participationtypemask is not on the supertype). The config route to
+match it is a shadow column + a plugin per activity type + a backfill + perpetual
+drift; the control synthesizes the columns read-time with no schema and automatic
+coverage.
+
+Fluent v9 platform-library finding (this also resolves the open question flagged in
+D-002). The verify-first answer was initially optimistic and live testing corrected
+it. The Microsoft Learn doc does list `@fluentui/react-components` as a platform
+library for `control-type="virtual"` controls, so Seam A was first built as a
+virtual control declaring React and Fluent platform libraries (the build duly
+externalized `Reactv16` and `FluentUIReactv940`). Deployed to the dev org, it
+rendered to NOTHING. The reason: the platform pins the Fluent v9 platform library at
+**9.46.2**, and anything introduced after that is absent at runtime; this kit is on
+`9.74.1`, so the platform copy cannot satisfy it and the control silently fails to
+render. (Andrew Butenko documents this and the workaround: drop the Fluent
+platform-library line so the bundler includes the project's own Fluent.)
+
+So Seam A is a `control-type="standard"` control that BUNDLES React 18 + Fluent v9,
+exactly like the kit's existing field PCFs (which is why they work). The reviewer's
+original "a Fluent v9 control must ship its own bundle, accepted" was right in
+practice for any kit past 9.46.2; the platform-library path is only viable if you
+hold Fluent at or below 9.46.2, which the kit does not. The cost (React + Fluent v9
+in the control bundle) is accepted. Lesson logged honestly: a capability the docs
+list is not a capability until it renders on the target org, and the verify-first
+check for this should have deployed a trivial virtual control before trusting the
+doc.
+
+## D-047, two fixes every kit PCF that renders shared Fluent components needs (found deploying Seam A to a real form)
+
+Seam A only surfaced these once it ran inside a model-driven form (the field PCFs
+were never exercised on a deployed form, only in the harness, so they would hit the
+same issues). Both are now in `KitCounterpartyGrid` and should be copied to any kit
+PCF that mounts shared presentational controls.
+
+1. Dedupe React and Fluent in webpack. A kit PCF imports shared source from OUTSIDE
+   the project (`../../../shared`), so webpack resolves React/Fluent for that shared
+   code to the REPO-ROOT `node_modules`, while the control's own files and Fluent
+   resolve to the PCF's `node_modules`. The bundle then carries TWO copies of React
+   (and Fluent), giving two hook dispatchers; Fluent v9's griffel hooks throw
+   "Invalid hook call / more than one copy of React" and the control renders blank.
+   Fix: a `webpack.config.js` (enabled via `featureconfig.json`
+   `pcfAllowCustomWebpack: "on"`) that aliases `react`, `react-dom`,
+   `@fluentui/react-components`, and `@fluentui/react-icons` to the PCF's own
+   `node_modules`, forcing one copy.
+
+2. Never write an observed Observable from `componentDidUpdate`. The first cut of the
+   control's view set its `rows`/`columns` Observables in `componentDidUpdate` while
+   also observing them; each write forced an update, which ran `componentDidUpdate`
+   again, looping until React's "Maximum update depth exceeded" and a blank control.
+   For a dataset PCF the host pushes new data by re-rendering (updateView), so the
+   view now derives columns/rows directly in `render()` from the dataset and keeps
+   only the async-resolved counterparty map in React state, set once per visible page
+   (guarded by the id signature) so it cannot retrigger.
+
+Process lesson: a PCF "builds" and even renders in the test harness without exposing
+either bug; both only appeared on a real form. Treat "deployed to a form and observed
+rendering" as the bar for a PCF, not "compiles" or "renders in the harness".
+Verified: the control deployed to the account's Activities subgrid resolves and shows
+the counterparty/role columns for single-party, internal-only (blank), and
+multi-party "(+N more)" activities. Remaining caveat is cosmetic: the bound subgrid
+view's own columns plus the two synthesized ones overflow a narrow form section, so
+the demo wants a wide tab or a trimmed view.
+
+## D-048, two more things a kit PCF needs to actually ship and run on a form (found enriching Seam A)
+
+D-047 got the counterparty PCF rendering. Enriching it (clickable counterparty
+lookups, a "(+N more)" hover popover, a persona collapse on narrow hosts, drag
+column resize) then surfaced two further issues that only bite a real form, both
+now solved in `KitCounterpartyGrid` and applicable to any kit PCF that bundles
+Fluent v9.
+
+1. Ship a PRODUCTION build, not `pac pcf push`. `pac pcf push` builds a DEBUG,
+   unminified bundle. Once the control pulled in `Popover` and `Avatar`, that
+   bundle hit 5.7 MB and the import failed with "Webresource content size is too
+   big" (Dataverse's 5 MB webresource ceiling). The same control built for
+   production (`pcf-scripts build --buildMode production`, i.e. a Release solution)
+   is 0.62 MB. `pac pcf push` has no production switch, so deploy via a solution
+   wrapper instead: `pac solution init` + `pac solution add-reference` once, then
+   `dotnet build -c Release -p:SolutionPackageType=Unmanaged` and
+   `pac solution import --force-overwrite --publish-changes`. Use the webresource
+   showcase (`sample-counterparty-grid`) for fast iteration (its bundle cache-busts
+   on reload via a `?v=` hash) and reserve the PCF solution-import loop for
+   integration checkpoints.
+
+2. Pin the bundled Fluent v9 to the host's platform-library version so tabster
+   does not collide. Fluent v9's `tabster` (focus management) registers ONE
+   instance on `window`. A model-driven form already has one from the platform
+   library, and a kit PCF bundles its own. When the bundled `tabster` is NEWER than
+   the host's, a component that augments the instance (here `Popover`'s focus trap,
+   via getModalizer/getRestorer, but getGroupper/getMover too) writes a shape the
+   host's older instance lacks and throws `Cannot read properties of undefined
+   (reading 'set')` from inside a layout effect. React then unmounts the whole
+   control, so it renders for one frame and vanishes. It is invisible in the test
+   harness and in the webresource showcase (no second Fluent there), and the host
+   swallows the console error, so it was diagnosed by building the control WITH a
+   source map (`devtool: "source-map"` in the custom webpack config) and decoding
+   the minified stack: every frame was `@fluentui/react-tabster`. The host's
+   platform library was 9.68.0 with a frozen `tabster` 8.2.0 instance on the
+   window; the PCF, on 9.74.1, bundled `tabster` 8.8.0. Fix: pin the PCF to the
+   host's floor, `@fluentui/react-components` 9.68.0 with an `overrides` block
+   forcing `@fluentui/react-tabster` 9.26.1 and `tabster` 8.5.5 (today's caret
+   ranges otherwise resolve `tabster` up to 8.8.0). The kit and the webresource
+   showcase stay on 9.74.1, since there is no host tabster to collide with there;
+   only the embedded PCF is pinned. Read the host's live version before pinning
+   (`window.__tabsterInstance._version`); the platform library moves, so the pin is
+   to the CURRENT platform version and may need revisiting after a platform bump.
+
+Two smaller calls made in the same pass, both in the shared `DataGrid`:
+
+- Column resize is hand-rolled, not Fluent's. Fluent v9 `DataGrid`'s
+  `resizableColumns` never applied widths in the embedded host (its
+  `getColumnById` returned undefined, so header cells fell back to equal flex and a
+  stray scrollbar appeared, and the drag did nothing). The grid now owns widths
+  through inline flex styles and renders its own drag handle on the header edge
+  that writes a per-column width override in component state; the handle stops
+  event propagation so a drag never triggers the header's sort.
+
+- Narrow hosts collapse to a persona list, not a horizontal scroll. Below ~560 px
+  the grid (measured by a `ResizeObserver` on the view's own element, not the PCF
+  `trackContainerResize`, which deferred first-paint sizing) renders each row as a
+  `PersonaList` card. `IPersonaItem` gained up to five secondary lines and the
+  avatar grows with the line count.

@@ -54,6 +54,29 @@ describe("MetadataService", () => {
     });
   });
 
+  it("lists creatable activity types, ordered by name, without the supertype or system types", async () => {
+    server.respondWith((request) =>
+      request.url.startsWith(`${API}EntityDefinitions?$filter=IsActivity eq true`)
+        ? {
+            status: 200,
+            responseText: JSON.stringify({
+              value: [
+                { LogicalName: "task", DisplayName: label("Task"), ObjectTypeCode: 4212 },
+                { LogicalName: "activitypointer", DisplayName: label("Activity"), ObjectTypeCode: 4200 },
+                { LogicalName: "socialactivity", DisplayName: label("Social Activity"), ObjectTypeCode: 4216 },
+                { LogicalName: "email", DisplayName: label("Email"), ObjectTypeCode: 4202 },
+              ],
+            }),
+          }
+        : undefined
+    );
+    const types = await service.getActivityTypes();
+    expect(types).toEqual([
+      { logicalName: "email", displayName: "Email", objectTypeCode: 4202 },
+      { logicalName: "task", displayName: "Task", objectTypeCode: 4212 },
+    ]);
+  });
+
   it("teaches the pluralizer the real set name for a custom entity", async () => {
     // The convention would guess "new_widgets"; metadata carries the truth.
     expect(LibraryUtils.entitySetName("new_widget")).toBe("new_widgets");

@@ -1,16 +1,18 @@
 import * as React from "react";
 import {
-  Checkbox,
+  DataGrid as FluentDataGrid,
+  DataGridBody,
+  DataGridCell,
+  DataGridHeader,
+  DataGridHeaderCell,
+  DataGridRow,
   Skeleton,
   SkeletonItem,
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableHeaderCell,
-  TableRow,
+  createTableColumn,
   makeStyles,
+  mergeClasses,
   tokens,
+  type TableColumnDefinition,
 } from "@fluentui/react-components";
 import { ObserverComponent } from "../../reactivity/ObserverComponent";
 import { valueOf, type Observable, type OrObservable } from "../../reactivity/Observable";
@@ -28,8 +30,10 @@ export interface IGridColumn {
   key: string;
   /** Column header text. */
   name: string;
-  /** Approximate width in px; the last column flexes. */
+  /** Designed width in px; columns grow from this to share slack, and scroll when too narrow. */
   width?: number;
+  /** Cell alignment. Default "start"; "end" right-aligns numeric/currency columns. */
+  align?: "start" | "end";
   /** Custom cell renderer; default renders the row value as text. */
   onRender?: (row: IGridRow) => React.ReactNode;
   /** Client-side sortability. Default true. */
@@ -70,6 +74,8 @@ export interface IDataGridProps {
   onSelectionChange?: (keys: string[]) => void;
   /** Rows shown while loading. Default 5. */
   skeletonRows?: number;
+  /** Opt-in column resizing (drag the header edge). Default off. */
+  resizableColumns?: boolean;
   /**
    * Server-side sort mode: when set, header clicks call this instead of sorting
    * the loaded page in memory, and the host re-supplies sorted rows. The header
@@ -83,20 +89,45 @@ export interface IDataGridProps {
 interface IDataGridState {
   sortColumn: string | null;
   sortAscending: boolean;
+  /** Per-column widths the user has dragged, keyed by column key; overrides the designed width. */
+  widthOverrides: Record<string, number>;
 }
 
+/** Floor a column can be dragged down to. */
+const MIN_COLUMN_WIDTH = 60;
+
 const useStyles = makeStyles({
-  headerCell: {
-    fontWeight: tokens.fontWeightSemibold,
-    color: tokens.colorNeutralForeground3,
-    cursor: "pointer",
-    userSelect: "none",
+  // Horizontal scroll when fixed columns sum wider than the host slot, so the
+  // rightmost column scrolls into view instead of clipping.
+  scroll: { overflowX: "auto", width: "100%" },
+  grid: { minWidth: "fit-content" },
+  // Default cell text: one line, clipped with an ellipsis (the full value rides
+  // along as the title on hover).
+  cell: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    width: "100%",
+    minWidth: 0,
   },
-  // A column that cannot be sorted gets no pointer or click affordance.
-  headerCellStatic: {
-    fontWeight: tokens.fontWeightSemibold,
-    color: tokens.colorNeutralForeground3,
+  cellEnd: { textAlign: "right" },
+  headerEnd: { width: "100%", textAlign: "right" },
+  // Header text matches native UCI: semibold in a muted grey.
+  headerCell: { fontWeight: tokens.fontWeightSemibold, color: tokens.colorNeutralForeground3 },
+  // A hairline under the header, the rule native subgrids anchor their header on.
+  headerRow: { borderBottom: `1px solid ${tokens.colorNeutralStroke2}` },
+  // Anchor for the resize handle pinned to the header cell's right edge.
+  headerCellResizable: { position: "relative" },
+  resizeHandle: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: "6px",
+    cursor: "col-resize",
     userSelect: "none",
+    touchAction: "none",
+    ":hover": { backgroundColor: tokens.colorNeutralStroke1 },
   },
   row: { cursor: "default" },
   // Hover tint on a clickable row, matching the native UCI read-only grid (the
@@ -105,7 +136,6 @@ const useStyles = makeStyles({
     cursor: "pointer",
     ":hover": { backgroundColor: tokens.colorNeutralBackground1Hover },
   },
-  selectionCell: { width: "36px" },
   // Selected row, matching native UCI: a light-blue fill from the brand-inverted
   // ramp plus a left accent bar (the way native subgrids mark the active row).
   // Hovering a selected row deepens the blue, and the cell under the cursor gets
@@ -114,7 +144,7 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorBrandBackgroundInvertedHover,
     boxShadow: `inset 3px 0 0 0 ${tokens.colorBrandStroke1}`,
     ":hover": { backgroundColor: tokens.colorBrandBackgroundInvertedSelected },
-    "& td:hover": { backgroundColor: "rgba(0, 0, 0, 0.1)" },
+    '& [role="gridcell"]:hover': { backgroundColor: "rgba(0, 0, 0, 0.1)" },
   },
   empty: {
     padding: tokens.spacingVerticalXXL,
@@ -134,7 +164,7 @@ const useStyles = makeStyles({
 export class DataGrid extends ObserverComponent<IDataGridProps, IDataGridState> {
   constructor(props: IDataGridProps) {
     super(props);
-    this.state = { sortColumn: null, sortAscending: true };
+    this.state = { sortColumn: null, sortAscending: true, widthOverrides: {} };
     this.observe(
       props.columns,
       props.rows,
@@ -145,25 +175,17 @@ export class DataGrid extends ObserverComponent<IDataGridProps, IDataGridState> 
     );
   }
 
-  private readonly toggleRow = (key: string): void => {
-    const current = this.props.selectedKeys?.value ?? [];
-    const next = current.includes(key)
-      ? current.filter((k) => k !== key)
-      : [...current, key];
+  private readonly handleSelectionChange = (keys: string[]): void => {
     if (this.props.selectedKeys) {
-      this.props.selectedKeys.value = next;
+      this.props.selectedKeys.value = keys;
     }
-    this.props.onSelectionChange?.(next);
+    this.props.onSelectionChange?.(keys);
   };
 
-  private readonly toggleAll = (keys: string[]): void => {
-    const current = this.props.selectedKeys?.value ?? [];
-    const allSelected = keys.length > 0 && keys.every((k) => current.includes(k));
-    const next = allSelected ? [] : keys;
-    if (this.props.selectedKeys) {
-      this.props.selectedKeys.value = next;
-    }
-    this.props.onSelectionChange?.(next);
+  private readonly handleResize = (key: string, width: number): void => {
+    this.setState((previous) => ({
+      widthOverrides: { ...previous.widthOverrides, [key]: Math.max(MIN_COLUMN_WIDTH, Math.round(width)) },
+    }));
   };
 
   private readonly handleSort = (column: IGridColumn): void => {
@@ -208,8 +230,8 @@ export class DataGrid extends ObserverComponent<IDataGridProps, IDataGridState> 
         state={this.state}
         sortedRows={this.sortedRows()}
         onSort={this.handleSort}
-        onToggleRow={this.toggleRow}
-        onToggleAll={this.toggleAll}
+        onSelectKeys={this.handleSelectionChange}
+        onResize={this.handleResize}
       />
     );
   }
@@ -220,35 +242,77 @@ const Body: React.FC<
     state: IDataGridState;
     sortedRows: IGridRow[];
     onSort: (column: IGridColumn) => void;
-    onToggleRow: (key: string) => void;
-    onToggleAll: (keys: string[]) => void;
+    onSelectKeys: (keys: string[]) => void;
+    onResize: (key: string, width: number) => void;
   }
 > = (props) => {
   const styles = useStyles();
   const columns = valueOf(props.columns);
   const loading = valueOf(props.loading ?? false);
   const selectedKey = props.selectedKey?.value ?? null;
-  const multiSelect = !!props.multiSelect;
-  const selectedKeys = props.selectedKeys?.value ?? [];
-  const selectedKeySet = new Set(selectedKeys);
-  const allKeys = props.sortedRows.map((row) => row.key);
-  const allSelected = allKeys.length > 0 && allKeys.every((k) => selectedKeySet.has(k));
-  const someSelected = !allSelected && allKeys.some((k) => selectedKeySet.has(k));
-  const serverSort = props.onColumnSort ? valueOf(props.sortState ?? null) : null;
-  const sortDirectionFor = (key: string): "ascending" | "descending" | undefined => {
-    if (props.onColumnSort) {
-      return serverSort?.columnKey === key
-        ? serverSort.descending
-          ? "descending"
-          : "ascending"
-        : undefined;
+  const resizable = !!props.resizableColumns;
+  const overrides = props.state.widthOverrides;
+
+  // Column width: a dragged override pins the column (no flex-grow); otherwise it
+  // grows from its designed width to share any slack, so the row fills wide hosts
+  // proportionally and scrolls narrow ones (it never shrinks below its width).
+  // Fluent's own column sizing is unused: it doesn't apply widths in an embedded
+  // host, so the grid owns widths through these inline styles and a drag handle.
+  const columnStyle = (columnId: string | number): React.CSSProperties | undefined => {
+    const override = overrides[columnId];
+    const width = override ?? columns.find((c) => c.key === columnId)?.width;
+    if (!width) {
+      return { flexGrow: 1, flexBasis: 0, minWidth: 0 };
     }
-    return props.state.sortColumn === key
-      ? props.state.sortAscending
-        ? "ascending"
-        : "descending"
-      : undefined;
+    return { flexBasis: width, flexGrow: override != null ? 0 : 1, flexShrink: 0, minWidth: 0 };
   };
+
+  // Drag a header edge: pin the column to the width under the cursor, live.
+  const startResize = (event: React.PointerEvent, key: string): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    const cell = (event.currentTarget as HTMLElement).parentElement;
+    const startWidth = cell ? cell.getBoundingClientRect().width : 150;
+    const startX = event.clientX;
+    const onMove = (move: PointerEvent): void => props.onResize(key, startWidth + (move.clientX - startX));
+    const onUp = (): void => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+    };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  };
+
+  // Memoized so the column defs keep a stable identity across renders (rows change
+  // far more often than columns), so Fluent's table features don't rebuild their
+  // internal state every render. Declared before the loading return so the hook
+  // order never changes between renders.
+  const tableColumns: TableColumnDefinition<IGridRow>[] = React.useMemo(
+    () =>
+      columns.map((column) =>
+        createTableColumn<IGridRow>({
+          columnId: column.key,
+          // Fluent treats a two-parameter compare as a sortable header and a
+          // zero-parameter one as static. Return 0 either way, so Fluent's stable
+          // sort never reorders the rows the grid already sorted.
+          compare: column.sortable === false ? () => 0 : (_a: IGridRow, _b: IGridRow) => 0,
+          renderHeaderCell: () =>
+            column.align === "end" ? <span className={styles.headerEnd}>{column.name}</span> : column.name,
+          renderCell: (row) =>
+            column.onRender ? (
+              column.onRender(row)
+            ) : (
+              <span
+                className={column.align === "end" ? mergeClasses(styles.cell, styles.cellEnd) : styles.cell}
+                title={formatCell(row[column.key])}
+              >
+                {formatCell(row[column.key])}
+              </span>
+            ),
+        })
+      ),
+    [columns, styles]
+  );
 
   if (loading) {
     return (
@@ -262,92 +326,110 @@ const Body: React.FC<
     );
   }
 
+  // The sort indicator is fully controlled here: server mode follows the host's
+  // sortState, client mode the grid's own. Fluent only paints the arrow.
+  const serverSort = props.onColumnSort ? valueOf(props.sortState ?? null) : null;
+  const sortState: { sortColumn: string | undefined; sortDirection: "ascending" | "descending" } =
+    props.onColumnSort
+      ? {
+          sortColumn: serverSort?.columnKey,
+          sortDirection: serverSort?.descending ? "descending" : "ascending",
+        }
+      : {
+          sortColumn: props.state.sortColumn ?? undefined,
+          sortDirection: props.state.sortAscending ? "ascending" : "descending",
+        };
+
   return (
-    <Table size="small" aria-label="Data grid">
-      <TableHeader>
-        <TableRow>
-          {multiSelect ? (
-            <TableHeaderCell className={styles.selectionCell}>
-              <Checkbox
-                aria-label="Select all rows"
-                checked={allSelected ? true : someSelected ? "mixed" : false}
-                onChange={() => props.onToggleAll(allKeys)}
-              />
-            </TableHeaderCell>
-          ) : null}
-          {columns.map((column) => (
-            <TableHeaderCell
-              key={column.key}
-              className={column.sortable === false ? styles.headerCellStatic : styles.headerCell}
-              style={column.width ? { width: column.width } : undefined}
-              sortDirection={column.sortable === false ? undefined : sortDirectionFor(column.key)}
-              onClick={column.sortable === false ? undefined : () => props.onSort(column)}
-            >
-              {column.name}
-            </TableHeaderCell>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <div className={styles.scroll}>
+      <FluentDataGrid
+        size="small"
+        items={props.sortedRows}
+        columns={tableColumns}
+        getRowId={(row) => (row as IGridRow).key}
+        sortable
+        sortState={sortState}
+        onSortChange={(_event, data) => {
+          const column = columns.find((c) => c.key === data.sortColumn);
+          if (column) {
+            props.onSort(column);
+          }
+        }}
+        selectionMode={props.multiSelect ? "multiselect" : undefined}
+        selectedItems={props.multiSelect ? new Set(props.selectedKeys?.value ?? []) : undefined}
+        onSelectionChange={(_event, data) =>
+          props.onSelectKeys(Array.from(data.selectedItems, String))
+        }
+        selectionAppearance="none"
+        aria-label="Data grid"
+        className={styles.grid}
+      >
+        <DataGridHeader>
+          <DataGridRow
+            className={styles.headerRow}
+            selectionCell={props.multiSelect ? { "aria-label": "Select all rows" } : undefined}
+          >
+            {(column) => (
+              <DataGridHeaderCell
+                className={mergeClasses(styles.headerCell, resizable && styles.headerCellResizable)}
+                style={columnStyle(column.columnId)}
+              >
+                {column.renderHeaderCell()}
+                {resizable ? (
+                  <span
+                    className={styles.resizeHandle}
+                    role="separator"
+                    aria-label={`Resize ${String(column.columnId)} column`}
+                    onPointerDown={(event) => startResize(event, String(column.columnId))}
+                    onClick={(event) => event.stopPropagation()}
+                    onDoubleClick={(event) => event.stopPropagation()}
+                  />
+                ) : null}
+              </DataGridHeaderCell>
+            )}
+          </DataGridRow>
+        </DataGridHeader>
         {props.sortedRows.length === 0 ? (
-          <TableRow>
-            <TableCell colSpan={Math.max(columns.length + (multiSelect ? 1 : 0), 1)}>
-              <div className={styles.empty}>{props.emptyMessage ?? "No data available"}</div>
-            </TableCell>
-          </TableRow>
+          <div className={styles.empty}>{props.emptyMessage ?? "No data available"}</div>
         ) : (
-          props.sortedRows.map((row) => {
-            const interactive = !!(props.onRowClick || props.onItemInvoked);
-            return (
-              <TableRow
-                key={row.key}
+          <DataGridBody<IGridRow>>
+            {({ item, rowId }) => (
+              <DataGridRow<IGridRow>
+                key={rowId}
                 className={
-                  row.key === selectedKey
+                  item.key === selectedKey
                     ? styles.selectedRow
-                    : interactive
+                    : props.onRowClick || props.onItemInvoked
                       ? styles.clickableRow
                       : styles.row
                 }
-                tabIndex={props.onItemInvoked ? 0 : undefined}
-                onClick={props.onRowClick ? () => props.onRowClick!(row) : undefined}
-                onDoubleClick={props.onItemInvoked ? () => props.onItemInvoked!(row) : undefined}
+                onClick={props.onRowClick ? () => props.onRowClick!(item) : undefined}
+                onDoubleClick={props.onItemInvoked ? () => props.onItemInvoked!(item) : undefined}
                 onKeyDown={
                   props.onItemInvoked
-                    ? (event) => {
+                    ? (event: React.KeyboardEvent) => {
                         if (event.key === "Enter") {
-                          props.onItemInvoked!(row);
+                          props.onItemInvoked!(item);
                         }
                       }
                     : undefined
                 }
               >
-                {multiSelect ? (
-                  <TableCell
-                    className={styles.selectionCell}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <Checkbox
-                      aria-label={`Select row ${row.key}`}
-                      checked={selectedKeySet.has(row.key)}
-                      onChange={() => props.onToggleRow(row.key)}
-                    />
-                  </TableCell>
-                ) : null}
-                {columns.map((column) => (
-                  <TableCell key={column.key}>
-                    {column.onRender ? column.onRender(row) : formatCell(row[column.key])}
-                  </TableCell>
-                ))}
-              </TableRow>
-            );
-          })
+                {(column) => (
+                  <DataGridCell style={columnStyle(column.columnId)}>
+                    {column.renderCell(item)}
+                  </DataGridCell>
+                )}
+              </DataGridRow>
+            )}
+          </DataGridBody>
         )}
-      </TableBody>
-    </Table>
+      </FluentDataGrid>
+    </div>
   );
 };
 
-function formatCell(value: unknown): React.ReactNode {
+function formatCell(value: unknown): string {
   if (value === null || value === undefined) {
     return "";
   }

@@ -133,6 +133,17 @@ export const ServerSort: Story = {
   },
 };
 
+export const ResizableColumns: Story = {
+  name: "Resizable columns + right-aligned values",
+  render: () => (
+    <DataGrid
+      columns={[...accountColumns.slice(0, 3), { ...accountColumns[3], align: "end" }]}
+      rows={accountRows}
+      resizableColumns
+    />
+  ),
+};
+
 export const CustomCellRender: Story = {
   render: () => (
     <DataGrid

@@ -202,6 +202,38 @@ export interface IRecordWriteResult {
   id: string;
 }
 
+/**
+ * One operation in a transactional change set, for {@link IWebApi.executeChangeSet}:
+ * a create (POST), update (PATCH), or delete (DELETE). Every operation in one
+ * change set commits together or rolls back together.
+ */
+export interface IChangeSetRequest {
+  /** POST to create, PATCH to update, DELETE to delete. */
+  method: "POST" | "PATCH" | "DELETE";
+  /** Target entity logical name (e.g. "account"); resolved to its entity set. */
+  entityLogicalName: string;
+  /**
+   * Target record id for PATCH/DELETE. May be a content-id reference ("$1",
+   * "$2", ...) to a record CREATED earlier in the SAME change set, addressed by
+   * its 1-based position in the requests array. Omit for a create.
+   */
+  id?: string;
+  /**
+   * Attribute values for create/update. An `@odata.bind` value may itself be a
+   * content-id reference ("$1") to bind to a record created earlier in the same
+   * change set, for example `"primarycontactid@odata.bind": "$2"`.
+   */
+  data?: Record<string, unknown>;
+}
+
+/** One operation's result from {@link IWebApi.executeChangeSet}, in request order. */
+export interface IChangeSetResponse {
+  /** Affected entity logical name (echoed from the request). */
+  entityType: string;
+  /** New record id for a create (POST); undefined for an update or delete. */
+  id?: string;
+}
+
 /** Operation type for a Web API request: action, function, or CRUD. */
 export const WebApiOperationType = {
   Action: 0,
@@ -455,6 +487,24 @@ export interface IWebApi {
    * the responses come back in request order, each with its own `ok`/status.
    */
   executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]>;
+  /**
+   * Commits several writes as ONE transactional change set: a single `$batch`
+   * with a single change-set boundary, so the operations all commit or all roll
+   * back. This is the transactional counterpart to {@link executeMultiple}, whose
+   * flat form is deliberately NON-transactional (one failing does not roll back
+   * the others). A later operation can bind to a record created earlier in the
+   * same change set through a content-id reference ("$1", the 1-based position),
+   * either as the PATCH/DELETE target id or inside an `@odata.bind` value, so a
+   * multi-entity create-and-link commits with no server code. Returns one result
+   * per request in order, carrying the new id for each create. Rides cds-client
+   * on every host (the native execute surface cannot express content-id refs).
+   *
+   * Limits, by design of the OData change set: one organization, no GETs inside
+   * the change set, all-or-nothing within the one change set, and the platform's
+   * change-set message restrictions. For commits needing real server logic or
+   * ordering beyond content-id, reach for a plugin or a Custom API instead.
+   */
+  executeChangeSet(requests: IChangeSetRequest[]): Promise<IChangeSetResponse[]>;
 }
 
 /**
@@ -844,6 +894,14 @@ export interface IEntityMetadata {
   primaryNameAttribute: string;
 }
 
+/** One activity-enabled entity type, for a "create new activity" picker. */
+export interface IActivityTypeInfo {
+  logicalName: string;
+  displayName: string;
+  /** Activity type code, the value behind activitytypecode. */
+  objectTypeCode: number;
+}
+
 /**
  * One resolved grid column from a saved view's layout. For a
  * link-entity/aliased column, `name` is the aliased `alias.attr` key and
@@ -888,6 +946,13 @@ export interface IMetadataApi {
   ): Promise<IAttributeMetadata>;
   /** Loads a saved view by id, or the entity's default grid view when omitted. */
   getView(entityLogicalName: string, savedQueryId?: string): Promise<IViewDefinition>;
+  /**
+   * Lists the directly-creatable activity types, for a "create new activity"
+   * picker, ordered by display name. Cached for the session. Filtered to the
+   * out-of-box activities a native New menu shows (activitypointer itself and
+   * system-only types like recurring master and untracked email are excluded).
+   */
+  getActivityTypes(): Promise<IActivityTypeInfo[]>;
   /**
    * Resolves a saved (system) view by its display name for an entity.
    * Throws a readable error when no active view matches or the name is

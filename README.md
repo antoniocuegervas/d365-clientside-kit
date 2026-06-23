@@ -7,7 +7,7 @@ one shared library. Built on React 18 + TypeScript. The spiritual successor to
 [SparkleXrm](https://github.com/scottdurow/SparkleXrm), carried forward to UCI fidelity
 and modern host coverage.
 
-![sample apps running inside a powerapps host](sample.gif)
+<!-- TODO: Add gif with illustrative demo -->
 
 ## Why it exists
 
@@ -130,6 +130,30 @@ One shared library, four places it lands:
 Runs against modern orgs (v9.2+/UCI) natively, and CRM 8.x servers through a legacy
 context adapter. "Legacy" means old server APIs, not old browsers: modern evergreen
 browsers only.
+
+## One component, several surfaces
+
+Because every control resolves its host through one `IViewModelContext`, the same
+presentational component and ViewModel run unchanged as a webresource, a PCF, or a form
+script. That portability is also a development tactic, not only a deployment choice:
+
+- **Develop on the fast surface.** A webresource iterates in Storybook and a local
+  harness and refreshes without a deploy (a Fiddler autoresponder can serve your local
+  bundle straight to the live site, the single biggest speed-up there is for webresource
+  work). A PCF pays a build, push, and import on every change and fights the model-driven
+  host's aggressive caching. So build and debug the hard part, the UI and the data shape,
+  as a webresource, where the loop is markedly faster.
+- **Ship on the surface the requirement needs.** When the control must be a bound
+  subgrid, form field, or grid cell, deliver it as a PCF: a thin shell that imports the
+  component you already debugged and pipes `PCFContext` in. When no bound slot is needed
+  (an app page, a dialog, a search form), the webresource is the delivery shape too.
+- **Know the boundary.** The fast loop covers the UI and the data shape, most of the
+  work. What still needs the real PCF host is the binding feedback loop (the notify and
+  update cycle and the host's update timing), which a simulated binding cannot reproduce.
+
+The counterparty grid in this repo is built this way: one `shared/features/counterparty`
+module, debugged as a webresource app, shipped also as a dataset PCF
+(`pcfs/KitCounterpartyGrid`) that is a thin wrapper over the same component.
 
 ## What a View looks like
 

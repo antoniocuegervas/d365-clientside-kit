@@ -22,4 +22,5 @@ import "./sample-new-account-wizard/app";
 //#region Samples: exotic-data tier (limitation bypass)
 import "./sample-merged-grid/app";
 import "./sample-activities-grid/app";
+import "./sample-counterparty-grid/app";
 //#endregion

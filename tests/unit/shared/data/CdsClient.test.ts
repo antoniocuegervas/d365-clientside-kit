@@ -366,6 +366,101 @@ describe("CdsClient", () => {
     });
   });
 
+  describe("executeChangeSet (transactional)", () => {
+    it("emits one change set with content-id refs and returns created ids", async () => {
+      // A successful change set comes back as a nested multipart with one part
+      // per operation, each tagged by Content-ID; creates carry OData-EntityId.
+      server.respondAlways({
+        status: 200,
+        responseText: [
+          "--batchresponse_x",
+          "Content-Type: multipart/mixed; boundary=changesetresponse_y",
+          "",
+          "--changesetresponse_y",
+          "Content-Type: application/http",
+          "Content-ID: 1",
+          "",
+          "HTTP/1.1 204 No Content",
+          "OData-EntityId: https://org.crm.dynamics.com/api/data/v9.2/accounts(aaa00000-0000-0000-0000-000000000001)",
+          "",
+          "--changesetresponse_y",
+          "Content-Type: application/http",
+          "Content-ID: 2",
+          "",
+          "HTTP/1.1 204 No Content",
+          "OData-EntityId: https://org.crm.dynamics.com/api/data/v9.2/contacts(bbb00000-0000-0000-0000-000000000002)",
+          "",
+          "--changesetresponse_y",
+          "Content-Type: application/http",
+          "Content-ID: 3",
+          "",
+          "HTTP/1.1 204 No Content",
+          "",
+          "--changesetresponse_y--",
+          "--batchresponse_x--",
+        ].join("\r\n"),
+      });
+
+      const results = await makeClient().executeChangeSet([
+        { method: "POST", entityLogicalName: "account", data: { name: "Contoso" } },
+        {
+          method: "POST",
+          entityLogicalName: "contact",
+          data: { lastname: "Smith", "parentcustomerid_account@odata.bind": "$1" },
+        },
+        {
+          method: "PATCH",
+          entityLogicalName: "account",
+          id: "$1",
+          data: { "primarycontactid@odata.bind": "$2" },
+        },
+      ]);
+
+      // One round-trip: a single $batch POST carrying one change set boundary.
+      expect(server.requests).toHaveLength(1);
+      const request = server.lastRequest;
+      expect(request.method).toBe("POST");
+      expect(request.url).toBe("https://org.crm.dynamics.com/api/data/v9.2/$batch");
+      expect(request.headers["Content-Type"]).toMatch(/^multipart\/mixed;boundary=batch_/);
+      // A nested change-set boundary, each op carrying a 1-based Content-ID.
+      expect(request.body).toMatch(/Content-Type: multipart\/mixed;boundary=changeset_/);
+      expect(request.body).toContain("Content-ID: 1");
+      expect(request.body).toContain("Content-ID: 2");
+      expect(request.body).toContain("Content-ID: 3");
+      // Create targets the entity set; the update references content-id 1 as "$1".
+      expect(request.body).toContain("POST https://org.crm.dynamics.com/api/data/v9.2/accounts HTTP/1.1");
+      expect(request.body).toContain("POST https://org.crm.dynamics.com/api/data/v9.2/contacts HTTP/1.1");
+      expect(request.body).toContain("PATCH $1 HTTP/1.1");
+      expect(request.body).toContain('"parentcustomerid_account@odata.bind":"$1"');
+
+      // Created ids returned in request order; the update carries no id.
+      expect(results).toEqual([
+        { entityType: "account", id: "aaa00000-0000-0000-0000-000000000001" },
+        { entityType: "contact", id: "bbb00000-0000-0000-0000-000000000002" },
+        { entityType: "account", id: undefined },
+      ]);
+    });
+
+    it("throws when the change set rolls back (non-2xx, unlike the flat batch)", async () => {
+      // A failing change set returns a non-2xx status with the failing op's error,
+      // so a single status check is the all-or-nothing signal.
+      server.respondAlways({
+        status: 400,
+        responseText: JSON.stringify({ error: { message: "name is required" } }),
+      });
+      await expect(
+        makeClient().executeChangeSet([
+          { method: "POST", entityLogicalName: "account", data: {} },
+        ])
+      ).rejects.toThrow("name is required");
+    });
+
+    it("short-circuits an empty request list", async () => {
+      expect(await makeClient().executeChangeSet([])).toEqual([]);
+      expect(server.requests).toHaveLength(0);
+    });
+  });
+
   describe("errors", () => {
     it("throws CdsClientError with the platform message on failure", async () => {
       server.respondAlways({

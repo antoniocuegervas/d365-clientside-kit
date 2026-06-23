@@ -17,6 +17,8 @@ import {
 } from "./hostSurface";
 import type {
   IAlertStrings,
+  IChangeSetRequest,
+  IChangeSetResponse,
   IClientContext,
   IClientUILaunchOptions,
   IConfirmStrings,
@@ -281,6 +283,10 @@ class PcfWebApi implements IWebApi {
 
   executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]> {
     return this.client.executeMultiple(requests);
+  }
+
+  executeChangeSet(requests: IChangeSetRequest[]): Promise<IChangeSetResponse[]> {
+    return this.client.executeChangeSet(requests);
   }
 }
 
