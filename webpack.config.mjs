@@ -1,11 +1,16 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Configurable publisher prefix, never hardcoded to a customer.
-const prefix = process.env.PUBLISHER_PREFIX ?? "new_";
+// Publisher prefix, single source of truth: kit.config.json at the repo root.
+// The build and the deploy both read it, so the built artifact and the deployed
+// webresource always share a name (the Fiddler autoresponder matches on that name).
+const prefix = JSON.parse(
+  readFileSync(path.resolve(__dirname, "kit.config.json"), "utf8")
+).publisherPrefix;
 
 /** Shared loader/resolve settings for both bundles. */
 const common = {

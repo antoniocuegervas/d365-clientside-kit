@@ -7,11 +7,13 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { createModernXrmMock, createV8XrmMock } from "../mocks/XrmMock";
 
-const BUNDLE = path.resolve(
-  __dirname,
-  "../../dist/clientui",
-  `${process.env.PUBLISHER_PREFIX ?? "new_"}clientui.js`
-);
+const prefix = (
+  JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../kit.config.json"), "utf8")) as {
+    publisherPrefix: string;
+  }
+).publisherPrefix;
+
+const BUNDLE = path.resolve(__dirname, "../../dist/clientui", `${prefix}clientui.js`);
 
 type ClientUIGlobal = { bootstrap: (options: object) => Promise<unknown> };
 

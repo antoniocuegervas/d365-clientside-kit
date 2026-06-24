@@ -17,8 +17,10 @@ coverage/
 deployment/*.local.*
 deployment/connection*.json
 deployment/packages/
+deployment/spkl.json
 *.log
 spkl-log*
+Log[0-9]*.txt
 
 docs/internal/qa**
 

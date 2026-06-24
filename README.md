@@ -84,6 +84,30 @@ your model-driven app. This kit is the right tool when you build *inside* it, in
 grid or on the field, and need a native-feeling, programmable, metadata-aware seam
 that stays in your codebase.
 
+## Code apps
+
+Power Apps code apps are a *build-beside* surface, not a *build-inside* one: a
+standalone React/TypeScript app running on the Power Platform, the same paradigm
+as canvas and custom pages, and a different job from this kit. They are a capable
+surface: they read Dataverse metadata at runtime via `getMetadata`, and the
+code-apps SDK opens the full Power Platform connector ecosystem (Dataverse,
+SharePoint, SQL, third-party SaaS) through governed connectors. For an app that
+lives *beside* the model-driven app, that is a strong option.
+
+What a code app categorically cannot do is *be* a bound control inside a
+model-driven form (a subgrid, a form field, a grid cell). That host placement is
+this kit's whole point, and it is the one line nothing in the build-beside
+paradigm crosses.
+
+The two are not mutually exclusive. The kit's presentational layer is
+host-neutral and already runs in any React host, code apps included, with no
+adapter. The metadata-aware layer would need a code-app context adapter, a real
+adapter rather than a thin wrapper, since the data plumbing differs (the
+code-apps SDK rather than `Xrm.WebApi`). That, and the connector-reach scenarios
+it would open, is a deliberate future direction rather than a v1 deliverable. v1
+stays focused on the inside-the-model-driven-app surfaces where the native-seam
+capability is the differentiator.
+
 ## Architectural stance
 
 Two decisions carry the design.

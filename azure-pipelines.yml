@@ -13,9 +13,6 @@ pr:
 pool:
   vmImage: ubuntu-latest
 
-variables:
-  PUBLISHER_PREFIX: new_
-
 steps:
   - task: NodeTool@0
     inputs:

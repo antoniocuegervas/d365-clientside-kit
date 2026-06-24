@@ -9,8 +9,10 @@
 | `dist/clienthooks/<prefix>clienthooks.js` | Library webresource for form/ribbon/grid registration |
 | `pcfs/<Control>/out/controls` | PCF, pack into a solution (`pac solution`) |
 
-The publisher prefix is configurable: `PUBLISHER_PREFIX=contoso_ npm run build`
-(default `new_`). Never hardcode a customer prefix in source.
+The publisher prefix lives in one place, `kit.config.json` at the repo root
+(default `new_`). Change `publisherPrefix` there once and both the build and the
+deploy use it, so the built artifact and the deployed webresource always share a
+name. Never hardcode a customer prefix elsewhere in source.
 
 ## SPKL publish
 
@@ -26,10 +28,12 @@ $env:SPKL_CONNECTION = "AuthType=OAuth;Url=https://org.crm.dynamics.com;..."
 # { "connectionString": "AuthType=OAuth;Url=..." }
 ```
 
-`deploy.ps1` builds with the requested prefix and runs
-`spkl.exe webresources` non-interactively. **Never commit** connection
-strings, SPKL logs, or `connection.local.json`, .gitignore already covers
-them; keep it that way.
+`deploy.ps1` builds and runs `spkl.exe webresources` non-interactively, reading the
+prefix from `kit.config.json` (the same file the build reads), so the built
+artifacts and the deployed webresources always share a name. It renders
+`spkl.template.json` into a gitignored `spkl.json` with that prefix. **Never commit**
+connection strings, SPKL logs, or `connection.local.json`, .gitignore already
+covers them; keep it that way.
 
 ## Hosting the shell
 
@@ -60,7 +64,7 @@ subarea and the navigateTo paths both select the right app.
 ## Source maps
 
 `.map` files are generated locally for debugging but are NOT listed in
-`spkl.json` and must not be deployed (Dataverse webresource size limits).
+`spkl.template.json` and must not be deployed (Dataverse webresource size limits).
 
 ## Cache busting
 

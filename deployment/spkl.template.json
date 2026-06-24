@@ -6,18 +6,18 @@
       "solution": "D365UIKit",
       "files": [
         {
-          "uniquename": "new_clientui.html",
-          "file": "clientui/new_clientui.html",
+          "uniquename": "{{prefix}}clientui.html",
+          "file": "clientui/{{prefix}}clientui.html",
           "description": "Unified client UI shell (single HTML entry, ?app= selection)"
         },
         {
-          "uniquename": "new_clientui.js",
-          "file": "clientui/new_clientui.js",
+          "uniquename": "{{prefix}}clientui.js",
+          "file": "clientui/{{prefix}}clientui.js",
           "description": "Client UI bundle, shell + registered apps"
         },
         {
-          "uniquename": "new_clienthooks.js",
-          "file": "clienthooks/new_clienthooks.js",
+          "uniquename": "{{prefix}}clienthooks.js",
+          "file": "clienthooks/{{prefix}}clienthooks.js",
           "description": "CrmClientSide form/ribbon/grid hook library"
         }
       ]

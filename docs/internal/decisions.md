@@ -158,10 +158,13 @@ because controls may change significantly once exercised in a live org.
 Backfilling them earlier is low-value churn. Add RTL only where a control has
 genuine logic (e.g. NumberField parsing) before then.
 
-## D-018, Publisher prefix `new_` confirmed, stays configurable
+## D-018, Publisher prefix `new_` confirmed, single committed source
 
-`new_` is the default; it remains driven by `PUBLISHER_PREFIX` so a project or
-org can change it without a code edit. No hardcoding.
+`new_` is the default, set in `kit.config.json` at the repo root. That one file is
+the source of truth: the build (webpack), the deploy (spkl), and the smoke tests
+all read it, so the built artifact and the deployed webresource always share a name
+(which the Fiddler autoresponder loop depends on). A project or org changes the
+prefix by editing that one value. No env var, no hardcoding.
 
 ## D-019, Next-phase scope and ordering
 
