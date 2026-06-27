@@ -7,7 +7,7 @@ one shared library. Built on React 18 + TypeScript. The spiritual successor to
 [SparkleXrm](https://github.com/scottdurow/SparkleXrm), carried forward to UCI fidelity
 and modern host coverage.
 
-<!-- TODO: Add gif with illustrative demo -->
+![The kit's activity grid embedded in a native Dynamics 365 account form, sitting alongside the standard form sections and timeline. A synthesized Counterparty column shows the related party per row, hovering a "(+N more)" chip opens a popover listing every party with its role, and "Load more" pages in the rest.](docs/media/counterparty-grid-demo.gif)
 
 ## Why it exists
 
