@@ -18,7 +18,7 @@ export interface ICommonFieldProps {
   readOnly?: boolean;
   /** Validation error text shown below the field, UCI-style. */
   errorMessage?: OrObservable<string | undefined>;
-  /** Tooltip/description hint rendered with the label. */
+  /** Description shown as a hover tooltip on the label (native UCI behavior). */
   hint?: string;
   /**
    * Where the label sits: "top" (default) or "start" (beside the field, on the

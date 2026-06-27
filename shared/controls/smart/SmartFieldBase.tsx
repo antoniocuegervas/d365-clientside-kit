@@ -32,9 +32,10 @@ export interface ISmartFieldProps<TValue> {
   readOnly?: boolean;
   errorMessage?: OrObservable<string | undefined>;
   /**
-   * Description hint shown with the label. Defaults to the attribute's metadata
-   * Description; pass to override, or "" to suppress. A free-form `placeholder`
-   * is deliberately not offered: what a smart field shows comes from metadata.
+   * Description shown as a hover tooltip on the label (native UCI behavior).
+   * Defaults to the attribute's metadata Description; pass to override, or "" to
+   * suppress. A free-form `placeholder` is deliberately not offered: what a smart
+   * field shows comes from metadata.
    */
   hint?: string;
   /** Label placement: "top" (default) or "start" (beside the field, RTL-aware). */
