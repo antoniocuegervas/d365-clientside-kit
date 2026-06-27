@@ -243,6 +243,15 @@ npm run storybook     # browse the controls with fixture data
 Browse the controls live in the hosted Storybook:
 https://antoniocuegervas.github.io/d365-clientside-kit/
 
+To see the kit running in a real org without building anything, install the managed
+**sample solution** from the repo's
+[Releases](https://github.com/antoniocuegervas/d365-clientside-kit/releases): import
+it, open the `d365KitSamples` app, and the counterparty grid plus the sample
+webresource apps run on standard account, contact, and activity data. It is managed,
+so it installs and uninstalls cleanly and changes nothing else in the environment.
+(The repo source ships under the `new_` publisher; change it to your own in
+`kit.config.json`. The sample solution is a separate, ready-to-try build.)
+
 Sample apps live in `clientui/apps/`. Start with `template` (the scaffold to copy),
 `sample-company-search` (the flagship 90%-native case: a saved-view grid and editable
 lookups in a webresource that behave like form controls), and `sample-master-detail`

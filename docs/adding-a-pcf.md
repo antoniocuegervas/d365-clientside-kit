@@ -53,3 +53,15 @@ npm run build      # pcf-scripts build → out/controls
 
 CI builds every `pcfs/*` project whenever `shared/` changes, so a shared
 change that breaks a PCF fails fast.
+
+## Deployed name and the publisher prefix
+
+A PCF's manifest `namespace` (here `D365Kit`) is its stable identity and never
+changes. The publisher prefix is applied at push/import time, not in the manifest:
+`pac pcf push --publisher-prefix acueger` registers the control as
+`acueger_D365Kit.KitCounterpartyGrid`. So the repo shows `D365Kit` while an org shows
+`<prefix>_D365Kit`, that is expected, not a mismatch. Drive the prefix from the same
+`kit.config.json` the webresources use (pass its `publisherPrefix` without the
+trailing underscore to `--publisher-prefix`) so one value names everything. The
+manifest itself stays untouched, which matters if you bring your own PCFs: nothing in
+their manifests changes.
