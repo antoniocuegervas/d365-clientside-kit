@@ -5,7 +5,7 @@ components**, not hooks-centric React. Read this before "modernizing" anything.
 
 ## Why
 
-A typical D365 implementation ships **10–20 custom UI surfaces total**, in
+A typical D365 implementation ships **10–20 custom UI pieces total**, in
 bursts, one webresource this month, a PCF tweak six months later. The people
 maintaining them are CRM developers and functional consultants, not full-time
 frontend engineers. Hooks fluency is perishable; every return visit pays a

@@ -32,8 +32,8 @@ a fork of this repo and open the pull request from the fork.
 Contributions that fit the kit well:
 
 - Fixes for defects you hit.
-- Expanded or additional host context adapters (more of the platform surface, or
-  broader host coverage).
+- Expanded or additional context adapters (more of the platform API, or
+  broader version coverage).
 - New presentational or smart controls that fill a real gap.
 - A new template app that illustrates a use case worth showing.
 
@@ -49,7 +49,7 @@ clean, runnable reference, not a judgment on your work:
 - **Overbuilt sample apps.** A template app is an illustration of one idea, not a
   production implementation. Keep it small and focused on a single use case,
   ideally one that is hard or inconvenient with the standard configuration-first
-  approach. If a sample grows into a full product, it has left the kit's band.
+  approach. If a sample grows into a full product, it is outside the kit's scope.
 
 When in doubt, open an issue to talk an idea through before building it.
 
@@ -89,6 +89,6 @@ around it:
 
 ## Reporting issues
 
-Open an issue describing the behavior, the host (modern UCI or legacy), and a
+Open an issue describing the behavior, the platform (modern UCI or legacy), and a
 minimal repro. For a UI question, a Storybook story that shows the problem is
 the fastest path to a fix.

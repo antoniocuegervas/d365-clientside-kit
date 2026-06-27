@@ -29,7 +29,7 @@ flowchart TB
         Utils["LibraryUtils · EntityModel · queries"]
     end
 
-    subgraph delivery [Delivery surfaces]
+    subgraph delivery [Delivery targets]
         ClientUI["clientui/, shell + apps (one HTML, ?app= registry)"]
         Hooks["clienthooks/, CrmClientSide UMD bundle"]
         PCFs["pcfs/, independent PCF projects"]
@@ -82,9 +82,9 @@ legacy adapter → registry lookup → render app inside `FluentProvider` +
 
 ## Host parity
 
-`IViewModelContext` mirrors the native Xrm surfaces at full parity, so a
+`IViewModelContext` mirrors the native Xrm APIs at full parity, so a
 consumer never has to break out of the contract to reach a platform capability.
-Each adapted surface threads every native parameter through to the host call:
+Each adapted area threads every native parameter through to the host call:
 
 - **navigation**: `openForm` (convenience `(entity, id?)` plus the full
   `entityFormOptions` + `formParameters`), `openAlertDialog`/`openConfirmDialog`
@@ -101,7 +101,7 @@ Each adapted surface threads every native parameter through to the host call:
   controls, tabs, sections, BPF process), built once by
   `formContextSurface.buildFormContext`. `formAccess` is a small wrapper over it.
 
-One shared builder backs each surface across all three hosts. The modern
+One shared builder backs each area across all three hosts. The modern
 (`WebResourceContext`) and PCF (`PCFContext`) hosts delegate to the native
 calls; the legacy `WebResourceContextV8` maps the subset CRM 8.x exposes and
 rejects what it cannot do with a clear "not supported on the CRM 8.x host"

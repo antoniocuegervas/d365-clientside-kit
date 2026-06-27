@@ -5,7 +5,7 @@ It renders native-looking custom UI (refreshed Unified Interface, Fluent UI v9) 
 full code-level control, and ships it across webresources, PCFs, and form scripts from
 one shared library. Built on React 18 + TypeScript. The spiritual successor to
 [SparkleXrm](https://github.com/scottdurow/SparkleXrm), carried forward to UCI fidelity
-and modern host coverage.
+and modern UCI coverage.
 
 ![The kit's activity grid embedded in a native Dynamics 365 account form, sitting alongside the standard form sections and timeline. A synthesized Counterparty column shows the related party per row, hovering a "(+N more)" chip opens a popover listing every party with its role, and "Load more" pages in the rest.](docs/media/counterparty-grid-demo.gif)
 
@@ -15,13 +15,12 @@ In normal D365 work, when configuration cannot express exactly what the user nee
 usually face two bad options: compromise the requirement, or spend a week on a custom POC
 that still does not look native. This kit is the third option: native-looking UI with
 code-level control, with a realistic target of roughly one day for requirements that are
-almost standard but need a programmable seam.
+almost standard but need a programmable extension point.
 
 ## When to reach for it (and when not)
 
-This is the part worth reading slowly. The kit is not for exotic UI by default. Its
-highest-impact case is the gap between what the platform almost does and what the user
-actually needs: the requirement is about 90% native, but the host, the interaction, or
+The kit is not for exotic UI by default. Where it earns its keep is the gap between what
+the platform almost does and what the user actually needs: the requirement is about 90% native, but where it has to run, the interaction, or
 the data shape leaves no clean standard path.
 
 | Use native D365 | Use the kit |
@@ -36,15 +35,15 @@ the data shape leaves no clean standard path.
 
 It is also the wrong tool for a full SPA. The kit's unit of work is a form-shaped View
 plus a thin ViewModel. If a requirement is too large to express that way, that is the
-signal it has left the kit's band, not a reason to grow the kit. Routing, global state
+signal it is outside the kit's scope, not a reason to grow the kit. Routing, global state
 managers, and composition patterns aimed at full-time frontend teams are deliberately
 out of scope.
 
 It also leaves **field-level (column) security** to the platform. Native forms
 resolve each user's column access from the form runtime, which a webresource control
 does not have, so the kit renders column-secured fields read-only and shows
-read-denied values as empty rather than pretending to enforce per-user access. If a
-surface needs native-grade column security in custom UI, that is the platform's job:
+read-denied values as empty rather than pretending to enforce per-user access. If you
+need native-grade column security in custom UI, that is the platform's job:
 use a native form. See [docs/gotchas.md](docs/gotchas.md).
 
 ## How this relates to canvas apps and custom pages
@@ -76,44 +75,44 @@ to underestimate:
   default, where a custom page wires each one binding by binding and leaves the
   awkward cases to you.
 - **It is a second paradigm to staff and maintain.** Power Fx beside React beside
-  your form scripts is three mental models, re-learned by a team that returns to a
-  surface twice a year. The kit is one: React on the metadata you already have, in
+  your form scripts is three mental models, re-learned by a team that returns to
+  it twice a year. The kit is one: React on the metadata you already have, in
   source control and CI, reviewed like the rest of your code, and legible enough
-  that the intermittent maintainer, or a coding agent generating the next surface,
+  that the intermittent maintainer, or a coding agent generating the next one,
   can re-read it cold.
 - **It is awkward for programmable data shapes.** Merged or normalized result sets,
   lists spanning multiple activity types, lookups with custom ranking or multi-step
   filtering, the cases this kit targets, are where a layout-first tool is most
   strained and where code-first, metadata-aware controls are most at home.
 
-Short version: canvas and custom pages are the right tool when you build *beside*
+Canvas and custom pages are the right tool when you build *beside*
 your model-driven app. This kit is the right tool when you build *inside* it, in the
-grid or on the field, and need a native-feeling, programmable, metadata-aware seam
+grid or on the field, and need a native-feeling, programmable, metadata-aware extension point
 that stays in your codebase.
 
 ## Code apps
 
-Power Apps code apps are a *build-beside* surface, not a *build-inside* one: a
+Power Apps code apps are a *build-beside* option, not a *build-inside* one: a
 standalone React/TypeScript app running on the Power Platform, the same paradigm
-as canvas and custom pages, and a different job from this kit. They are a capable
-surface: they read Dataverse metadata at runtime via `getMetadata`, and the
+as canvas and custom pages, and a different job from this kit. They are capable:
+they read Dataverse metadata at runtime via `getMetadata`, and the
 code-apps SDK opens the full Power Platform connector ecosystem (Dataverse,
 SharePoint, SQL, third-party SaaS) through governed connectors. For an app that
 lives *beside* the model-driven app, that is a strong option.
 
 What a code app categorically cannot do is *be* a bound control inside a
-model-driven form (a subgrid, a form field, a grid cell). That host placement is
+model-driven form (a subgrid, a form field, a grid cell). Being that control inside the form is
 this kit's whole point, and it is the one line nothing in the build-beside
 paradigm crosses.
 
 The two are not mutually exclusive. The kit's presentational layer is
-host-neutral and already runs in any React host, code apps included, with no
+indifferent to where it runs and already works in any React app, code apps included, with no
 adapter. The metadata-aware layer would need a code-app context adapter, a real
 adapter rather than a thin wrapper, since the data plumbing differs (the
 code-apps SDK rather than `Xrm.WebApi`). That, and the connector-reach scenarios
 it would open, is a deliberate future direction rather than a v1 deliverable. v1
-stays focused on the inside-the-model-driven-app surfaces where the native-seam
-capability is the differentiator.
+stays focused on the inside-the-model-driven-app cases, where being a native
+extension point is the differentiator.
 
 ## Architectural stance
 
@@ -128,12 +127,12 @@ Two decisions carry the design.
 | **ViewModel** | Yes | Anything: merges, multi-query pipelines | Owns Observables and app rules; binds presentational controls |
 
 Presentational controls stay CRM-agnostic so they run in Storybook with zero mocks and
-never drift off-brand. Smart controls give you form-designer ergonomics in code: drop a
+never drift from the native look. Smart controls give you form-designer ergonomics in code: drop a
 control into a View with an entity and an attribute, and it resolves labels, option sets,
 formats, and lookup targets from Dataverse metadata.
 
 **MVVM and Observables on purpose, not from habit.** Most D365 teams ship a handful of
-UI surfaces across an implementation, then return months later for a small change. Hooks
+custom UI pieces across an implementation, then return months later for a small change. Hooks
 fluency is perishable under that cadence; every return visit pays a relearning tax. View
 plus ViewModel plus Observables stays re-legible: open the ViewModel, see the data and
 rules; open the View, see the controls. It reads like the form scripts these developers
@@ -147,11 +146,11 @@ work. This public version was assembled with heavy AI assistance: the architectu
 constraints, and the API design are the author's; the bulk of the implementation was
 generated against that design. The judgment is human, the typing was not.
 
-## Delivery surfaces
+## Delivery targets
 
 One shared library, four places it lands:
 
-| Folder | Surface |
+| Folder | Target |
 |---|---|
 | `shared/` | The portable kit: controls, context adapters, metadata, reactivity, theme |
 | `clientui/` | HTML webresource shell: one page, `?app=` registry, MVVM apps |
@@ -162,25 +161,25 @@ Runs against modern orgs (v9.2+/UCI) natively, and CRM 8.x servers through a leg
 context adapter. "Legacy" means old server APIs, not old browsers: modern evergreen
 browsers only.
 
-## One component, several surfaces
+## Multiple ways to ship the same component
 
-Because every control resolves its host through one `IViewModelContext`, the same
+Because every control reaches the platform through one `IViewModelContext`, the same
 presentational component and ViewModel run unchanged as a webresource, a PCF, or a form
 script. That portability is also a development tactic, not only a deployment choice:
 
-- **Develop on the fast surface.** A webresource iterates in Storybook and a local
+- **Develop as a webresource first.** A webresource iterates in Storybook and a local
   harness and refreshes without a deploy (a Fiddler autoresponder can serve your local
   bundle straight to the live site, the single biggest speed-up there is for webresource
   work). A PCF pays a build, push, and import on every change and fights the model-driven
-  host's aggressive caching. So build and debug the hard part, the UI and the data shape,
+  app's aggressive caching. So build and debug the hard part, the UI and the data shape,
   as a webresource, where the loop is markedly faster.
-- **Ship on the surface the requirement needs.** When the control must be a bound
+- **Ship as webresource or PCF, whichever the requirement needs.** When the control must be a bound
   subgrid, form field, or grid cell, deliver it as a PCF: a thin shell that imports the
   component you already debugged and pipes `PCFContext` in. When no bound slot is needed
   (an app page, a dialog, a search form), the webresource is the delivery shape too.
 - **Know the boundary.** The fast loop covers the UI and the data shape, most of the
-  work. What still needs the real PCF host is the binding feedback loop (the notify and
-  update cycle and the host's update timing), which a simulated binding cannot reproduce.
+  work. What still needs the real PCF is the binding feedback loop (the notify and
+  update cycle and the platform's update timing), which a simulated binding cannot reproduce.
 
 The counterparty grid in this repo is built this way: one `shared/features/counterparty`
 module, debugged as a webresource app, shipped also as a dataset PCF
@@ -269,7 +268,7 @@ The public guides in `docs/`, in a sensible reading order:
 2. [docs/architectural-stance.md](docs/architectural-stance.md): why MVVM + Observables
 3. [docs/adding-a-webresource-app.md](docs/adding-a-webresource-app.md): ship your first app
 4. [docs/component-catalog.md](docs/component-catalog.md) and [docs/control-configuration.md](docs/control-configuration.md): controls and their config
-5. [docs/adding-a-pcf.md](docs/adding-a-pcf.md) and [docs/adding-a-client-hook.md](docs/adding-a-client-hook.md): the other delivery surfaces
+5. [docs/adding-a-pcf.md](docs/adding-a-pcf.md) and [docs/adding-a-client-hook.md](docs/adding-a-client-hook.md): the other delivery targets
 6. [docs/prompt-friendly-development.md](docs/prompt-friendly-development.md): generating apps with coding agents
 7. [docs/testing.md](docs/testing.md) and [docs/deployment.md](docs/deployment.md): verify and publish
 8. [docs/gotchas.md](docs/gotchas.md): sharp edges that are not obvious from the type signatures
@@ -282,7 +281,7 @@ constraints. They are background, not required reading.
 
 A working v1: the architecture, the three-layer contract, the shell, sample apps, sample
 PCFs, and the client-hooks framework are all in place and pass the local verification
-gate (lint, typecheck, both bundle builds, unit tests, modern and legacy host smoke
+gate (lint, typecheck, both bundle builds, unit tests, modern and legacy smoke
 tests, and a Storybook build). It has been deployed to and exercised against a live
 Dataverse v9 org using standard entities. It is a foundation built to be extended, not a
 finished product with a long track record.

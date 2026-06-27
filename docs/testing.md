@@ -13,7 +13,7 @@
 ```bash
 npm run test            # unit tests (excludes smoke)
 npm run build           # required before smoke, smoke loads dist/ bundles
-npm run smoke           # modern + legacy host mocks against built artifacts
+npm run smoke           # modern + legacy Xrm mocks against built artifacts
 npm run storybook       # dev server on :6006
 npm run build-storybook # CI gate
 npm run verify          # the whole local gate in order

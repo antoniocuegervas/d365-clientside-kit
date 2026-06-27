@@ -55,11 +55,11 @@ time a handler runs, that ordering is the contract the lazy context relies on.
 ## Launching the shell from a hook
 
 `context.navigation.openClientUI(webResourceName, appKey, payload?, options?)`
-opens the clientui shell from a ribbon, command bar, or form handler. On a modern
-host it uses `Xrm.Navigation.navigateTo`: `options.mode` selects a centered modal
+opens the clientui shell from a ribbon, command bar, or form handler. On modern
+UCI it uses `Xrm.Navigation.navigateTo`: `options.mode` selects a centered modal
 (default) or a side pane (`"side"`), with `width`/`height` in pixels (80% when
 omitted) and an optional `title`. `AccountRibbon` ships both, `openCompanySearch`
-(modal) and `openCompanySearchPane` (side pane). The legacy (V8) host falls back
+(modal) and `openCompanySearchPane` (side pane). The legacy (V8) platform falls back
 to a popup window and honors only width/height.
 
 ## 4. Verify

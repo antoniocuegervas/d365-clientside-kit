@@ -1,7 +1,7 @@
 # Component Catalog
 
 When the requirement is satisfied by standard configuration, **use native
-D365**. Reach for the kit when the host is custom (webresource/PCF) or the
+D365**. Reach for the kit when you're in a webresource or PCF, or the
 data shape doesn't fit one native control. See the when-to-use table in the
 [README](../README.md).
 
@@ -36,7 +36,7 @@ data shape doesn't fit one native control. See the when-to-use table in the
 
 ## Choosing a tier
 
-1. **Standard field, custom host** → Smart control. One line of JSX.
+1. **Standard field, webresource or PCF** → Smart control. One line of JSX.
 2. **Standard look, custom data** (merge, union, normalization) → ViewModel
    fetch + presentational control. The grid never knows.
 3. **Custom interaction on a standard pattern** (extra filter step, dynamic

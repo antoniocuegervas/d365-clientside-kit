@@ -13,13 +13,14 @@ hallucinate than hand-wired FetchXML and option-list plumbing.
 3. Build, deploy, and open the shell in a model-driven app with the app key
    (see deployment.md, "Hosting the shell").
 4. Humans tweak or re-prompt. Reading the View tells you the layout; reading
-   the ViewModel tells you the rules. That comprehension step is a feature.
+   the ViewModel tells you the rules. Having to read it to change it is the point,
+   not a chore.
 
 ## Which sample to point the agent at
 
 | Requirement shape | Few-shot reference |
 |---|---|
-| Standard fields on a custom surface | `clientui/apps/template/` |
+| Standard fields in a webresource or PCF | `clientui/apps/template/` |
 | Saved-view grid + selection + edit panel | `clientui/apps/sample-company-search/` |
 | Master grid driving an editable detail form | `clientui/apps/sample-master-detail/` |
 | Filter form over an entity | `clientui/apps/sample-opportunity-search/` |

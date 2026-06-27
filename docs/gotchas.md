@@ -242,7 +242,7 @@ matched-to-platform on purpose.
 
 When a PCF bundles its own React + Fluent v9 (instead of using the platform-library
 mechanism, which is pinned to an older Fluent), the control shares one tabster
-instance with the model-driven host on `window`. If the bundled tabster is newer
+instance with the model-driven app on `window`. If the bundled tabster is newer
 than the host's, it augments that shared instance with a shape it does not have and
 throws during init, blanking the control. The symptom is a blank container plus the
 platform's unhandled-error dialog, with no data queries fired, so it reads as a
@@ -280,7 +280,7 @@ it:
   empty value without the form runtime.
 
 The kit deliberately does not resolve per-user column permissions itself. If a
-surface genuinely needs native-grade, per-user field security in custom UI, that is
+custom UI genuinely needs native-grade, per-user field security, that is
 a sign the requirement has outgrown a client-side kit: use a native form, where the
 platform enforces it. This kit is for the cases where that enforcement is not the
 point.
