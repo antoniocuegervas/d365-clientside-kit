@@ -108,7 +108,7 @@ export class WebResourceContext implements IViewModelContext {
       xrm.Navigation,
       (xrm as unknown as { Utility?: IXrmUtilityLookup }).Utility
     );
-    // Seamless platform mirror: client/device/utility extras off the
+    // Platform mirror: client/device/utility extras off the
     // global context. Smart tier only.
     this.utils = utilsFromXrm(
       (message: string) => void this.navigation.openAlertDialog(message),

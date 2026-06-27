@@ -8,7 +8,7 @@ import type { IGridRow } from "../../controls/presentational/DataGrid";
  * and the dataset PCF. A cross-type activity list shows one row per
  * activitypointer record (the shared activity table), but WHO is on the other
  * end and in WHAT role live on the activityparty rows (the participationtypemask
- * field), not on activitypointer itself. So for the page of activities a surface
+ * field), not on activitypointer itself. So for the page of activities a grid
  * hands us, we run one activityparty query and synthesize a counterparty + role
  * per activity.
  *
@@ -130,7 +130,7 @@ function summarize(parties: IParty[]): ICounterpartyInfo {
 }
 
 /**
- * Resolves counterparty + role for the page of activities a surface is showing.
+ * Resolves counterparty + role for the page of activities a grid is showing.
  * One query for the whole page (no N+1), grouped and summarized per activity.
  * Returns a map keyed by normalized activity id.
  */

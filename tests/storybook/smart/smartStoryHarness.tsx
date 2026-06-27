@@ -356,7 +356,7 @@ export function makeRequired<T>(
  * component description reads as a complete explanation on its own.
  */
 export const fieldContractNote =
-  "These run against an in-memory metadata fake (no Dataverse host); each story's Show code " +
+  "These run against an in-memory metadata fake (no org); each story's Show code " +
   "panel includes the seeded metadata and the host Observable so the sample reads like real " +
   "ViewModel/View code. Pass an `entity`, an `attribute`, and a value `Observable`: the " +
   "ViewModel owns that Observable, and the control writes the user's edit back into it (and " +

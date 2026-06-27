@@ -21,7 +21,7 @@ data shape doesn't fit one native control. See the when-to-use table in the
 | Boolean (two options) | `BooleanField` | `SmartBooleanField` |
 | Rich text | deferred (see internal/decisions.md) | n/a |
 
-## Beyond fields, the functional-flexibility layer
+## Beyond fields, controls that bypass native limitations
 
 | Control | Tier | Native limitation it bypasses |
 |---|---|---|

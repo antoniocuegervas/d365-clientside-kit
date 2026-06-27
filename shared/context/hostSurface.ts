@@ -4,7 +4,7 @@
  * adapter pulls the same pieces:
  *
  *   - Form access over an Xrm.Page-shaped object (XrmPageFormAccess)
- *   - The seamless platform-mirror builders: client / device / utils extras
+ *   - The platform-mirror builders: client / device / utils extras
  *   - Locale/user-settings formatting resolution
  *   - Mapping to/from native Xrm.Utility.lookupObjects
  */

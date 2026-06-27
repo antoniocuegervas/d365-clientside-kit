@@ -198,9 +198,9 @@ const CounterpartyCell: React.FC<{ info: ICounterpartyInfo; onNavigate: Navigate
 };
 
 /**
- * The synthesized columns appended after a surface's own columns. The
+ * The synthesized columns appended after a grid's own columns. The
  * Counterparty cell needs a way to open a party's record, so navigation is
- * passed in (each surface wires its own openForm); the kit grid stays unaware.
+ * passed in (each grid wires its own openForm); the kit grid stays unaware.
  */
 export function counterpartyColumns(onNavigate: NavigateToParty): IGridColumn[] {
   return [

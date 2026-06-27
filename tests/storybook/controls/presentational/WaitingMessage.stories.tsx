@@ -9,7 +9,7 @@ const meta: Meta<typeof WaitingMessage> = {
     docs: {
       description: {
         component:
-          "Standard loading presentation. Smart wrappers and RecordReady show this while " +
+          "The standard loading state. Smart wrappers and RecordReady show this while " +
           "metadata or the record loads, so the kit has one loading look instead of per-app " +
           "spinners. A compact inline variant suits field-sized placeholders.",
       },

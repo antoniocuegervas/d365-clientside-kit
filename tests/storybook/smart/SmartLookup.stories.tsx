@@ -132,7 +132,7 @@ const company = new Observable<IEntityReference | null>(null);
   value={company}
   mode="dialog"
 />`,
-    "Dialog mode is browse-only: you click Browse to open the native picker instead of typing. Reach for it when you want the platform picker's recently-used list, view switching, or create-new, rather than embedded search-as-you-type. The Browse button calls lookupObjects, a Dataverse host API, so it only opens a real picker inside a model-driven host (here the fake commits a seeded record to show the resolved state). Same value Observable as inline mode."
+    "Dialog mode is browse-only: you click Browse to open the native picker instead of typing. Reach for it when you want the platform picker's recently-used list, view switching, or create-new, rather than embedded search-as-you-type. The Browse button calls lookupObjects, a Dataverse API, so it only opens a real picker inside a model-driven app (here the fake commits a seeded record to show the resolved state). Same value Observable as inline mode."
   ),
 };
 
