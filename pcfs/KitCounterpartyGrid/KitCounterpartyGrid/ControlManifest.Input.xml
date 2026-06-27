@@ -15,7 +15,7 @@
     the kit's other PCFs) is the working path. The cost is bundle size, accepted.
     See the decision-log note.
   -->
-  <control namespace="D365Kit" constructor="KitCounterpartyGrid" version="0.0.16" display-name-key="Counterparty Activities" description-key="Cross-type activity grid with synthesized counterparty and role columns." control-type="standard">
+  <control namespace="D365Kit" constructor="KitCounterpartyGrid" version="0.0.17" display-name-key="Counterparty Activities" description-key="Cross-type activity grid with synthesized counterparty and role columns." control-type="standard">
     <external-service-usage enabled="false">
     </external-service-usage>
     <!-- Bound to the account's Activities subgrid (activitypointer). -->
