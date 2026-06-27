@@ -255,6 +255,14 @@ block forcing the last two. If a Dynamics update moves the host's tabster, re-pi
 match. Ship the Release (production) build: the debug bundle can exceed the 5 MB
 webresource size ceiling.
 
+Bundling Fluent v9 also trips the Solution Checker: running it on the PCF reports
+`web-avoid-window-top` (High) several times against `bundle.js`. These are false
+positives. The rule pattern-matches `.top` in minified code and flags Fluent's
+positioning engine reading `DOMRect.top` / `style.top`, not `window.top` (the kit's
+own code never uses it). They are advisory and safe to dismiss, relevant only for
+AppSource certification, where they are flagged to the certification team as false
+positives.
+
 ## Column (field-level) security is the form's job, not the kit's
 
 Native model-driven forms resolve each user's effective access to a column-secured
