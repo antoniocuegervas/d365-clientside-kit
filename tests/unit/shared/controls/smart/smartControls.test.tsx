@@ -121,6 +121,33 @@ describe("SmartTextField (declarative block)", () => {
     expect(await screen.findByText("Type the trading name")).toBeTruthy();
     expect(screen.queryByText("The legal business name.")).toBeNull();
   });
+
+  it("renders a column-secured field read-only by default; readOnly={false} forces edit", async () => {
+    const { context } = createFakeViewModelContext({
+      attributes: {
+        "account.name": { displayName: "Account Name", kind: "text", isSecured: true },
+      },
+    });
+    const value = new Observable<string | null>("Contoso");
+
+    // Secured -> read-only: the shell renders flat locked text, no editable input,
+    // so a save the platform would reject can never be attempted.
+    const secured = renderWith(
+      context,
+      <SmartTextField entity="account" attribute="name" value={value} />
+    );
+    expect(await screen.findByText("Account Name")).toBeTruthy();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByText("Contoso")).toBeTruthy();
+    secured.unmount();
+
+    // A host that knows the user can edit the secured column overrides the default.
+    renderWith(
+      context,
+      <SmartTextField entity="account" attribute="name" value={value} readOnly={false} />
+    );
+    expect(await screen.findByRole("textbox")).toBeTruthy();
+  });
 });
 
 describe("SmartFieldBase reuse resilience", () => {

@@ -870,6 +870,13 @@ export interface IAttributeMetadata {
   kind: AttributeKind;
   /** True for ApplicationRequired/SystemRequired. */
   required: boolean;
+  /**
+   * True when the column has field-level (column) security enabled. The kit
+   * renders a secured column read-only by default; it cannot resolve this user's
+   * effective column access off a form (see docs/gotchas.md). A host that knows
+   * the user may edit it can override with `readOnly={false}`.
+   */
+  isSecured?: boolean;
   /** Option list for optionset / multioptionset / boolean kinds. */
   options?: IOptionItem[];
   /** Lookup target entity logical names. */

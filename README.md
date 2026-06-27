@@ -40,6 +40,13 @@ signal it has left the kit's band, not a reason to grow the kit. Routing, global
 managers, and composition patterns aimed at full-time frontend teams are deliberately
 out of scope.
 
+It also leaves **field-level (column) security** to the platform. Native forms
+resolve each user's column access from the form runtime, which a webresource control
+does not have, so the kit renders column-secured fields read-only and shows
+read-denied values as empty rather than pretending to enforce per-user access. If a
+surface needs native-grade column security in custom UI, that is the platform's job:
+use a native form. See [docs/gotchas.md](docs/gotchas.md).
+
 ## How this relates to canvas apps and custom pages
 
 The first reaction to "custom UI in a model-driven app" is usually "use a canvas

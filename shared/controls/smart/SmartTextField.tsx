@@ -20,7 +20,7 @@ export class SmartTextField extends SmartFieldBase<string | null, ISmartTextFiel
       label: this.resolveLabel(metadata),
       required: this.resolveRequired(metadata),
       disabled: this.props.disabled,
-      readOnly: this.props.readOnly,
+      readOnly: this.resolveReadOnly(metadata),
       hint: this.resolveHint(metadata),
       labelPosition: this.props.labelPosition,
       errorMessage: this.props.errorMessage,

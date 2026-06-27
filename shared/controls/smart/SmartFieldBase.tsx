@@ -147,6 +147,17 @@ export abstract class SmartFieldBase<
     return this.props.hint ?? metadata.description;
   }
 
+  /**
+   * Effective read-only: an explicit `readOnly` prop wins; otherwise a
+   * column-secured field defaults to read-only. The kit cannot resolve this
+   * user's effective column access off a form, so it fails safe rather than
+   * render an editable control whose save the platform would reject. A host that
+   * knows the user can edit the secured column passes `readOnly={false}`.
+   */
+  protected resolveReadOnly(metadata: IAttributeMetadata): boolean {
+    return this.props.readOnly ?? metadata.isSecured ?? false;
+  }
+
   /** Standard change plumbing: write host-owned observable, raise event. */
   protected readonly commitChange = (value: TValue): void => {
     this.props.value.value = value;

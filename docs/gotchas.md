@@ -254,3 +254,25 @@ currently `@fluentui/react-components` at 9.68.0, which resolves
 block forcing the last two. If a Dynamics update moves the host's tabster, re-pin to
 match. Ship the Release (production) build: the debug bundle can exceed the 5 MB
 webresource size ceiling.
+
+## Column (field-level) security is the form's job, not the kit's
+
+Native model-driven forms resolve each user's effective access to a column-secured
+field and render it accordingly: masked or blank with no read, read-only with no
+update. That resolution comes from the form runtime, which a webresource control
+does not have. So the kit takes the safe, honest path rather than pretend to match
+it:
+
+- A column-secured attribute (`IAttributeMetadata.isSecured`) renders **read-only
+  by default** in the smart controls, so a field the current user may not be allowed
+  to update never appears editable (which would only fail at save). A host that
+  knows the user can edit it passes `readOnly={false}`.
+- Read-denied values still show as empty: the Web API returns a secured column the
+  user cannot read as null, and the kit cannot tell that apart from a genuinely
+  empty value without the form runtime.
+
+The kit deliberately does not resolve per-user column permissions itself. If a
+surface genuinely needs native-grade, per-user field security in custom UI, that is
+a sign the requirement has outgrown a client-side kit: use a native form, where the
+platform enforces it. This kit is for the cases where that enforcement is not the
+point.

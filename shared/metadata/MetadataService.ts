@@ -142,7 +142,7 @@ export class MetadataService implements IMetadataApi {
       `EntityDefinitions(LogicalName='${entityLogicalName}')` +
       `/Attributes(LogicalName='${attributeLogicalName}')`;
     const base = await this.client.get(
-      `${basePath}?$select=LogicalName,DisplayName,Description,AttributeTypeName,RequiredLevel`
+      `${basePath}?$select=LogicalName,DisplayName,Description,AttributeTypeName,RequiredLevel,IsSecured`
     );
 
     const typeName =
@@ -157,6 +157,7 @@ export class MetadataService implements IMetadataApi {
       description: localizedLabel(base.Description),
       kind,
       required: requiredValue === "ApplicationRequired" || requiredValue === "SystemRequired",
+      isSecured: base.IsSecured === true,
     };
 
     await this.applyKindSpecifics(basePath, typeName, metadata);
