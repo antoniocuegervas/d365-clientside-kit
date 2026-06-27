@@ -34,18 +34,18 @@ Auto: Yes/No labels from the boolean option set metadata.
 
 ### SmartNumberField
 Auto: precision (0 for whole numbers), min/max bounds, money detection, and the
-user's decimal symbol / group separator from `context.getFormatting()` (G-06).
+user's decimal symbol / group separator from `context.getFormatting()`.
 Extra:
 
 | Prop | Purpose |
 |---|---|
 | `currencySymbol` | Force the money prefix, highest priority |
-| `transactionCurrencyId` | Resolve the record's real currency symbol from `transactioncurrency` (G-06b); used when `currencySymbol` is omitted. Falls back to `$` |
+| `transactionCurrencyId` | Resolve the record's real currency symbol from `transactioncurrency`; used when `currencySymbol` is omitted. Falls back to `$` |
 
 ### SmartDatePicker
 Auto: date-only vs date-and-time from attribute format; localized calendar
 strings (day/month names), first day of week, and short-date display format
-from `context.getFormatting()` (G-06).
+from `context.getFormatting()`.
 
 ### SmartLookup
 Auto: target entity (first metadata target), target's primary name/id
@@ -58,10 +58,10 @@ Extra props:
 | `filter` | OData `$filter` clause ANDed into every inline search, the "one extra filter step" scenario; can change between renders (cascades) |
 | `top` | Result count (default 10) |
 | `searchDebounceMs` | Default 250; 0 for tests |
-| `mode` | `"inline"` (default search box) or `"dialog"` (native CRM picker via lookupObjects, same value contract), G-02 |
+| `mode` | `"inline"` (default search box) or `"dialog"` (native CRM picker via lookupObjects, same value contract) |
 | `filterXml` | FetchXML `<filter>` for the dialog's view (dialog mode) |
-| `viewId` / `viewName` | View-driven inline search, run a saved view as the source (G-03) |
-| `showIcons` | Resolve + show the target entity's icon in results (G-10) |
+| `viewId` / `viewName` | View-driven inline search, run a saved view as the source |
+| `showIcons` | Resolve + show the target entity's icon in results |
 
 **StandardLookupField**, standalone, dialog-only lookup (button → native picker,
 no inline box, no attribute binding): `value`, `entityTypes`, `label`, `filters`
@@ -71,11 +71,11 @@ no inline box, no attribute binding): `value`, `entityTypes`, `label`, `filters`
 ### SmartViewGrid
 Auto: layout/columns from the savedquery's `layoutjson` (preferred) or
 `layoutxml`, headers + types resolved against each column's owning entity
-(related entity for link-entity/aliased columns, N-01), formatted cell values,
+(related entity for link-entity/aliased columns), formatted cell values,
 type-aware lookup cells (clickable links that openForm the target), row keys
-from the primary id. Data runs via `?savedQuery={id}` (T-01) so quick find /
+from the primary id. Data runs via `?savedQuery={id}` so quick find /
 filters / server sort layer on as OData options. Activity views (`activitypointer`)
-open the real activity type on row invoke (N-08).
+open the real activity type on row invoke.
 
 | Prop | Purpose |
 |---|---|
@@ -87,16 +87,16 @@ open the real activity type on row invoke (N-08).
 | `filters` (Observable) | Declarative eq/ne filters, re-queried server-side |
 | `serverSort` + `orderBy` (Observable, optional) | Header clicks sort server-side by re-query (`$orderby`, back to page 1). Without `serverSort` the grid does not sort at all (no in-memory page sort). `orderBy` seeds and exposes the spec; the grid keeps its own when omitted |
 | `pageSize` | Server-side paging with a Pagination control |
-| `pagination` | `"simple"` (default, forward-cookie next/prev) or `"rich"` (jump-to-page combobox + first/last + "X–Y of N" via FetchXML `page`/`count`), N-04. Requires `pageSize` |
-| `onPageChange(n)` | Raised on every page change; the controlled hook for `overrideFetchXml` + rich (host re-supplies the page), N-04 |
-| `pageCount` / `totalRecordCount` (Observable) | Host-supplied totals for the `overrideFetchXml` + rich case (the grid computes them on the saved-view path), N-04 |
-| `currentPage` (Observable) | Host-owned current page; the grid writes its page changes here, N-04 |
+| `pagination` | `"simple"` (default, forward-cookie next/prev) or `"rich"` (jump-to-page combobox + first/last + "X–Y of N" via FetchXML `page`/`count`). Requires `pageSize` |
+| `onPageChange(n)` | Raised on every page change; the controlled hook for `overrideFetchXml` + rich (host re-supplies the page) |
+| `pageCount` / `totalRecordCount` (Observable) | Host-supplied totals for the `overrideFetchXml` + rich case (the grid computes them on the saved-view path) |
+| `currentPage` (Observable) | Host-owned current page; the grid writes its page changes here |
 | `overrideFetchXml` (Observable) | Host supplies the query; view supplies the layout |
 | `refresh` (ObservableEvent) | Publish to re-run the query |
 | `onRecordSelected(id, row)` / `selectedRecordId` | Single-select click + highlight |
 | `onItemInvoked(id, row)` | Invoke (double-click/Enter); defaults to openForm |
 | `multiSelect` + `selectedRecordIds` + `onSelectedRecords` | Multi-select checkboxes |
-| `columnOverrides` | Dynamic/polymorphic columns (G-16): one column resolved from 2+ source fields, each with its own formatting; keyed by layout column or a synthetic `calc_*` key |
+| `columnOverrides` | Dynamic/polymorphic columns: one column resolved from 2+ source fields, each with its own formatting; keyed by layout column or a synthetic `calc_*` key |
 | `emptyMessage` | Empty-state text |
 
 Note: link-entity (aliased / dotted) columns can't be filtered or sorted

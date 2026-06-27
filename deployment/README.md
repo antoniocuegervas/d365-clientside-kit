@@ -1,6 +1,6 @@
 # Deployment
 
-SPKL-based webresource publish (§11.3). See [docs/deployment.md](../docs/deployment.md)
+SPKL-based webresource publish. See [docs/deployment.md](../docs/deployment.md)
 for the full guide.
 
 - `spkl.json`, webresource mapping (dist artifacts → webresource unique names)

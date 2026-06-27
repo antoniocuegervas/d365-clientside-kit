@@ -237,3 +237,20 @@ pass `firstDayOfWeek` to `SmartDatePicker` (0 = Sunday ... 6 = Saturday), comput
 however the deployment prefers (for example
 `new Intl.Locale("en-GB").weekInfo?.firstDay`). The default stays
 matched-to-platform on purpose.
+
+## A PCF that bundles Fluent v9 pins to the host's shared tabster
+
+When a PCF bundles its own React + Fluent v9 (instead of using the platform-library
+mechanism, which is pinned to an older Fluent), the control shares one tabster
+instance with the model-driven host on `window`. If the bundled tabster is newer
+than the host's, it augments that shared instance with a shape it does not have and
+throws during init, blanking the control. The symptom is a blank container plus the
+platform's unhandled-error dialog, with no data queries fired, so it reads as a
+broken control when it is really a version collision.
+
+Pin the Fluent v9 tabster chain in the PCF's `package.json` to the host's floor,
+currently `@fluentui/react-components` at 9.68.0, which resolves
+`@fluentui/react-tabster` to 9.26.1 and `tabster` to 8.5.5, with an `overrides`
+block forcing the last two. If a Dynamics update moves the host's tabster, re-pin to
+match. Ship the Release (production) build: the debug bundle can exceed the 5 MB
+webresource size ceiling.

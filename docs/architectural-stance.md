@@ -48,7 +48,7 @@ to be generated against.
 2. **No second state paradigm.** No Redux, no global stores, no hook-first
    composition in kit code. Hooks appear only in tiny `makeStyles` render
    helpers, never for control data.
-3. **Large ViewModels are an accepted trade.** Keep the §4.4 shape
+3. **Large ViewModels are an accepted trade.** Keep the shape
    (constructor → public Observables → handlers → dispose). If one grows,
    extract a smart control or shared helper, don't rewrite in hooks.
 4. **ViewModels never import Fluent.** UI markup is the View's job.

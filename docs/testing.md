@@ -37,7 +37,7 @@ PCFs: `cd pcfs/<Control> && npm run build`.
   `*.stories.tsx` next to sources.
 - Storybook stories use fixture data only, if a story needs CRM data, it
   arrives as a plain value, exactly like a ViewModel would supply it. Zero
-  CRM mocks in stories is a hard rule (§17.1.3).
+  CRM mocks in stories is a hard rule.
 - Hooks get smoke/DI coverage (registry shape + handler behavior), not
   exhaustive business-logic suites, they are templates.
 

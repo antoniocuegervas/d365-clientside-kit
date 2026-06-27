@@ -50,7 +50,7 @@ flowchart TB
     Meta --> Cds
 ```
 
-## The three-layer contract (§5.2 of the spec, non-negotiable)
+## The three-layer contract (non-negotiable)
 
 | Layer | Knows CRM? | Queries? | Role |
 |-------|-----------|----------|------|

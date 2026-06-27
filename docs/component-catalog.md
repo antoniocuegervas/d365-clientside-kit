@@ -2,8 +2,8 @@
 
 When the requirement is satisfied by standard configuration, **use native
 D365**. Reach for the kit when the host is custom (webresource/PCF) or the
-data shape doesn't fit one native control. See the decision table in the
-rebuild spec §1.3.
+data shape doesn't fit one native control. See the when-to-use table in the
+[README](../README.md).
 
 ## Field controls per type
 
@@ -46,4 +46,4 @@ rebuild spec §1.3.
 Presentational controls accept `T | Observable<T>` for display inputs (the data
 grid also takes an `ObservableArray` for its rows) and require host-owned
 `Observable`s for values, both the options list and the selected value belong to
-the host (§4.2 exemplar contract).
+the host (exemplar contract).

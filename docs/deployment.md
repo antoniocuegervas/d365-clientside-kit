@@ -1,6 +1,6 @@
 # Deployment
 
-## Artifacts (§11.2)
+## Artifacts
 
 | Artifact | Webresource / target |
 |---|---|

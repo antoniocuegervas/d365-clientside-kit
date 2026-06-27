@@ -23,7 +23,7 @@ export class ContactForm extends ClientHook {
 - Per-form manipulation: `LibraryUtils` + the event's formContext.
 - Org-level work (queries, opening the shell): `this.context`
   (`IViewModelContext`, created lazily on first use).
-- Validation UI without raw Xrm (N-07): `LibraryUtils.setFieldNotification` /
+- Validation UI without raw Xrm: `LibraryUtils.setFieldNotification` /
   `clearFieldNotification` (field-level icon + tooltip) and
   `setFormNotification` / `clearFormNotification` (form banner, level `"ERROR"
   | "WARNING" | "INFO"`). See `AccountForm.onSave` for the recommended-field
