@@ -32,7 +32,16 @@ renders a CRM-agnostic control, and pushes changes out via
 `SmartComponent` child uses the same `IViewModelContext` contract as
 webresources (metadata, Web API, navigation).
 
-Both patterns: `createRoot(container)` in `init`, render in `updateView`,
+**Pattern 3, smart via root** (see `pcfs/KitDatePicker`): the middle ground. The
+root reads host facts from the PCF `context` (here date-vs-datetime and the locale
+formatter) and drives a CRM-agnostic presentational control. Like Pattern 1 the
+root owns the Observables, but it pulls metadata/format from `context` without a
+provider or a `SmartComponent`. Default to the smart control (Pattern 2); reach
+for Pattern 3 only when you want customization niche enough that the smart
+control's default behavior gets in your way, or that goes beyond what a reasonable
+extension prop would cover. Uncommon, but a real case.
+
+All three patterns: `createRoot(container)` in `init`, render in `updateView`,
 `root.unmount()` in `destroy`.
 
 ## 3. Build
