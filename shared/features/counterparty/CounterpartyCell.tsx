@@ -61,11 +61,118 @@ const PartyLink: React.FC<{ party: ICounterpartyParty; onNavigate: NavigateToPar
   );
 };
 
+// Open the overflow popover on hover only after a short delay, so casually
+// sweeping the mouse across the grid does not flash it open on every cell. A
+// close grace lets the pointer travel from the "(+N more)" trigger into the
+// surface to click a party; a click opens it immediately. Fluent's Popover has a
+// mouse-leave delay but no open delay, so the open timing is controlled here.
+const OPEN_DELAY_MS = 400;
+const CLOSE_DELAY_MS = 300;
+
+const MoreParties: React.FC<{
+  parties: ICounterpartyParty[];
+  restCount: number;
+  onNavigate: NavigateToParty;
+}> = ({ parties, restCount, onNavigate }) => {
+  const styles = useStyles();
+  const [open, setOpen] = React.useState(false);
+  const openTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const closeTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  React.useEffect(
+    () => () => {
+      if (openTimer.current) {
+        clearTimeout(openTimer.current);
+      }
+      if (closeTimer.current) {
+        clearTimeout(closeTimer.current);
+      }
+    },
+    []
+  );
+  const clearTimers = (): void => {
+    if (openTimer.current) {
+      clearTimeout(openTimer.current);
+      openTimer.current = undefined;
+    }
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = undefined;
+    }
+  };
+  const scheduleOpen = (): void => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = undefined;
+    }
+    if (open || openTimer.current) {
+      return;
+    }
+    openTimer.current = setTimeout(() => {
+      openTimer.current = undefined;
+      setOpen(true);
+    }, OPEN_DELAY_MS);
+  };
+  const scheduleClose = (): void => {
+    if (openTimer.current) {
+      clearTimeout(openTimer.current);
+      openTimer.current = undefined;
+    }
+    closeTimer.current = setTimeout(() => {
+      closeTimer.current = undefined;
+      setOpen(false);
+    }, CLOSE_DELAY_MS);
+  };
+  const keepOpen = (): void => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = undefined;
+    }
+  };
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(_event, data) => {
+        clearTimers();
+        setOpen(data.open);
+      }}
+      withArrow
+      positioning="below-start"
+      size="small"
+    >
+      <PopoverTrigger disableButtonEnhancement>
+        <span
+          className={styles.more}
+          onClick={(event) => event.stopPropagation()}
+          onMouseEnter={scheduleOpen}
+          onMouseLeave={scheduleClose}
+        >
+          {` (+${restCount} more)`}
+        </span>
+      </PopoverTrigger>
+      <PopoverSurface>
+        <div
+          className={styles.surface}
+          onClick={(event) => event.stopPropagation()}
+          onMouseEnter={keepOpen}
+          onMouseLeave={scheduleClose}
+        >
+          {parties.map((party) => (
+            <div key={`${party.entity}:${party.id}`} className={styles.party}>
+              <PartyLink party={party} onNavigate={onNavigate} />
+              <span className={styles.role}>{party.role}</span>
+            </div>
+          ))}
+        </div>
+      </PopoverSurface>
+    </Popover>
+  );
+};
+
 /**
  * The Counterparty cell: the lead external party as a navigable link, plus a
- * "(+N more)" that opens on hover and lists every party (each clickable) with
- * its role, so the parties hidden by a narrow column are still reachable. A lone
- * party carries its role inline.
+ * "(+N more)" that opens on hover after a short delay and lists every party
+ * (each clickable) with its role, so the parties hidden by a narrow column are
+ * still reachable. A lone party carries its role inline.
  */
 const CounterpartyCell: React.FC<{ info: ICounterpartyInfo; onNavigate: NavigateToParty }> = ({
   info,
@@ -84,23 +191,7 @@ const CounterpartyCell: React.FC<{ info: ICounterpartyInfo; onNavigate: Navigate
         // The lone party carries its role inline; no overflow to reveal.
         lead.role ? <span className={styles.roleInline}>{`· ${lead.role}`}</span> : null
       ) : (
-        <Popover openOnHover withArrow mouseLeaveDelay={300} positioning="below-start" size="small">
-          <PopoverTrigger disableButtonEnhancement>
-            <span className={styles.more} onClick={(event) => event.stopPropagation()}>
-              {` (+${rest.length} more)`}
-            </span>
-          </PopoverTrigger>
-          <PopoverSurface>
-            <div className={styles.surface} onClick={(event) => event.stopPropagation()}>
-              {parties.map((party) => (
-                <div key={`${party.entity}:${party.id}`} className={styles.party}>
-                  <PartyLink party={party} onNavigate={onNavigate} />
-                  <span className={styles.role}>{party.role}</span>
-                </div>
-              ))}
-            </div>
-          </PopoverSurface>
-        </Popover>
+        <MoreParties parties={parties} restCount={rest.length} onNavigate={onNavigate} />
       )}
     </span>
   );
