@@ -33,6 +33,15 @@ the data shape leaves no clean standard path.
 | A standard guided process | A multi-step, gated wizard with an in-memory draft committed at the end, where Power Pages is overkill and a business process flow does not fit (record already on one, or large data volume) |
 | "Good enough" standard config | Requirements where users will notice if you compromise |
 
+One additional use case is a judgement call, not a capability gap: sometimes standard config or a
+low-code page *can* deliver the requirement, but a native-parity experience *is* the requirement.
+High-visibility, high-use apps where a visible break in the UX or a paradigm shift has a real cost (the
+daily-driver grid, the screen the whole sales floor lives in) can justify reaching for the kit on UX
+grounds alone. That is a tier of its own, separate from the capability cases above: in those, config
+genuinely can't deliver it; in this one it can, and you are choosing parity anyway because the polish is
+worth it. The discipline is in the "worth": reach for it where the experience earns the extra app, not by
+default.
+
 It is also the wrong tool for a full SPA. The kit's unit of work is a form-shaped View
 plus a thin ViewModel. If a requirement is too large to express that way, that is the
 signal it is outside the kit's scope, not a reason to grow the kit. Routing, global state
