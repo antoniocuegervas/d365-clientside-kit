@@ -1,9 +1,10 @@
 # Roadmap and open ideas
 
 The original forward-looking items here have shipped (recorded under "Shipped").
-Four directions are open: an offline-capable metadata rework (native-first),
-in-app release communication, an offline paging demo, and a real tooltip with the
-hint made opt-in. One idea stays parked for lack of a v8 environment.
+Five directions are open: an offline-capable metadata rework (native-first),
+in-app release communication, an offline paging demo, a real tooltip with the
+hint made opt-in, and an inline record-preview capability for lookups. One idea
+stays parked for lack of a v8 environment.
 
 ## Direction: native-first, offline-capable metadata (scheduled)
 
@@ -272,6 +273,41 @@ Both are behavior changes to a shipped prop plus a new control. Batch them with
 the docs pass that is already revisiting the smart-field stories, and update the
 shared `fieldContractNote`, which currently tells readers the hint defaults to the
 attribute Description.
+
+## Direction: inline record preview for any record reference
+
+### The gap
+
+When the UI shows a reference to a record (a lookup value, a grid lookup cell, a
+persona), reading any detail about that record means navigating to it. The native
+lookup already solves a slice of this: expanding a row in the lookup flyout shows
+the next lookup-view columns inline (verified: Email, Business Phone, Company
+Name, City), and for contact specifically, hovering the name shows the contact
+card. The expand is general (any table with a lookup view); the hover card is an
+entity-specific flavor (it does not appear on the parent-account lookup).
+
+### The idea
+
+Build record preview as a general, reusable capability for ANY record type, not a
+contact special-case:
+
+1. An expandable detail that lists a record's key columns inline, sourced from the
+   table's lookup or quick-find view layout (the kit already reads view layouts
+   for `SmartViewGrid`, so the column resolution is in hand).
+2. An optional hover/peek card over a record name, the same content in a popover,
+   modeled on the native contact card but driven off the view layout so it works
+   for any table.
+
+Reusable wherever the kit renders a record reference: the lookup flyout (now
+shipped as `SmartNativeLookup`'s chevron-expand), grid lookup cells, and persona
+lists.
+
+### Why later
+
+`SmartNativeLookup` ships the in-flyout expand as the first concrete use.
+Generalizing it into a shared preview surface (and the hover card) is the broader
+follow-up, picked up naturally alongside the native-first metadata direction,
+since the column values are offline-capable Web API reads.
 
 ## Shipped (were roadmap items)
 

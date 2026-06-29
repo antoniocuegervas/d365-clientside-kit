@@ -14,12 +14,19 @@ data shape doesn't fit one native control. See the when-to-use table in the
 | Option set | `OptionSetField` | `SmartOptionSet` |
 | Multi-select option set | `MultiSelectOptionSetField` | `SmartMultiSelectOptionSet` |
 | Lookup (single) | `LookupField` | `SmartLookup` |
+| Lookup (single, native-style) | `NativeLookupField` | `SmartNativeLookup` |
 | Lookup (multi) | `MultiLookupField` | (ViewModel supplies results) |
 | Date / date-time | `DateTimeField` | `SmartDatePicker` |
 | Whole / decimal / float | `NumberField` | `SmartNumberField` |
 | Currency | `CurrencyField` | `SmartNumberField` (money kind) |
 | Boolean (two options) | `BooleanField` | `SmartBooleanField` |
 | Rich text | deferred (see internal/decisions.md) | n/a |
+
+Two single-record lookups, by intent: `SmartLookup` is the simpler combobox
+(often the better data-entry experience), `SmartNativeLookup` replicates the
+native model-driven lookup's look and feel (the inline flyout with two-line rows
+and chevron-expand) for when muscle-memory parity is the point. Both share the
+same value contract and default their search to the entity's lookup view.
 
 ## Beyond fields, controls that bypass native limitations
 

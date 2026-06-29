@@ -80,18 +80,26 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
   private resolvedViewId: Promise<string | undefined> | undefined;
   private resolvedIcon: Promise<string | undefined> | undefined;
 
-  /** Saved view id for view-driven search, resolved once and cached. */
+  /**
+   * Saved view id for the search source, resolved once and cached. Defaults to
+   * the entity's lookup view (querytype 64), what the native lookup uses, so a
+   * plain `SmartLookup` searches the same records the platform lookup shows
+   * (the unfiltered table would surface non-interactive/application users a
+   * lookup view hides). `viewId`/`viewName` override it.
+   */
   private resolveViewId(target: string): Promise<string | undefined> {
-    if (!this.props.viewId && !this.props.viewName) {
-      return Promise.resolve(undefined);
-    }
     if (!this.resolvedViewId) {
       this.resolvedViewId = this.props.viewId
         ? Promise.resolve(this.props.viewId)
-        : this.vmContext.metadata
-            .getViewByName(target, this.props.viewName!)
-            .then((view) => view.id)
-            .catch(() => undefined);
+        : this.props.viewName
+          ? this.vmContext.metadata
+              .getViewByName(target, this.props.viewName)
+              .then((view) => view.id)
+              .catch(() => undefined)
+          : this.vmContext.metadata
+              .getLookupView(target)
+              .then((view) => view.id)
+              .catch(() => undefined);
     }
     return this.resolvedViewId;
   }

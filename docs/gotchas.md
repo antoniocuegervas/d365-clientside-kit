@@ -263,6 +263,26 @@ own code never uses it). They are advisory and safe to dismiss, relevant only fo
 AppSource certification, where they are flagged to the certification team as false
 positives.
 
+## A PCF redeploy needs a manifest version bump, or the platform serves the old bundle
+
+Reimporting a PCF solution with the SAME `<control version>` succeeds and publishes,
+but the form keeps running the cached previous build, so a fix looks like it did not
+deploy. Bump the version in `ControlManifest.Input.xml` (for example 1.0.0 to 1.0.1)
+on every redeploy. This is a hard requirement, not the resource-cache propagation
+lag a webresource has (which a fresh session clears); without the bump the platform
+never picks up the new bundle.
+
+## A Fluent v9 popover in a PCF needs inline rendering, or its background is transparent
+
+A Fluent `Popover`/`Menu` portals its surface by default. In a PCF the default portal
+mounts OUTSIDE the control's themed `FluentProvider`, so the theme CSS variables
+(`--colorNeutralBackground1`, `--shadow16`, and the rest) are undefined there and any
+token-based background, shadow, or radius resolves to nothing, the surface renders
+transparent with the form showing through. Render the surface `inline` (it then stays
+inside the themed provider); it is not clipped because Fluent positions it `fixed`.
+The kit's `NativeLookupField` flyout does this, so it renders the same in the
+webresource and a field-bound PCF.
+
 ## Column (field-level) security is the form's job, not the kit's
 
 Native model-driven forms resolve each user's effective access to a column-secured

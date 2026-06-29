@@ -6,7 +6,7 @@
   Builds the kit bundles and pushes them as webresources using spkl.exe.
   The Dataverse connection string is NEVER committed, supply it via:
     1. the SPKL_CONNECTION environment variable, or
-    2. deployment/connection.local.json ({ "connectionString": "..." }),
+    2. deployment/connection.local.json ({ "connectionString": "AuthType=OAuth;Url=https://org.crm.dynamics.com;..." }),
        which is gitignored.
 
   Source maps are generated locally but not deployed (Dataverse size limits)

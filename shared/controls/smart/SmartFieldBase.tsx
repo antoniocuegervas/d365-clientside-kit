@@ -122,7 +122,9 @@ export abstract class SmartFieldBase<
     } catch (error) {
       if (!this.isDisposed) {
         // Never surface raw SDK text to the user; log it for developers and show
-        // a neutral message under the field label.
+        // a neutral message under the field label. Seeing this logged during a
+        // test run is expected and not a failure: a SmartFieldBase test fails a
+        // metadata load on purpose to exercise this fallback, and the test passes.
         console.error(`Smart field metadata load failed for ${entity}.${attribute}`, error);
         this.setState({ loadError: "Unavailable in this environment." });
       }

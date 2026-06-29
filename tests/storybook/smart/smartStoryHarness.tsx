@@ -262,6 +262,95 @@ export const gridContext: IViewModelContext = withClientQuerySemantics(
 /** The saved-query id seeded above, shared with the view-by-id grid story. */
 export const gridViewId = "77770000-0000-0000-0000-000000000007";
 
+/** A tiny coloured square so the native-lookup rows show an entity icon. */
+const icon = (fill: string): string =>
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16" rx="3" fill="${fill}"/></svg>`
+  );
+
+/**
+ * Native-lookup slice: the same contact/account lookup attributes, plus a seeded
+ * lookup view (querytype 64) with several columns and rows that carry those column
+ * values, so the flyout renders the two-line rows and the conditional expand
+ * chevron. "Adventure Works" carries only its name, so it stays single-line with
+ * no chevron, the native conditional-chevron case.
+ */
+export const nativeLookupContext: IViewModelContext = withClientQuerySemantics(
+  createFakeViewModelContext({
+    attributes: {
+      "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+      // Polymorphic (Customer): two targets, so the flyout offers a target switcher.
+      "incident.customerid": {
+        displayName: "Customer",
+        kind: "lookup",
+        targets: ["account", "contact"],
+      },
+    },
+    entities: {
+      account: { displayName: "Accounts", primaryIdAttribute: "accountid", primaryNameAttribute: "name" },
+      contact: { displayName: "Contacts", primaryIdAttribute: "contactid", primaryNameAttribute: "fullname" },
+    },
+    views: {
+      "lookup:account": {
+        id: "ac000000-0000-0000-0000-0000000000ac",
+        columns: [
+          { name: "name", width: 200 },
+          { name: "emailaddress1", width: 200 },
+          { name: "telephone1", width: 140 },
+          { name: "address1_city", width: 140 },
+        ],
+      },
+      "lookup:contact": {
+        id: "c0000000-0000-0000-0000-0000000000c0",
+        columns: [
+          { name: "fullname", width: 200 },
+          { name: "emailaddress1", width: 200 },
+        ],
+      },
+    },
+    entityIcons: { account: icon("%230f6cbd"), contact: icon("%23107c41") },
+    queryResults: {
+      account: [
+        {
+          entities: [
+            {
+              accountid: "a1a00000-0000-0000-0000-000000000001",
+              name: "Contoso Ltd",
+              emailaddress1: "info@contoso.com",
+              telephone1: "555-0101",
+              address1_city: "Seattle",
+            },
+            {
+              accountid: "a1a00000-0000-0000-0000-000000000002",
+              name: "Fabrikam Inc",
+              emailaddress1: "info@fabrikam.com",
+              telephone1: "555-0102",
+              address1_city: "Redmond",
+            },
+            // Name only, so it stays single-line with no expand chevron.
+            { accountid: "a1a00000-0000-0000-0000-000000000003", name: "Adventure Works" },
+          ],
+        },
+      ],
+      contact: [
+        {
+          entities: [
+            {
+              contactid: "c1c00000-0000-0000-0000-000000000001",
+              fullname: "Yvonne McKay",
+              emailaddress1: "yvonne@example.com",
+            },
+          ],
+        },
+      ],
+    },
+    lookupResults: [
+      { id: "a1a00000-0000-0000-0000-000000000001", logicalName: "account", name: "Contoso Ltd" },
+    ],
+  }).context
+);
+
 /**
  * Same account view, but the first page carries a `nextLink` and a second page
  * is queued, so the grid's server-side paging has somewhere to go.

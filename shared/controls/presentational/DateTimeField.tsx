@@ -31,6 +31,9 @@ const useStyles = makeStyles({
   row: { display: "flex", columnGap: tokens.spacingHorizontalS },
   date: { flexGrow: 1 },
   time: { width: "120px" },
+  // The compat DatePicker has its own intrinsic width, so it must be told to
+  // fill its flex-grow wrapper, matching the full-width Input/Dropdown fields.
+  fill: { width: "100%" },
 });
 
 /**
@@ -94,6 +97,7 @@ const Body: React.FC<
       <div className={styles.row}>
         <div className={styles.date}>
           <DatePicker
+            className={styles.fill}
             value={current}
             onSelectDate={props.onDateSelect}
             formatDate={(date) => (date ? formatForDisplay(date) : "")}

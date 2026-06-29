@@ -79,6 +79,16 @@ export class MetadataService implements IMetadataApi {
     return cached;
   }
 
+  getLookupView(entityLogicalName: string): Promise<IViewDefinition> {
+    const key = `lookup:${entityLogicalName}`;
+    let cached = this.viewCache.get(key);
+    if (!cached) {
+      cached = this.loadLookupView(entityLogicalName);
+      this.viewCache.set(key, cached);
+    }
+    return cached;
+  }
+
   getActivityTypes(): Promise<IActivityTypeInfo[]> {
     this.activityTypesPromise ??= this.loadActivityTypes();
     return this.activityTypesPromise;
@@ -298,6 +308,22 @@ export class MetadataService implements IMetadataApi {
       raw = result.entities[0];
     }
     return toViewDefinition(raw, entityLogicalName, savedQueryId);
+  }
+
+  private async loadLookupView(entityLogicalName: string): Promise<IViewDefinition> {
+    const select = "?$select=name,fetchxml,layoutxml,layoutjson,returnedtypecode,savedqueryid";
+    // Default lookup view for the entity (querytype 64), the one the native
+    // single-record lookup uses.
+    const result = await this.client.retrieveMultiple(
+      "savedqueries",
+      `${select}&$filter=returnedtypecode eq '${entityLogicalName}' and querytype eq 64 ` +
+        `and isdefault eq true and statecode eq 0&$top=1`
+    );
+    if (result.entities.length === 0) {
+      // No lookup view (some entities have none), fall back to the grid view.
+      return this.loadView(entityLogicalName);
+    }
+    return toViewDefinition(result.entities[0], entityLogicalName);
   }
 
   /**

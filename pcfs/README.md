@@ -1,9 +1,16 @@
 # Sample PCFs
 
-`KitCounterpartyGrid` is the production sample: a cross-type activity dataset
-control bound to the Account form's Activities subgrid, the kit's flagship PCF
-(synthesized Counterparty and Role columns no native activitypointer-bound view
-can express).
+Two are production-grade controls that deploy to and run on a real form (so they
+bundle React + Fluent v9 and carry the dedupe webpack and tabster pin):
+
+- **`KitCounterpartyGrid`**, the flagship: a cross-type activity dataset control
+  bound to the Account form's Activities subgrid (synthesized Counterparty and
+  Role columns no native activitypointer-bound view can express).
+- **`KitNativeLookup`**, a field-bound `Lookup.Simple` control that renders the
+  kit's native-parity lookup (`SmartNativeLookup`) through `PCFContext` +
+  `ViewModelContextProvider`, the same data path as the webresource. The host
+  entity comes from `contextInfo`; the bound column logical name is a maker-supplied
+  `attribute` property (a field PCF cannot read its own attribute name).
 
 The other three are minimal reference controls, one per authoring pattern in
 [../docs/adding-a-pcf.md](../docs/adding-a-pcf.md). They are intentionally small,
@@ -24,11 +31,17 @@ as source. See the doc for the scaffold and build steps.
 
 ## Before you ship: PCF gotchas
 
-The full list is in [../docs/gotchas.md](../docs/gotchas.md); these three bite PCF
+The full list is in [../docs/gotchas.md](../docs/gotchas.md); these bite PCF
 authors specifically, read them before deploying a control:
 
 - [Bundled Fluent v9 vs the host's shared tabster](../docs/gotchas.md#a-pcf-that-bundles-fluent-v9-pins-to-the-hosts-shared-tabster):
   pin the tabster chain, or a version newer than the host's blanks the control.
+- [Bump the manifest version on every redeploy](../docs/gotchas.md#a-pcf-redeploy-needs-a-manifest-version-bump-or-the-platform-serves-the-old-bundle):
+  reimporting with the same `<control version>` succeeds but the form keeps the
+  cached old bundle.
+- [A Fluent v9 popover needs inline rendering](../docs/gotchas.md#a-fluent-v9-popover-in-a-pcf-needs-inline-rendering-or-its-background-is-transparent):
+  the default portal mounts outside the themed provider, so a token-based
+  background renders transparent; render the surface inline.
 - [Web API routing differs on PCF](../docs/gotchas.md#web-api-which-call-routes-where):
   `execute`/`executeMultiple` are emulated over the cds-client (no native execute
   on the PCF host), and CRUD-through-execute is rejected, use the dedicated

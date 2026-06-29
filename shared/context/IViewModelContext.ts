@@ -954,6 +954,15 @@ export interface IMetadataApi {
   /** Loads a saved view by id, or the entity's default grid view when omitted. */
   getView(entityLogicalName: string, savedQueryId?: string): Promise<IViewDefinition>;
   /**
+   * Loads the entity's default lookup view (querytype 64), the view the native
+   * single-record lookup uses. This is the right default for a lookup control:
+   * the lookup view's columns and filter differ from the grid view (which can,
+   * for example, exclude application users), so the kit lookups resolve this
+   * when no explicit view is given. Falls back to the default grid view when the
+   * entity has no lookup view.
+   */
+  getLookupView(entityLogicalName: string): Promise<IViewDefinition>;
+  /**
    * Lists the directly-creatable activity types, for a "create new activity"
    * picker, ordered by display name. Cached for the session. Filtered to the
    * out-of-box activities a native New menu shows (activitypointer itself and

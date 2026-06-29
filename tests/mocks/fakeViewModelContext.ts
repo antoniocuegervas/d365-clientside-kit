@@ -322,6 +322,20 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
           ...overrides,
         };
       },
+      getLookupView: async (entity) => {
+        record("getLookupView", entity);
+        await maybeDelay();
+        const overrides = options.views?.[`lookup:${entity}`] ?? {};
+        return {
+          id: "00000000-0000-0000-0000-0000000000ee",
+          name: "Lookup View",
+          entityLogicalName: entity,
+          fetchXml: `<fetch><entity name='${entity}'/></fetch>`,
+          layoutXml: "",
+          columns: [],
+          ...overrides,
+        };
+      },
       getViewByName: async (entity, viewName) => {
         record("getViewByName", entity, viewName);
         await maybeDelay();

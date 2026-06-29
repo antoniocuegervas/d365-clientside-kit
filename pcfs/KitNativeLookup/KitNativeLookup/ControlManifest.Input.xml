@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest>
+  <control namespace="D365Kit" constructor="KitNativeLookup" version="1.0.2" display-name-key="Kit Example: Native Lookup" description-key="Native-parity single-record lookup, the kit SmartNativeLookup bound to a lookup column. See docs/adding-a-pcf.md." control-type="standard" >
+    <external-service-usage enabled="false">
+    </external-service-usage>
+    <!-- The bound lookup column. The first field-bound Lookup.Simple property
+         auto-binds to the column the control is placed on; raw is the LookupValue[]. -->
+    <property name="value" display-name-key="Value" description-key="The bound lookup column rendered with the kit native-parity lookup" of-type="Lookup.Simple" usage="bound" required="true" />
+    <!-- The bound column's logical name (e.g. preferredsystemuserid). A field-bound
+         PCF does not expose its own attribute name, and the smart control resolves
+         the lookup targets, view, and icon from the entity + attribute metadata, so
+         the maker supplies it here. -->
+    <property name="attribute" display-name-key="Lookup column logical name" description-key="Logical name of the bound lookup column (e.g. preferredsystemuserid), used to resolve targets and the lookup view from metadata" of-type="SingleLine.Text" usage="input" required="true" />
+    <!-- Optional: override the lookup view that drives the flyout columns and search.
+         Omitted, the entity's default lookup view (querytype 64) is used. -->
+    <property name="viewName" display-name-key="Lookup view name (optional)" description-key="Override the lookup view that drives the flyout columns and search; default is the entity lookup view" of-type="SingleLine.Text" usage="input" required="false" />
+    <!-- Optional: show the target entity icon in the flyout rows (an extra metadata read). -->
+    <property name="showIcons" display-name-key="Show entity icons" description-key="Resolve and show the target entity icon in the flyout rows" of-type="TwoOptions" usage="input" required="false" />
+    <resources>
+      <code path="index.ts" order="1"/>
+    </resources>
+    <feature-usage>
+      <uses-feature name="Utility" required="true" />
+      <uses-feature name="WebAPI" required="true" />
+    </feature-usage>
+  </control>
+</manifest>

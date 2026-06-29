@@ -54,12 +54,33 @@ npm run build      # pcf-scripts build → out/controls
 CI builds every `pcfs/*` project whenever `shared/` changes, so a shared
 change that breaks a PCF fails fast.
 
+## 4. Deploy
+
+A small control pushes straight to a dev org with
+`pac pcf push --publisher-prefix <prefix without trailing underscore, e.g. new>` (the `kit.config.json` `publisherPrefix`
+without the trailing underscore, see the prefix section below) as a debug build. A control that bundles
+heavy Fluent v9 (`Popover`, `Avatar`, the native lookup, the grid) cannot: its
+debug bundle exceeds the 5 MB webresource ceiling and `pac pcf push` has no
+production switch. Deploy those through a solution wrapper, `pac solution init`
+plus `pac solution add-reference` once, then:
+
+```powershell
+dotnet build -c Release -p:SolutionPackageType=Unmanaged
+pac solution import --force-overwrite --publish-changes
+```
+
+Either path, **bump the manifest `<control version>` on every redeploy** or the
+platform keeps serving the cached old bundle (the import succeeds and publishes,
+but the form runs the previous build). The bar for a form control is "renders on a
+deployed form", not "compiles", see [gotchas.md](gotchas.md) and
+internal/decisions.md.
+
 ## Deployed name and the publisher prefix
 
 A PCF's manifest `namespace` (here `D365Kit`) is its stable identity and never
 changes. The publisher prefix is applied at push/import time, not in the manifest:
-`pac pcf push --publisher-prefix acueger` registers the control as
-`acueger_D365Kit.KitCounterpartyGrid`. So the repo shows `D365Kit` while an org shows
+`pac pcf push --publisher-prefix new` registers the control as
+`new_D365Kit.KitOptionSet`. So the repo shows `D365Kit` while an org shows
 `<prefix>_D365Kit`, that is expected, not a mismatch. Drive the prefix from the same
 `kit.config.json` the webresources use (pass its `publisherPrefix` without the
 trailing underscore to `--publisher-prefix`) so one value names everything. The

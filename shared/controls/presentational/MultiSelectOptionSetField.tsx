@@ -41,6 +41,9 @@ export class MultiSelectOptionSetField extends ObserverComponent<IMultiSelectOpt
       <FieldShell {...this.props}>
         <Dropdown
           multiselect
+          // Fill the field like the Input/Lookup/Date controls, so every control
+          // in a form section lines up at the same width (native UCI).
+          style={{ width: "100%" }}
           value={display}
           selectedOptions={selected.map(String)}
           onOptionSelect={this.handleSelect}

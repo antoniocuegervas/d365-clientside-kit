@@ -49,6 +49,9 @@ export class OptionSetField extends ObserverComponent<IOptionSetFieldProps> {
     return (
       <FieldShell {...this.props} readOnlyText={currentLabel}>
         <Dropdown
+          // Fill the field like the Input/Lookup/Date controls, so every control
+          // in a form section lines up at the same width (native UCI).
+          style={{ width: "100%" }}
           value={currentLabel}
           selectedOptions={current === null ? [] : [String(current)]}
           onOptionSelect={this.handleSelect}

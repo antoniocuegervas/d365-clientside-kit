@@ -358,6 +358,61 @@ describe("MetadataService", () => {
     });
   });
 
+  describe("getLookupView", () => {
+    it("resolves the default lookup view (querytype 64)", async () => {
+      server.respondWith((request) =>
+        request.url.includes("savedqueries?") && request.url.includes("querytype eq 64")
+          ? {
+              status: 200,
+              responseText: JSON.stringify({
+                value: [
+                  {
+                    savedqueryid: "33330000-0000-0000-0000-000000000003",
+                    name: "User Lookup View",
+                    returnedtypecode: "systemuser",
+                    fetchxml: "<fetch/>",
+                    layoutxml: "",
+                  },
+                ],
+              }),
+            }
+          : undefined
+      );
+      const view = await service.getLookupView("systemuser");
+      expect(view.id).toBe("33330000-0000-0000-0000-000000000003");
+      const url = server.lastRequest.url;
+      expect(url).toContain("querytype eq 64");
+      expect(url).toContain("isdefault eq true");
+    });
+
+    it("falls back to the default grid view when the entity has no lookup view", async () => {
+      server.respondWith((request) => {
+        if (request.url.includes("querytype eq 64")) {
+          return { status: 200, responseText: JSON.stringify({ value: [] }) };
+        }
+        if (request.url.includes("querytype eq 0")) {
+          return {
+            status: 200,
+            responseText: JSON.stringify({
+              value: [
+                {
+                  savedqueryid: "44440000-0000-0000-0000-000000000004",
+                  name: "Active Accounts",
+                  returnedtypecode: "account",
+                  fetchxml: "<fetch/>",
+                  layoutxml: "",
+                },
+              ],
+            }),
+          };
+        }
+        return undefined;
+      });
+      const view = await service.getLookupView("account");
+      expect(view.id).toBe("44440000-0000-0000-0000-000000000004");
+    });
+  });
+
   describe("getCurrencySymbol", () => {
     it("resolves the currency symbol/precision and caches per id", async () => {
       server.respondWith((request) =>

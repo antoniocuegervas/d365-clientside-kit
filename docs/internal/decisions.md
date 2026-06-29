@@ -265,6 +265,11 @@ icons (G-10, `getEntityIconUrl`, cached) are opt-in (`showIcons`) since they
 cost an extra metadata read; the OOTB `svg_<otc>.svg` path is a tested
 assumption carried from production, not documented platform behavior.
 
+> **Refined by D-049.** `StandardLookupField` is retired and replaced by the
+> native-parity `SmartNativeLookup`; the standalone no-attribute-binding mode is
+> dropped (no consumer), and both lookups now default their search to the entity's
+> lookup view rather than an unfiltered table.
+
 ---
 
 # Round-2 decisions
@@ -1016,3 +1021,110 @@ Two smaller calls made in the same pass, both in the shared `DataGrid`:
   `trackContainerResize`, which deferred first-paint sizing) renders each row as a
   `PersonaList` card. `IPersonaItem` gained up to five secondary lines and the
   avatar grows with the line count.
+
+## D-049, native-parity lookup (NativeLookupField + SmartNativeLookup) replaces StandardLookupField
+
+The native single-record lookup is rebuilt with parity: `NativeLookupField`
+(presentational) plus `SmartNativeLookup` (smart), replacing the old
+`StandardLookupField` (a Browse button straight to the `lookupObjects` dialog,
+which is nothing like the inline native lookup). The presentational control is a
+resting chip with clickthrough and an inline flyout that opens on click, loads the
+lookup view's first page, filters as you type with the matched substring bolded
+across the name and the secondary columns, and expands per-row detail (the lookup
+view's columns, name over the first column, the rest behind a conditional chevron
+that appears only when a row has more than one populated column). `lookupObjects`
+is relegated to the footer "Advanced" escalation on UX grounds, not capability.
+
+Two lookups by intent, refining D-023. The kit now ships two single-record
+lookups: `SmartLookup` (the combobox, simpler and often the better data-entry
+experience) and `SmartNativeLookup` (native look and feel for muscle-memory
+parity). This is the UX-parity tier from the README applied to a control: parity
+is a UX goal, not a config-options goal. The choice is the consumer's per field.
+
+Attribute-bound only (earn-their-place, D-010). `SmartNativeLookup` extends
+`SmartFieldBase` (entity + attribute), like `SmartLookup`. The speculative
+no-attribute / explicit-`entityTypes` mode that `StandardLookupField` had was
+dropped: the only consumer (the sample) bound it via `entityTypes=["systemuser"]`
+purely because the old control had no attribute binding, but that need is met
+exactly by the attribute `preferredsystemuserid`'s metadata target. No real
+consumer needs the attribute-less mode, so it is not built; add an `entityTypes`
+variant if a genuine cross-entity, no-attribute picker appears.
+
+Both lookups default their search to the entity's lookup view (querytype 64), via
+the new `IMetadataApi.getLookupView` (falls back to the default grid view when an
+entity has none). This corrects two divergences found in testing: the native lookup
+uses the lookup view, but `getView` (no id) returns the default GRID view (whose
+filter and columns differ, e.g. systemuser's "Enabled Users" excludes application
+users via `applicationid IS NULL`, leaving almost nobody), and `SmartLookup`
+previously searched the unfiltered table (surfacing non-interactive/application
+users the platform hides). `viewId`/`viewName` still override. Honest caveat: a
+form's lookup control can be configured with a specific (non-default) view, which a
+field-bound webresource/PCF cannot read, so the kit matches the entity's default
+lookup view.
+
+Two presentational mechanics worth recording, both Fluent quirks the rework hit:
+
+- Focus stays on the input. `PopoverTrigger` makes its wrapper a `role="button"`
+  `tabIndex=0` tab stop (via `useARIAButtonProps`, even with
+  `disableButtonEnhancement`), so the wrapper carries `tabIndex={-1}` (respected
+  because `useARIAButtonProps` spreads the child props after its own default) to
+  keep the input the single tab stop. And Fluent's surface pulls focus to its first
+  control on open (tabster's legacy trap, even with `trapFocus={false}`), so the
+  control re-focuses the input on the open transition via a deferred `setTimeout(0)`
+  that wins the race; arrow-key row navigation rides `aria-activedescendant`, not
+  real focus. Opening is by click / typing / ArrowDown (the trigger's click-toggle
+  and focus-to-open fight each other, so focus-to-open was dropped; click-to-open
+  matches native anyway).
+
+- Field width consistency. Fluent `Input` fills its `Field`, but `Combobox`,
+  `DatePicker`, and `Dropdown` have intrinsic widths and do not, so they were
+  narrower than the text fields in a form section. Each is set to `width: 100%`
+  (`LookupField`/`DateTimeField` via a `fill` makeStyles class; the option-set
+  `Dropdown`s via an inline style, as they have no styles hook). The `BooleanField`
+  Switch stays compact on purpose. Verified live in the master/detail sample (the
+  model-driven app's webresource resource-cache token lags a publish, so a fresh
+  session or cache clear is needed to see the very latest bundle).
+
+Verified against the live v9 org: the flyout queries the systemuser lookup view,
+renders the two-line rows + conditional chevron + entity icon, search-as-you-type
+filters with the bold highlight while the input keeps focus, and a pick commits to
+the shared value Observable (the sample binds `SmartLookup` and `SmartNativeLookup`
+to one `preferredsystemuserid` reference, side by side). Revisit triggers: a real
+no-attribute cross-entity picker (add the `entityTypes` variant), or a host that
+exposes the form lookup control's configured view (prefer it over the entity
+default).
+
+PCF target (`pcfs/KitNativeLookup`), and two findings only a real form surfaced.
+The control ships also as a field-bound `Lookup.Simple` PCF that renders
+`SmartNativeLookup` through `PCFContext` (the same data path as the webresource),
+with the D-046/D-047/D-048 fixes (React/Fluent webpack dedupe, Fluent pinned to the
+host tabster floor, production solution build). A field-bound PCF does not expose
+its own attribute name, so the host entity comes from `mode.contextInfo` and the
+bound column logical name is a maker-supplied `attribute` property (the smart
+control needs entity + attribute to resolve targets, the lookup view, and the
+icon). The two findings, both invisible until the control ran on a deployed form:
+
+- The Popover surface was transparent (the form behind it showed through). The
+  flyout portals by default, and in a PCF the default portal mounts OUTSIDE the
+  control's themed FluentProvider, so the theme CSS variables
+  (`--colorNeutralBackground1`, `--shadow16`) are undefined there and the
+  token-based background/shadow resolve to nothing. Fix: render the Popover
+  `inline` (it then stays inside the themed provider), which is safe because
+  Fluent positions the surface `fixed`, so an overflow ancestor never clips it.
+  The same change made the flyout width track the field via positioning
+  `matchTargetSize: "width"`, which the webresource benefits from too.
+
+- A PCF MUST get a manifest version bump (`<control version>`) on every redeploy,
+  or the platform serves the cached old bundle forever (the import succeeds and
+  publishes, but the form keeps running the previous build). This is separate from
+  the webresource resource-cache lag; it is a hard requirement, not a propagation
+  delay.
+
+The modern form designer shows "Error loading control" for this PCF, which is
+expected and benign: the designer's preview sandbox cannot supply the runtime
+context (the bound value, `contextInfo`, the Web API the metadata resolution
+needs), so the control cannot render at design time. It renders correctly once
+published, which is the bar (D-047). Verified on the live account form: bound to a
+second `parentaccountid` field beside the native one, the flyout queries the
+account lookup view, renders the opaque two-line rows at the field width, filters
+as you type with focus retained, and commits the pick to the bound column.

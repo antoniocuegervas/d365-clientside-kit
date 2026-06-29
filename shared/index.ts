@@ -121,6 +121,13 @@ export { CurrencyField, type ICurrencyFieldProps } from "./controls/presentation
 export { DateTimeField, type IDateTimeFieldProps } from "./controls/presentational/DateTimeField";
 export { LookupField, type ILookupFieldProps } from "./controls/presentational/LookupField";
 export {
+  NativeLookupField,
+  type INativeLookupFieldProps,
+  type INativeLookupResult,
+  type INativeLookupColumn,
+  type INativeLookupTarget,
+} from "./controls/presentational/NativeLookupField";
+export {
   MultiLookupField,
   type IMultiLookupFieldProps,
 } from "./controls/presentational/MultiLookupField";
@@ -157,9 +164,9 @@ export { SmartNumberField, type ISmartNumberFieldProps } from "./controls/smart/
 export { SmartDatePicker, type ISmartDatePickerProps } from "./controls/smart/SmartDatePicker";
 export { SmartLookup, type ISmartLookupProps } from "./controls/smart/SmartLookup";
 export {
-  StandardLookupField,
-  type IStandardLookupFieldProps,
-} from "./controls/smart/StandardLookupField";
+  SmartNativeLookup,
+  type ISmartNativeLookupProps,
+} from "./controls/smart/SmartNativeLookup";
 export {
   SmartViewGrid,
   type ISmartViewGridProps,

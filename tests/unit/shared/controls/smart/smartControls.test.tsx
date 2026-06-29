@@ -7,7 +7,7 @@ import { ObservableEvent } from "../../../../../shared/reactivity/ObservableEven
 import { SmartTextField } from "../../../../../shared/controls/smart/SmartTextField";
 import { SmartOptionSet } from "../../../../../shared/controls/smart/SmartOptionSet";
 import { SmartLookup } from "../../../../../shared/controls/smart/SmartLookup";
-import { StandardLookupField } from "../../../../../shared/controls/smart/StandardLookupField";
+import { SmartNativeLookup } from "../../../../../shared/controls/smart/SmartNativeLookup";
 import { SmartNumberField } from "../../../../../shared/controls/smart/SmartNumberField";
 import {
   SmartViewGrid,
@@ -413,19 +413,27 @@ describe("SmartLookup", () => {
     });
   });
 
-  it("StandardLookupField opens the dialog and stores the picked record", async () => {
+  it("defaults to the entity's lookup view as the search source", async () => {
     const { context, calls } = createFakeViewModelContext({
-      lookupResults: [
-        { id: "a1a00000-0000-0000-0000-000000000001", logicalName: "account", name: "Contoso Ltd" },
-      ],
+      attributes: {
+        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+      },
+      views: { "lookup:account": { id: "aaaa0000-0000-0000-0000-00000000000a" } },
+      queryResults: {
+        account: [{ entities: [{ accountid: "a1a00000-0000-0000-0000-000000000001", name: "Contoso Ltd" }] }],
+      },
     });
     const value = new Observable<IEntityReference | null>(null);
-    renderWith(context, <StandardLookupField value={value} entityTypes={["account"]} label="Company" />);
-    await userEvent.click(await screen.findByLabelText("Browse records"));
+    renderWith(
+      context,
+      <SmartLookup entity="contact" attribute="parentcustomerid" value={value} searchDebounceMs={0} />
+    );
+    await userEvent.click(await screen.findByRole("combobox"));
     await waitFor(() => {
-      expect(value.value?.name).toBe("Contoso Ltd");
+      expect(calls.find((c) => c.api === "getLookupView")?.args).toEqual(["account"]);
+      const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
+      expect(String(query?.args[1])).toContain("?savedQuery=aaaa0000-0000-0000-0000-00000000000a");
     });
-    expect(calls.find((c) => c.api === "lookupObjects")).toBeDefined();
   });
 
   it("ANDs the extra filter clause into the search", async () => {
@@ -451,6 +459,121 @@ describe("SmartLookup", () => {
       const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
       expect(String(query?.args[1])).toContain("and statecode eq 0");
     });
+  });
+});
+
+describe("SmartNativeLookup", () => {
+  const baseOptions = {
+    attributes: {
+      "contact.preferredsystemuserid": {
+        displayName: "Preferred User",
+        kind: "lookup" as const,
+        targets: ["systemuser"],
+      },
+    },
+    entities: {
+      systemuser: {
+        displayName: "Users",
+        primaryIdAttribute: "systemuserid",
+        primaryNameAttribute: "fullname",
+      },
+    },
+    views: {
+      "lookup:systemuser": {
+        id: "5a5a0000-0000-0000-0000-000000000055",
+        columns: [
+          { name: "fullname", width: 200 },
+          { name: "internalemailaddress", width: 200 },
+          { name: "title", width: 150 },
+        ],
+      },
+    },
+    queryResults: {
+      systemuser: [
+        {
+          entities: [
+            {
+              systemuserid: "u1u00000-0000-0000-0000-000000000001",
+              fullname: "Nancy Davolio",
+              internalemailaddress: "nancy@example.com",
+            },
+          ],
+        },
+      ],
+    },
+  };
+
+  it("runs the target view's first page on open and maps the layout columns into rows", async () => {
+    const { context, calls } = createFakeViewModelContext(baseOptions);
+    const value = new Observable<IEntityReference | null>(null);
+    renderWith(
+      context,
+      <SmartNativeLookup
+        entity="contact"
+        attribute="preferredsystemuserid"
+        value={value}
+        searchDebounceMs={0}
+      />
+    );
+    await userEvent.click(await screen.findByRole("combobox"));
+
+    await waitFor(() => {
+      const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
+      expect(query?.args[0]).toBe("systemuser");
+      expect(String(query?.args[1])).toContain("?savedQuery=5a5a0000-0000-0000-0000-000000000055");
+      expect(String(query?.args[1])).toContain("$top=10");
+    });
+    // Name on line 1, the view's other column (email) under it.
+    expect(await screen.findByText("Nancy Davolio")).toBeTruthy();
+    expect(await screen.findByText("nancy@example.com")).toBeTruthy();
+  });
+
+  it("filters with a contains clause as the user types", async () => {
+    const { context, calls } = createFakeViewModelContext(baseOptions);
+    const value = new Observable<IEntityReference | null>(null);
+    renderWith(
+      context,
+      <SmartNativeLookup
+        entity="contact"
+        attribute="preferredsystemuserid"
+        value={value}
+        searchDebounceMs={0}
+      />
+    );
+    await userEvent.type(await screen.findByRole("combobox"), "nan");
+    await waitFor(() => {
+      const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
+      expect(String(query?.args[1])).toContain("contains(fullname,'nan')");
+    });
+  });
+
+  it("Advanced opens the native picker seeded with the resolved view and commits the pick", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      ...baseOptions,
+      lookupResults: [
+        { id: "u1u00000-0000-0000-0000-000000000001", logicalName: "systemuser", name: "Nancy Davolio" },
+      ],
+    });
+    const value = new Observable<IEntityReference | null>(null);
+    renderWith(
+      context,
+      <SmartNativeLookup
+        entity="contact"
+        attribute="preferredsystemuserid"
+        value={value}
+        searchDebounceMs={0}
+      />
+    );
+    await userEvent.click(await screen.findByRole("combobox"));
+    await userEvent.click(await screen.findByRole("link", { name: "Advanced" }));
+    await waitFor(() => {
+      expect(value.value?.id).toBe("u1u00000-0000-0000-0000-000000000001");
+    });
+    const dialog = calls.find((c) => c.api === "lookupObjects")!;
+    expect((dialog.args[0] as { entityTypes?: string[] }).entityTypes).toEqual(["systemuser"]);
+    expect((dialog.args[0] as { viewIds?: string[] }).viewIds).toEqual([
+      "5a5a0000-0000-0000-0000-000000000055",
+    ]);
   });
 });
 

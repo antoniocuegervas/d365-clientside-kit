@@ -1,0 +1,45 @@
+import * as React from "react";
+import { SmartNativeLookup } from "../../../shared/controls/smart/SmartNativeLookup";
+import type { Observable } from "../../../shared/reactivity/Observable";
+import type { IEntityReference } from "../../../shared/utils/EntityModel";
+
+export interface INativeLookupAppProps {
+  /** Host form's entity logical name (from contextInfo). */
+  entity: string | undefined;
+  /** Bound lookup column's logical name (maker-supplied). */
+  attribute: string;
+  /** Optional lookup view name override. */
+  viewName?: string;
+  showIcons: boolean;
+  disabled: boolean;
+  /** Host-owned value the control writes the pick into. */
+  value: Observable<IEntityReference | null>;
+  onChange: (value: IEntityReference | null) => void;
+}
+
+/**
+ * Thin PCF view: renders the kit's SmartNativeLookup over the bound column. The
+ * label is suppressed (the form already shows the field label above the control),
+ * so this stays the control area only. Everything else (targets, lookup view,
+ * columns, search, icons) resolves from metadata exactly as in the webresource.
+ */
+export const NativeLookupApp: React.FC<INativeLookupAppProps> = (props) => {
+  if (!props.entity || !props.attribute) {
+    return (
+      <div>Set the lookup column logical name on the control to render the native lookup.</div>
+    );
+  }
+  return (
+    <SmartNativeLookup
+      entity={props.entity}
+      attribute={props.attribute}
+      value={props.value}
+      viewName={props.viewName}
+      showIcons={props.showIcons}
+      disabled={props.disabled}
+      onChange={props.onChange}
+      // Suppress the control's own label: the form field already renders it.
+      label=""
+    />
+  );
+};

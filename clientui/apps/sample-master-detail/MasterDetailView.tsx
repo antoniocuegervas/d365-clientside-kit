@@ -17,6 +17,7 @@ import { SmartBooleanField } from "../../../shared/controls/smart/SmartBooleanFi
 import { SmartNumberField } from "../../../shared/controls/smart/SmartNumberField";
 import { SmartDatePicker } from "../../../shared/controls/smart/SmartDatePicker";
 import { SmartLookup } from "../../../shared/controls/smart/SmartLookup";
+import { SmartNativeLookup } from "../../../shared/controls/smart/SmartNativeLookup";
 import { WaitingMessage } from "../../../shared/controls/presentational/WaitingMessage";
 import type { MasterDetailViewModel } from "./MasterDetailViewModel";
 
@@ -164,6 +165,18 @@ const Body: React.FC<IMasterDetailViewProps> = ({ viewModel: vm }) => {
                 entity="contact"
                 attribute="preferredsystemuserid"
                 value={vm.preferredUser}
+              />
+              {/* Same vm.preferredUser Observable as the SmartLookup above, bound
+                  to the same reference so a pick in either control shows in both.
+                  This is the native-parity lookup: an inline flyout that looks and
+                  behaves like the standard model-driven lookup, side by side with
+                  the simpler SmartLookup combobox. */}
+              <SmartNativeLookup
+                entity="contact"
+                attribute="preferredsystemuserid"
+                value={vm.preferredUser}
+                label="Preferred User (native lookup)"
+                showIcons
               />
               <SmartOptionSet entity="contact" attribute="gendercode" value={vm.gender} />
               <SmartBooleanField entity="contact" attribute="donotemail" value={vm.doNotEmail} />

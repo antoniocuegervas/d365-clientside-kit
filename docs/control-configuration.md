@@ -49,7 +49,9 @@ from `context.getFormatting()`.
 
 ### SmartLookup
 Auto: target entity (first metadata target), target's primary name/id
-attributes; search-as-you-type with `contains` on the primary name.
+attributes; the entity's lookup view (querytype 64) as the default search
+source, so a plain lookup searches the same records the platform lookup shows;
+search-as-you-type with `contains` on the primary name.
 Extra props:
 
 | Prop | Purpose |
@@ -60,13 +62,30 @@ Extra props:
 | `searchDebounceMs` | Default 250; 0 for tests |
 | `mode` | `"inline"` (default search box) or `"dialog"` (native CRM picker via lookupObjects, same value contract) |
 | `filterXml` | FetchXML `<filter>` for the dialog's view (dialog mode) |
-| `viewId` / `viewName` | View-driven inline search, run a saved view as the source |
+| `viewId` / `viewName` | View-driven inline search, run a specific saved view as the source (overrides the default lookup view) |
 | `showIcons` | Resolve + show the target entity's icon in results |
 
-**StandardLookupField**, standalone, dialog-only lookup (button → native picker,
-no inline box, no attribute binding): `value`, `entityTypes`, `label`, `filters`
-(per-entity FetchXML), `onChange`. Use for cross-entity pickers; prefer
-`SmartLookup mode="dialog"` for attribute-bound lookups.
+### SmartNativeLookup
+The native-parity lookup: a resting chip with clickthrough, and an inline flyout
+that opens on click, loads the entity's lookup view (querytype 64) first page,
+filters as you type with the match bolded, and expands per-row detail (the lookup
+view's columns, name over the first column, the rest behind a conditional
+chevron). Same value contract as `SmartLookup` (the simpler combobox); reach for
+it when native look and feel (muscle memory) is the point. Replaces the former
+`StandardLookupField`. Auto-resolves the target, the lookup view + columns, and
+the entity icon from metadata. Extra props (beyond the smart-field common set):
+
+| Prop | Purpose |
+|---|---|
+| `targetEntity` | Pick the initial target on Customer/Owner polymorphic lookups; the flyout header offers a switcher between targets |
+| `filter` | OData `$filter` clause ANDed into the search |
+| `top` | Result count (default 10) |
+| `searchDebounceMs` | Default 250; 0 for tests |
+| `viewId` / `viewName` | Override the default lookup view that drives the flyout columns and search |
+| `filterXml` | FetchXML `<filter>` applied to the Advanced (native picker) view |
+| `showIcons` | Show the entity icon in the flyout rows and the resting chip (resolved from the value's entity, so it shows on load); on by default, set `false` to disable and skip the metadata read |
+| `showAdvanced` | Footer "Advanced" escalation to the native picker (default on) |
+| `showNew` | Footer "+ New" quick-create on the target (default off; the target must support quick create) |
 
 ### SmartViewGrid
 Auto: layout/columns from the savedquery's `layoutjson` (preferred) or

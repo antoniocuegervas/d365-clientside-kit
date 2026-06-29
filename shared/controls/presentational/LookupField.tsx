@@ -49,6 +49,9 @@ interface ILookupFieldState {
 const useStyles = makeStyles({
   row: { display: "flex", alignItems: "center", columnGap: tokens.spacingHorizontalXS },
   combo: { flexGrow: 1, minWidth: 0 },
+  // The Combobox sits in a flex-grow wrapper but has its own intrinsic width, so
+  // it must be told to fill, matching the full-width Input/Dropdown fields.
+  fill: { width: "100%" },
   optionIcon: { marginRight: tokens.spacingHorizontalXS, verticalAlign: "middle" },
   // The selected value shown as the native lookup does: icon + the record name
   // as a link, vertically aligned to sit where the input text would.
@@ -223,6 +226,7 @@ const Body: React.FC<
       <div className={styles.row}>
         <div className={styles.combo}>
           <Combobox
+            className={styles.fill}
             value={text}
             selectedOptions={current ? [current.id] : []}
             onChange={props.onInput}
