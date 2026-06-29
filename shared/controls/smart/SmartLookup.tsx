@@ -207,6 +207,7 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
         onBrowse={() => void this.handleBrowse()}
         onSearchTextChanged={this.handleSearchTextChanged}
         onChange={this.commitChange}
+        onOpenRecord={(ref) => void this.vmContext.navigation.openForm(ref.logicalName, ref.id)}
       />
     );
   }

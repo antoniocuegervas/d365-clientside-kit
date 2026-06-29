@@ -331,6 +331,28 @@ describe("SmartLookup", () => {
     expect((dialog.args[0] as { entityTypes?: string[] }).entityTypes).toEqual(["account"]);
   });
 
+  it("opens the selected record's form when the value link is clicked", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+      },
+    });
+    const value = new Observable<IEntityReference | null>({
+      id: "a1a00000-0000-0000-0000-000000000001",
+      logicalName: "account",
+      name: "Contoso Ltd",
+    });
+    renderWith(
+      context,
+      <SmartLookup entity="contact" attribute="parentcustomerid" value={value} searchDebounceMs={0} />
+    );
+    await userEvent.click(await screen.findByRole("link", { name: "Contoso Ltd" }));
+    await waitFor(() => {
+      const open = calls.find((c) => c.api === "openForm");
+      expect(open?.args).toEqual(["account", "a1a00000-0000-0000-0000-000000000001"]);
+    });
+  });
+
   it("view-driven search runs the saved view as the source", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {

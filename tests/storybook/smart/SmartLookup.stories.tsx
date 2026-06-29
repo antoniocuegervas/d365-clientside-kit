@@ -111,7 +111,7 @@ const company = new Observable<IEntityReference | null>({
 });
 
 <SmartLookup entity="contact" attribute="parentcustomerid" value={company} />`,
-    "The value is an IEntityReference. Seeding one renders the selected record; clearing it is an explicit user action."
+    "The value is an IEntityReference. Seeding one renders the selected record as a link that opens it (openForm), matching the native lookup; clearing it is an explicit user action."
   ),
 };
 

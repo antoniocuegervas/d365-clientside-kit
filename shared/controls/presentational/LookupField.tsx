@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Button, Combobox, Input, Option, makeStyles, tokens } from "@fluentui/react-components";
+import { Button, Combobox, Input, Link, Option, makeStyles, mergeClasses, tokens } from "@fluentui/react-components";
 import { DismissRegular, SearchRegular } from "@fluentui/react-icons";
 import { ObserverComponent } from "../../reactivity/ObserverComponent";
 import { valueOf, type Observable, type OrObservable } from "../../reactivity/Observable";
@@ -23,6 +23,12 @@ export interface ILookupFieldProps extends ICommonFieldProps {
    */
   onSearchTextChanged?: (searchText: string) => void;
   onChange?: (selected: IEntityReference | null) => void;
+  /**
+   * Raised when the selected record's name (rendered as a link) is clicked, so
+   * the smart tier can openForm the record. Native parity: a set lookup value is
+   * a navigable link, read-only or editable. When omitted the value is plain text.
+   */
+  onOpenRecord?: (selected: IEntityReference) => void;
   placeholder?: string;
   /** True while the host is searching, to show the busy hint. */
   searching?: OrObservable<boolean>;
@@ -44,6 +50,16 @@ const useStyles = makeStyles({
   row: { display: "flex", alignItems: "center", columnGap: tokens.spacingHorizontalXS },
   combo: { flexGrow: 1, minWidth: 0 },
   optionIcon: { marginRight: tokens.spacingHorizontalXS, verticalAlign: "middle" },
+  // The selected value shown as the native lookup does: icon + the record name
+  // as a link, vertically aligned to sit where the input text would.
+  selectedValue: {
+    display: "flex",
+    alignItems: "center",
+    columnGap: tokens.spacingHorizontalXS,
+    paddingTop: tokens.spacingVerticalSNudge,
+    paddingBottom: tokens.spacingVerticalSNudge,
+  },
+  selectedName: { flexGrow: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
 });
 
 /**
@@ -113,9 +129,28 @@ const Body: React.FC<
   const text = state.searchText ?? current?.name ?? "";
   const interactive = !disabled && !readOnly;
 
+  // A set value renders as a navigable link (the smart tier opens the record),
+  // matching native; plain text when no navigate handler is wired or disabled.
+  const openRecord =
+    current && props.onOpenRecord && !disabled
+      ? (event: React.MouseEvent): void => {
+          event.preventDefault();
+          props.onOpenRecord!(current);
+        }
+      : undefined;
+  const valueDisplay: React.ReactNode = !current
+    ? ""
+    : openRecord
+      ? (
+          <Link href="#" onClick={openRecord}>
+            {current.name ?? current.id}
+          </Link>
+        )
+      : (current.name ?? current.id);
+
   if (props.mode === "dialog") {
     return (
-      <FieldShell {...props} readOnlyText={current?.name ?? ""}>
+      <FieldShell {...props} readOnlyText={valueDisplay}>
         <div className={styles.row}>
           <Input
             className={styles.combo}
@@ -152,8 +187,39 @@ const Body: React.FC<
     );
   }
 
+  // A set value in inline mode: show it as the native lookup does, the record
+  // name as a link, with the clear button beside it. Clearing returns to search.
+  if (current && interactive) {
+    return (
+      <FieldShell {...props} readOnlyText={valueDisplay}>
+        <div className={styles.row}>
+          <div className={mergeClasses(styles.combo, styles.selectedValue)}>
+            {current.iconUrl ? (
+              <img
+                src={current.iconUrl}
+                alt=""
+                aria-hidden
+                width={16}
+                height={16}
+                className={styles.optionIcon}
+              />
+            ) : null}
+            <span className={styles.selectedName}>{valueDisplay}</span>
+          </div>
+          <Button
+            appearance="subtle"
+            size="small"
+            icon={<DismissRegular />}
+            aria-label="Clear value"
+            onClick={props.onClear}
+          />
+        </div>
+      </FieldShell>
+    );
+  }
+
   return (
-    <FieldShell {...props} readOnlyText={current?.name ?? ""}>
+    <FieldShell {...props} readOnlyText={valueDisplay}>
       <div className={styles.row}>
         <div className={styles.combo}>
           <Combobox
