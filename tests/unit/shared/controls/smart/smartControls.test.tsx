@@ -575,6 +575,78 @@ describe("SmartNativeLookup", () => {
       "5a5a0000-0000-0000-0000-000000000055",
     ]);
   });
+
+  // A polymorphic (Customer) lookup with more than one target. The switcher
+  // labels resolve asynchronously (one getEntityMetadata per target) after the
+  // first render, so the switcher only appears if the smart control passes its
+  // targets Observable down for the presentational control to observe. This
+  // guards the regression where it passed a one-time snapshot instead, so the
+  // resolved targets never reached the view and the switcher never showed.
+  const polyOptions = {
+    attributes: {
+      "contact.parentcustomerid": {
+        displayName: "Company Name",
+        kind: "lookup" as const,
+        targets: ["account", "contact"],
+      },
+    },
+    entities: {
+      account: {
+        displayName: "Accounts",
+        primaryIdAttribute: "accountid",
+        primaryNameAttribute: "name",
+      },
+      contact: {
+        displayName: "Contacts",
+        primaryIdAttribute: "contactid",
+        primaryNameAttribute: "fullname",
+      },
+    },
+    views: {
+      "lookup:account": {
+        id: "aaaa0000-0000-0000-0000-0000000000a1",
+        columns: [{ name: "name", width: 200 }],
+      },
+      "lookup:contact": {
+        id: "cccc0000-0000-0000-0000-0000000000c1",
+        columns: [{ name: "fullname", width: 200 }],
+      },
+    },
+    queryResults: {
+      account: [{ entities: [{ accountid: "a1a00000-0000-0000-0000-000000000001", name: "A. Datum" }] }],
+      contact: [{ entities: [{ contactid: "c1c00000-0000-0000-0000-000000000001", fullname: "Maria Campbell" }] }],
+    },
+  };
+
+  it("renders the target switcher and re-queries the picked target", async () => {
+    const { context, calls } = createFakeViewModelContext(polyOptions);
+    const value = new Observable<IEntityReference | null>(null);
+    renderWith(
+      context,
+      <SmartNativeLookup
+        entity="contact"
+        attribute="parentcustomerid"
+        value={value}
+        searchDebounceMs={0}
+        showIcons={false}
+      />
+    );
+    // Open the flyout; the default target (account) loads its first page.
+    await userEvent.click(await screen.findByRole("combobox"));
+
+    // The switcher trigger only appears once the async target labels resolve.
+    const switcher = await screen.findByRole("button", { name: "Accounts" });
+    await userEvent.click(switcher);
+
+    // Pick the other target and confirm the flyout re-queries it.
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Contacts" }));
+    await waitFor(() => {
+      const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
+      expect(query?.args[0]).toBe("contact");
+      expect(String(query?.args[1])).toContain("?savedQuery=cccc0000-0000-0000-0000-0000000000c1");
+    });
+    expect(await screen.findByText("Maria Campbell")).toBeTruthy();
+  });
 });
 
 describe("SmartNumberField locale + currency", () => {

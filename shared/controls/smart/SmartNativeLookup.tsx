@@ -325,7 +325,7 @@ export class SmartNativeLookup extends SmartFieldBase<
         searching={this.searching}
         selectedIconUrl={this.selectedIcon}
         tableLabel={this.tableLabel}
-        targets={this.switcherTargets.value}
+        targets={this.switcherTargets}
         activeTarget={this.activeTarget}
         onTargetChange={this.handleTargetChange}
         onSearchTextChanged={this.handleSearchTextChanged}

@@ -104,9 +104,10 @@ export interface INativeLookupFieldProps extends ICommonFieldProps {
   /**
    * Target tables offered in the header switcher. Single-target lookups pass one
    * (or none); multi-target (Customer/Owner) pass several and the header shows a
-   * switcher that raises onTargetChange.
+   * switcher that raises onTargetChange. An Observable because the smart tier
+   * resolves the target display names asynchronously, after the first render.
    */
-  targets?: INativeLookupTarget[];
+  targets?: OrObservable<INativeLookupTarget[] | undefined>;
   /** The currently active target entity (for the switcher). */
   activeTarget?: OrObservable<string | undefined>;
   /** Raised when the user picks a different target table in the switcher. */
@@ -327,6 +328,7 @@ export class NativeLookupField extends ObserverComponent<
       props.errorMessage,
       props.searching,
       props.tableLabel,
+      props.targets,
       props.activeTarget,
       props.selectedIconUrl
     );
@@ -521,6 +523,7 @@ const Body: React.FC<BodyProps> = (props) => {
   const results = valueOf(props.results);
   const searching = valueOf(props.searching ?? false);
   const tableLabel = valueOf(props.tableLabel ?? undefined);
+  const targets = valueOf(props.targets ?? undefined);
   const activeTarget = valueOf(props.activeTarget ?? undefined);
   const query = state.searchText ?? "";
   const showSearch = state.open || !current;
@@ -624,7 +627,7 @@ const Body: React.FC<BodyProps> = (props) => {
           <FlyoutHeader
             styles={styles}
             label={tableLabel}
-            targets={props.targets}
+            targets={targets}
             activeTarget={activeTarget}
             onTargetChange={props.onTargetChange}
           />

@@ -215,6 +215,24 @@ the convention. Where you know the convention is wrong and no metadata has been
 loaded, pass the explicit set name (for example the `entitySet` argument on
 `odataBind`).
 
+## A polymorphic (Customer/Owner) lookup writes through a target-suffixed navigation property
+
+A single-target lookup binds with `<attr>@odata.bind`, but a polymorphic lookup
+(Customer fields like `customerid`/`parentcustomerid`, Owner fields) does not: the
+Web API rejects the bare attribute name and wants the relationship-specific
+navigation property, `<attr>_<target>@odata.bind`, for example
+`parentcustomerid_account@odata.bind` or `parentcustomerid_contact@odata.bind`. So
+the property name depends on which target the user picked. `LibraryUtils.odataBind`
+gives you the value (`/accounts(id)` vs `/contacts(id)`, resolved from the
+reference's `logicalName`) but not the property name, so a webresource ViewModel
+composes the key from the picked target: `` `${attr}_${ref.logicalName}@odata.bind` ``.
+This only bites the webresource/form-script path. A field-bound PCF gets it for
+free: the control outputs a `LookupValue` carrying the `entityType`, and the
+platform routes the write to the right target itself. The native lookup
+(`SmartNativeLookup`) commits the picked reference with the correct `logicalName`;
+turning that into the right write is the consumer's job on the webresource path and
+the platform's on the PCF path.
+
 ## Money precision comes from PrecisionSource, not just the attribute
 
 A money attribute's own `Precision` is not always the precision the platform

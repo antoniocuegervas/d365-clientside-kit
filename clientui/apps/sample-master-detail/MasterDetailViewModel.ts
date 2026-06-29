@@ -5,6 +5,7 @@ import { ObservableEvent } from "../../../shared/reactivity/ObservableEvent";
 import { SubscriptionTracker } from "../../../shared/reactivity/SubscriptionTracker";
 import type { IEntityReference } from "../../../shared/utils/EntityModel";
 import { EntityReference } from "../../../shared/utils/EntityModel";
+import { LibraryUtils } from "../../../shared/utils/LibraryUtils";
 import type { ISortSpec } from "../../../shared/controls/smart/SmartViewGrid";
 
 /** One of the selected account's contacts, in domain terms. */
@@ -72,6 +73,7 @@ export class MasterDetailViewModel {
   readonly lastName = new Observable<string | null>(null); // single-line text
   readonly jobTitle = new Observable<string | null>(null); // single-line text
   readonly preferredUser = new Observable<IEntityReference | null>(null); // lookup
+  readonly parentCustomer = new Observable<IEntityReference | null>(null); // polymorphic lookup (account or contact)
   readonly gender = new Observable<number | null>(null); // choice (option set)
   readonly doNotEmail = new Observable<boolean | null>(null); // two options (yes/no)
   readonly numberOfChildren = new Observable<number | null>(null); // whole number
@@ -141,7 +143,7 @@ export class MasterDetailViewModel {
         contactId,
         "?$select=firstname,lastname,jobtitle,gendercode,donotemail,numberofchildren," +
           "creditlimit,birthdate,description,_preferredsystemuserid_value," +
-          "_transactioncurrencyid_value"
+          "_parentcustomerid_value,_transactioncurrencyid_value"
       );
       if (this.tracker.isDisposed) {
         return;
@@ -156,6 +158,7 @@ export class MasterDetailViewModel {
       this.birthDate.value = parseDateOnly(record.birthdate);
       this.description.value = (record.description as string) ?? null;
       this.preferredUser.value = EntityReference.fromODataRecord(record, "preferredsystemuserid");
+      this.parentCustomer.value = EntityReference.fromODataRecord(record, "parentcustomerid");
       this.transactionCurrencyId.value =
         (record["_transactioncurrencyid_value"] as string) ?? null;
     } finally {
@@ -173,6 +176,7 @@ export class MasterDetailViewModel {
     this.isSaving.value = true;
     this.saveMessage.value = null;
     const user = this.preferredUser.value;
+    const customer = this.parentCustomer.value;
     try {
       await this.context.webAPI.updateRecord("contact", contactId, {
         firstname: this.firstName.value,
@@ -185,6 +189,12 @@ export class MasterDetailViewModel {
         birthdate: formatDateOnly(this.birthDate.value),
         description: this.description.value,
         "preferredsystemuserid@odata.bind": user ? `/systemusers(${user.id})` : null,
+        // A polymorphic (Customer) lookup binds through the target-specific
+        // navigation property (parentcustomerid_account / parentcustomerid_contact),
+        // not a bare parentcustomerid, so the picked target drives the property name.
+        ...(customer
+          ? { [`parentcustomerid_${customer.logicalName}@odata.bind`]: LibraryUtils.odataBind(customer) }
+          : {}),
       });
     } catch (error) {
       if (!this.tracker.isDisposed) {

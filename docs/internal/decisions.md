@@ -1128,3 +1128,53 @@ published, which is the bar (D-047). Verified on the live account form: bound to
 second `parentaccountid` field beside the native one, the flyout queries the
 account lookup view, renders the opaque two-line rows at the field width, filters
 as you type with focus retained, and commits the pick to the bound column.
+
+## D-050, polymorphic (Customer/Owner) lookup made real on both surfaces (refines D-049/D-023)
+
+The native lookup advertised a polymorphic target switcher (Customer/Owner pick
+between several targets), but it had never been exercised against a live org, only
+shown in a Storybook story over fixture metadata. Testing it live on
+`contact.parentcustomerid` (a Customer lookup, account or contact) surfaced two
+independent defects, both now fixed and verified on both delivery surfaces.
+
+The switcher never rendered (a reactivity gap). `SmartNativeLookup` resolves the
+switcher target labels asynchronously (one `getEntityMetadata` per target, after
+the first render) and was passing the result down as a one-time snapshot
+(`targets={this.switcherTargets.value}`). Every other dynamic input the smart
+control feeds the presentational `NativeLookupField` (results, searching,
+activeTarget, tableLabel, the selected icon) is an Observable the presentational
+control observes, so it re-renders when the value lands; `targets` alone was a
+plain value, and `SmartFieldBase` only observes `value`/`errorMessage`, so nothing
+re-rendered after the labels resolved. The list reached the view as `undefined`,
+`targets.length > 1` was never true, and the switcher never appeared. This is
+exactly why the Storybook story "passed" (it renders the flyout; nobody clicked a
+switcher that was not there) while the real org failed. Fix: `targets` becomes an
+`OrObservable` the presentational control observes, like `activeTarget`
+(`targets={this.switcherTargets}`). A unit test now asserts the switcher appears
+after the async label resolution and that picking a target re-queries it; it fails
+against the snapshot version, so the regression cannot return silently.
+
+The PCF could not bind to a Customer field (a manifest contract gap). `KitNativeLookup`
+declared its bound value `of-type="Lookup.Simple"`, which the form designer offers
+only on single-target lookup columns; a Customer field is a distinct binding type,
+so the control was never listed for `parentcustomerid` even with the switcher fixed.
+Fix: the value property binds an `of-type-group` covering `Lookup.Simple` +
+`Lookup.Customer` + `Lookup.Owner`, so the one control serves single-target and
+polymorphic columns alike. Manifest `<control version>` bumped (1.0.3) per the
+redeploy rule (D-047/D-049). The polymorphic *write* needs no kit code on the PCF
+path: the platform routes the `@odata.bind` from the `entityType` the control
+outputs. On the webresource path the consumer's ViewModel owns the write and must
+target the suffixed navigation property (`parentcustomerid_<target>@odata.bind`,
+e.g. `parentcustomerid_contact`), since `LibraryUtils.odataBind` resolves the URL
+but not the property name; this is recorded as a gotcha.
+
+Verified live on `contact.parentcustomerid` on both surfaces: the switcher renders
+and lists Account/Contact, switching re-queries each target's lookup view, the pick
+commits the correct reference, and the write persists to the right target (read
+back `lookuplogicalname` = the picked entity). Webresource: the `sample-master-detail`
+app now binds `parentcustomerid` beside `preferredsystemuserid` as the polymorphic
+showcase, writing through the suffixed nav property. PCF: `KitNativeLookup` bound to
+the Contact form's Company Name field commits the pick and the platform persists it.
+Revisit triggers: an Owner field (systemuser/team) exercised in anger, ownership
+writes can differ from a plain attribute write; or a host that exposes a form lookup
+control's configured (non-default) view, prefer it over the entity default.

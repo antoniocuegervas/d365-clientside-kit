@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="D365Kit" constructor="KitNativeLookup" version="1.0.2" display-name-key="Kit Example: Native Lookup" description-key="Native-parity single-record lookup, the kit SmartNativeLookup bound to a lookup column. See docs/adding-a-pcf.md." control-type="standard" >
+  <control namespace="D365Kit" constructor="KitNativeLookup" version="1.0.3" display-name-key="Kit Example: Native Lookup" description-key="Native-parity single-record lookup, the kit SmartNativeLookup bound to a lookup column. See docs/adding-a-pcf.md." control-type="standard" >
     <external-service-usage enabled="false">
     </external-service-usage>
-    <!-- The bound lookup column. The first field-bound Lookup.Simple property
-         auto-binds to the column the control is placed on; raw is the LookupValue[]. -->
-    <property name="value" display-name-key="Value" description-key="The bound lookup column rendered with the kit native-parity lookup" of-type="Lookup.Simple" usage="bound" required="true" />
+    <!-- The bound lookup column, as a type-group so the control can bind to a
+         single-target lookup AND to polymorphic Customer/Owner columns. The smart
+         control resolves and switches targets from metadata; raw is LookupValue[]. -->
+    <type-group name="lookups">
+      <type>Lookup.Simple</type>
+      <type>Lookup.Customer</type>
+      <type>Lookup.Owner</type>
+    </type-group>
+    <property name="value" display-name-key="Value" description-key="The bound lookup column rendered with the kit native-parity lookup" of-type-group="lookups" usage="bound" required="true" />
     <!-- The bound column's logical name (e.g. preferredsystemuserid). A field-bound
          PCF does not expose its own attribute name, and the smart control resolves
          the lookup targets, view, and icon from the entity + attribute metadata, so

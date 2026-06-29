@@ -79,6 +79,7 @@ export class MasterDetailView extends ObserverComponent<IMasterDetailViewProps> 
       vm.contacts,
       vm.contactsLoading,
       vm.selectedContactId,
+      vm.parentCustomer,
       vm.detailLoading,
       vm.isSaving,
       vm.saveMessage,
@@ -176,6 +177,16 @@ const Body: React.FC<IMasterDetailViewProps> = ({ viewModel: vm }) => {
                 attribute="preferredsystemuserid"
                 value={vm.preferredUser}
                 label="Preferred User (native lookup)"
+                showIcons
+              />
+              {/* Polymorphic (Customer) lookup: parentcustomerid targets account
+                  OR contact, so the flyout header shows a target switcher. This is
+                  the live test of the native lookup's polymorphic path. */}
+              <SmartNativeLookup
+                entity="contact"
+                attribute="parentcustomerid"
+                value={vm.parentCustomer}
+                label="Company Name (polymorphic native lookup)"
                 showIcons
               />
               <SmartOptionSet entity="contact" attribute="gendercode" value={vm.gender} />
