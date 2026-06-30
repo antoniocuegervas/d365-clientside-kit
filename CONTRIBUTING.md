@@ -56,7 +56,7 @@ When in doubt, open an issue to talk an idea through before building it.
 ## Local setup and the gate
 
 ```bash
-npm ci          # Node 22 is recommended: it matches CI (npm 10) and the lockfile
+npm install     # Node 24 (see .nvmrc); install reconciles the lockfile to your npm version
 npm run verify  # lint, typecheck, both bundles, unit + smoke tests, Storybook build
 npm run storybook
 ```
