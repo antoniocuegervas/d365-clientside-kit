@@ -243,7 +243,7 @@ The ViewModel owns the Observables and the save logic. The View just declares co
 ## Getting started
 
 ```bash
-npm ci
+npm install           # first-time setup, reconciles the lockfile to your npm version
 npm run verify        # lint + typecheck + build + tests + smoke + storybook
 npm run storybook     # browse the controls with fixture data
 ```
