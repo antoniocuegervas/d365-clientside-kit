@@ -5,6 +5,7 @@ import { FluentProvider } from "@fluentui/react-components";
 import { d365Theme } from "../../../shared/theme/d365Theme";
 import { PCFContext, type IPcfContextLike } from "../../../shared/context/PCFContext";
 import { ViewModelContextProvider } from "../../../shared/context/ViewModelContextProvider";
+import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoundary";
 import { normalizeGuid, type IXrmLookupValue } from "../../../shared/utils/EntityModel";
 import { CounterpartyGridApp } from "./App";
 
@@ -49,12 +50,16 @@ export class KitCounterpartyGrid
         FluentProvider,
         { theme: d365Theme },
         React.createElement(
-          ViewModelContextProvider,
-          { context: this.kitContext },
-          React.createElement(CounterpartyGridApp, {
-            dataset: context.parameters.activities,
-            host: hostRecord(context),
-          })
+          ErrorBoundary,
+          null,
+          React.createElement(
+            ViewModelContextProvider,
+            { context: this.kitContext },
+            React.createElement(CounterpartyGridApp, {
+              dataset: context.parameters.activities,
+              host: hostRecord(context),
+            })
+          )
         )
       )
     );

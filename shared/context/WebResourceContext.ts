@@ -202,10 +202,11 @@ class ModernWebApi implements IWebApi {
   }
 
   fetch(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {
-    return this.retrieveMultipleRecords(
-      entityLogicalName,
-      `?fetchXml=${encodeURIComponent(fetchXml)}`
-    );
+    // Ride cds-client, like fetchPage, so the FetchXML annotations (morerecords,
+    // paging cookie, total record count) survive. The native Xrm.WebApi retrieve
+    // drops them, which would make the same call return a thinner result here than
+    // on the cds-backed hosts and silently break "X of N" labels and next/prev.
+    return this.client.fetch(LibraryUtils.entitySetName(entityLogicalName), fetchXml);
   }
 
   fetchPage(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {

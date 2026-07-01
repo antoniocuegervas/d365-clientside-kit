@@ -1178,3 +1178,36 @@ the Contact form's Company Name field commits the pick and the platform persists
 Revisit triggers: an Owner field (systemuser/team) exercised in anger, ownership
 writes can differ from a plain attribute write; or a host that exposes a form lookup
 control's configured (non-default) view, prefer it over the entity default.
+
+## D-051, the 2026-07 hardening round: tabster handled in two tiers, and three edges accepted deliberately
+
+An adversarial review round (two models, three reviewer roles each) was consolidated,
+verified against the code, and remediated in mid-2026. The correctness fixes speak for
+themselves in the history; what belongs in the decision log is the posture that came out
+of it, so it is not re-litigated.
+
+**Tabster is handled in two tiers: eliminate where possible, pin and guard where not.**
+The shared-window tabster collision (D-048) cannot be permanently fixed for controls
+that genuinely need focus management (Dropdown, Combobox, DatePicker, DataGrid, Menu,
+the interactive lookup flyout) while the kit bundles React 18 plus Fluent 9: the one
+collision-proof supported path, platform-library, would bind the kit to the platform's
+React, and the reactivity core assumes React 18. So those controls keep the conservative
+pin to the host's platform-library floor, wrapped in the shared error boundary so a
+drift degrades loudly instead of blanking, with the re-pin runbook in `deployment.md`
+tied to the release waves. The tooltip path, by contrast, needs no focus management at
+all, so it was made permanently collision-free: `KitTooltip` was rebuilt off `Popover`
+onto the plain Fluent `Tooltip` (positioning only, the pattern `FieldShell` already
+used), and a deliberate skew test (bundling the exact tabster version D-048 diagnosed
+as the collision, against the older host copy) rendered cleanly on a live form. On that
+evidence the tooltip carries no pin at all and stands as the reference that a
+tooltip-only PCF needs none. Reproducibility still comes from its committed lockfile.
+
+**Three reviewer-raised edges are accepted, with their conditions recorded:**
+- The Web API version stays pinned to 9.2. It is the long-lived stable version, and
+  deriving it per-org buys nothing today. Optional hardening if it ever matters: read
+  `getGlobalContext().getVersion()` on the modern adapter and keep 9.2 as the fallback.
+- Dark mode stays unhandled, as a revisit trigger rather than a permanent non-goal: the
+  day the target orgs run dark UCI at any real rate, the theme layer is where it lands.
+- The cds-client's hand-rolled multipart `$batch` parsing stays. It is bespoke protocol
+  code carrying correctness weight, so the live-org verification that D-045 established
+  remains the standing regression gate whenever that parser is touched.

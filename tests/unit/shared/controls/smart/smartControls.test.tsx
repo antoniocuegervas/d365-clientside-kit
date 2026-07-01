@@ -16,7 +16,10 @@ import {
 } from "../../../../../shared/controls/smart/SmartViewGrid";
 import type { IEntityReference } from "../../../../../shared/utils/EntityModel";
 import { createFakeViewModelContext } from "../../../../mocks/fakeViewModelContext";
-import type { IViewModelContext } from "../../../../../shared/context/IViewModelContext";
+import type {
+  IAttributeMetadata,
+  IViewModelContext,
+} from "../../../../../shared/context/IViewModelContext";
 
 const renderWith = (context: IViewModelContext, ui: React.ReactNode) =>
   render(<ViewModelContextProvider context={context}>{ui}</ViewModelContextProvider>);
@@ -83,11 +86,22 @@ describe("SmartTextField (declarative block)", () => {
   });
 
   it("shows a friendly fallback, not raw SDK text, when metadata fails", async () => {
-    const { context } = createFakeViewModelContext(); // nothing scripted -> load throws
-    const value = new Observable<string | null>(null);
-    renderWith(context, <SmartTextField entity="account" attribute="missing" value={value} />);
-    expect(await screen.findByText(/Unavailable in this environment/)).toBeTruthy();
-    expect(screen.queryByText(/Could not load metadata/)).toBeNull();
+    // The failed load is the point of this test, so capture the console.error the
+    // smart field logs for it; otherwise a passing run prints a scary red error.
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const { context } = createFakeViewModelContext(); // nothing scripted -> load throws
+      const value = new Observable<string | null>(null);
+      renderWith(context, <SmartTextField entity="account" attribute="missing" value={value} />);
+      expect(await screen.findByText(/Unavailable in this environment/)).toBeTruthy();
+      expect(screen.queryByText(/Could not load metadata/)).toBeNull();
+      expect(consoleError).toHaveBeenCalledWith(
+        expect.stringContaining("metadata load failed for account.missing"),
+        expect.anything()
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("uses the attribute Description as the field hint", async () => {
@@ -186,6 +200,53 @@ describe("SmartFieldBase reuse resilience", () => {
     });
     expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("Jane");
     expect(accountName.value).toBe("Contoso");
+  });
+
+  it("discards a slow earlier metadata load so it cannot overwrite a newer rebind", async () => {
+    const { context } = createFakeViewModelContext();
+    // Drive resolution order by hand: hold the first attribute's load open until
+    // after the rebind's load has resolved, the exact race the guard defends.
+    let resolveAccount!: (metadata: IAttributeMetadata) => void;
+    const accountLoad = new Promise<IAttributeMetadata>((resolve) => {
+      resolveAccount = resolve;
+    });
+    const firstNameMeta: IAttributeMetadata = {
+      logicalName: "firstname",
+      displayName: "First Name",
+      kind: "text",
+      required: false,
+    };
+    context.metadata.getAttributeMetadata = (_entity, attribute) =>
+      attribute === "name" ? accountLoad : Promise.resolve(firstNameMeta);
+
+    const accountName = new Observable<string | null>("Contoso");
+    const firstName = new Observable<string | null>(null);
+    const { rerender } = render(
+      <ViewModelContextProvider context={context}>
+        <SmartTextField entity="account" attribute="name" value={accountName} />
+      </ViewModelContextProvider>
+    );
+
+    // Rebind to a new attribute while the first load is still pending.
+    rerender(
+      <ViewModelContextProvider context={context}>
+        <SmartTextField entity="contact" attribute="firstname" value={firstName} />
+      </ViewModelContextProvider>
+    );
+    expect(await screen.findByText("First Name")).toBeTruthy();
+
+    // The stale first load resolves last: it must be ignored, not rendered.
+    await act(async () => {
+      resolveAccount({
+        logicalName: "name",
+        displayName: "Account Name",
+        kind: "text",
+        required: false,
+      });
+      await accountLoad;
+    });
+    expect(screen.getByText("First Name")).toBeTruthy();
+    expect(screen.queryByText("Account Name")).toBeNull();
   });
 });
 
@@ -460,6 +521,46 @@ describe("SmartLookup", () => {
       expect(String(query?.args[1])).toContain("and statecode eq 0");
     });
   });
+
+  it("resolves the new target's view on rebind instead of reusing the previous target's", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+        "account.primarycontactid": { displayName: "Primary Contact", kind: "lookup", targets: ["contact"] },
+      },
+      views: {
+        "lookup:account": { id: "aaaa0000-0000-0000-0000-00000000000a" },
+        "lookup:contact": { id: "bbbb0000-0000-0000-0000-00000000000b" },
+      },
+    });
+    const first = new Observable<IEntityReference | null>(null);
+    const second = new Observable<IEntityReference | null>(null);
+    const { rerender } = render(
+      <ViewModelContextProvider context={context}>
+        <SmartLookup entity="contact" attribute="parentcustomerid" value={first} searchDebounceMs={0} />
+      </ViewModelContextProvider>
+    );
+    // Open once so the first target's lookup view id is resolved and cached.
+    await userEvent.click(await screen.findByRole("combobox"));
+    await waitFor(() => {
+      expect(calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1)?.args[0]).toBe("account");
+    });
+
+    // Reuse the instance for a different attribute whose target differs.
+    rerender(
+      <ViewModelContextProvider context={context}>
+        <SmartLookup entity="account" attribute="primarycontactid" value={second} searchDebounceMs={0} />
+      </ViewModelContextProvider>
+    );
+    await userEvent.click(await screen.findByRole("combobox"));
+
+    // The search must run the NEW target's lookup view, not the cached old one.
+    await waitFor(() => {
+      const last = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1)!;
+      expect(last.args[0]).toBe("contact");
+      expect(String(last.args[1])).toContain("?savedQuery=bbbb0000-0000-0000-0000-00000000000b");
+    });
+  });
 });
 
 describe("SmartNativeLookup", () => {
@@ -644,6 +745,85 @@ describe("SmartNativeLookup", () => {
       const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
       expect(query?.args[0]).toBe("contact");
       expect(String(query?.args[1])).toContain("?savedQuery=cccc0000-0000-0000-0000-0000000000c1");
+    });
+    expect(await screen.findByText("Maria Campbell")).toBeTruthy();
+  });
+
+  it("re-initializes the target on rebind so the flyout searches the new target", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "contact.preferredsystemuserid": {
+          displayName: "Preferred User",
+          kind: "lookup",
+          targets: ["systemuser"],
+        },
+        "account.primarycontactid": {
+          displayName: "Primary Contact",
+          kind: "lookup",
+          targets: ["contact"],
+        },
+      },
+      entities: {
+        systemuser: { primaryIdAttribute: "systemuserid", primaryNameAttribute: "fullname" },
+        contact: { primaryIdAttribute: "contactid", primaryNameAttribute: "fullname" },
+      },
+      views: {
+        "lookup:systemuser": {
+          id: "5a5a0000-0000-0000-0000-000000000055",
+          columns: [{ name: "fullname", width: 200 }],
+        },
+        "lookup:contact": {
+          id: "cccc0000-0000-0000-0000-0000000000c1",
+          columns: [{ name: "fullname", width: 200 }],
+        },
+      },
+      queryResults: {
+        systemuser: [
+          { entities: [{ systemuserid: "u1u00000-0000-0000-0000-000000000001", fullname: "Nancy Davolio" }] },
+        ],
+        contact: [
+          { entities: [{ contactid: "c1c00000-0000-0000-0000-000000000001", fullname: "Maria Campbell" }] },
+        ],
+      },
+    });
+    const first = new Observable<IEntityReference | null>(null);
+    const second = new Observable<IEntityReference | null>(null);
+    const { rerender } = render(
+      <ViewModelContextProvider context={context}>
+        <SmartNativeLookup
+          entity="contact"
+          attribute="preferredsystemuserid"
+          value={first}
+          searchDebounceMs={0}
+          showIcons={false}
+        />
+      </ViewModelContextProvider>
+    );
+    // Open once so the initial target (systemuser) is picked and searched.
+    await userEvent.click(await screen.findByRole("combobox"));
+    await waitFor(() => {
+      expect(calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1)?.args[0]).toBe("systemuser");
+    });
+
+    // Reuse the instance for a different attribute whose target differs.
+    rerender(
+      <ViewModelContextProvider context={context}>
+        <SmartNativeLookup
+          entity="account"
+          attribute="primarycontactid"
+          value={second}
+          searchDebounceMs={0}
+          showIcons={false}
+        />
+      </ViewModelContextProvider>
+    );
+    await userEvent.click(await screen.findByRole("combobox"));
+
+    // The flyout must search the NEW target, not the previous one.
+    await waitFor(() => {
+      const last = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1)!;
+      expect(last.args[0]).toBe("contact");
+      expect(String(last.args[1])).toContain("?savedQuery=cccc0000-0000-0000-0000-0000000000c1");
     });
     expect(await screen.findByText("Maria Campbell")).toBeTruthy();
   });
@@ -937,6 +1117,48 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(calls.find((c) => c.api === "fetchPage")).toBeUndefined();
   });
 
+  it("override + simple pagination pages the FetchXML by page/count and morerecords, not nextLink", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      ...viewSetup,
+      queryResults: {
+        account: [
+          {
+            entities: [
+              { accountid: "p1", name: "Contoso Ltd", telephone1: "1" },
+              { accountid: "p2", name: "Fabrikam Inc", telephone1: "2" },
+            ],
+            moreRecords: true,
+          },
+          {
+            entities: [
+              { accountid: "p3", name: "Adventure Works", telephone1: "3" },
+              { accountid: "p4", name: "Northwind Traders", telephone1: "4" },
+            ],
+            moreRecords: false,
+          },
+        ],
+      },
+    });
+    const override = new Observable<string | null>("<fetch><entity name='account'/></fetch>");
+    renderWith(context, <SmartViewGrid entity="account" pageSize={2} overrideFetchXml={override} />);
+    expect(await screen.findByText("Contoso Ltd")).toBeTruthy();
+
+    // The override is paged with page/count (capped), not fetched whole via fetch.
+    expect(calls.find((c) => c.api === "fetch")).toBeUndefined();
+    const first = calls.find((c) => c.api === "fetchPage")!;
+    expect(String(first.args[1])).toContain('page="1" count="2"');
+
+    // Next is driven by morerecords (the FetchXML flag), not a dead nextLink.
+    expect((screen.getByLabelText("Next page") as HTMLButtonElement).disabled).toBe(false);
+    await userEvent.click(screen.getByLabelText("Next page"));
+    expect(await screen.findByText("Adventure Works")).toBeTruthy();
+    const paged = calls.filter((c) => c.api === "fetchPage").at(-1)!;
+    expect(String(paged.args[1])).toContain('page="2" count="2"');
+
+    // Page 2 reported no more records, so Next is now disabled.
+    expect((screen.getByLabelText("Next page") as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("raises onRecordSelected with the record id on row click", async () => {
     const { context } = createFakeViewModelContext(viewSetup);
     const selected: string[] = [];
@@ -1214,7 +1436,9 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(await screen.findByText("Free Text Reviewer")).toBeTruthy();
   });
 
-  it("activity invoke opens the real activity type, not activitypointer", async () => {
+  it("activity invoke opens the real activity type from the raw value, even with a localized label", async () => {
+    // The wire shape: the raw EntityName value is the logical name in every
+    // language; only the formatted label is localized (German org here).
     const { context, calls } = createFakeViewModelContext({
       attributes: {
         "activitypointer.subject": { displayName: "Subject", kind: "text" },
@@ -1237,8 +1461,8 @@ describe("SmartViewGrid (read-only view grid)", () => {
               {
                 activityid: "ac100000-0000-0000-0000-000000000001",
                 subject: "Call the client",
-                activitytypecode: 4210,
-                "activitytypecode@OData.Community.Display.V1.FormattedValue": "phonecall",
+                activitytypecode: "phonecall",
+                "activitytypecode@OData.Community.Display.V1.FormattedValue": "Telefonanruf",
               },
             ],
           },
@@ -1251,6 +1475,48 @@ describe("SmartViewGrid (read-only view grid)", () => {
       "phonecall",
       "ac100000-0000-0000-0000-000000000001",
     ]);
+  });
+
+  it("activity invoke resolves a numeric type code through the activity-type metadata", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "activitypointer.subject": { displayName: "Subject", kind: "text" },
+        "activitypointer.activitytypecode": { displayName: "Activity Type", kind: "optionset" },
+      },
+      entities: { activitypointer: { primaryIdAttribute: "activityid" } },
+      activityTypes: [
+        { logicalName: "task", displayName: "Aufgabe", objectTypeCode: 4212 },
+        { logicalName: "phonecall", displayName: "Telefonanruf", objectTypeCode: 4210 },
+      ],
+      views: {
+        "default:activitypointer": {
+          entityLogicalName: "activitypointer",
+          columns: [
+            { name: "subject", width: 200 },
+            { name: "activitytypecode", width: 120 },
+          ],
+        },
+      },
+      queryResults: {
+        activitypointer: [
+          {
+            entities: [
+              {
+                activityid: "ac2",
+                subject: "Follow up",
+                activitytypecode: 4210,
+                "activitytypecode@OData.Community.Display.V1.FormattedValue": "Telefonanruf",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    renderWith(context, <SmartViewGrid entity="activitypointer" />);
+    await userEvent.dblClick(await screen.findByText("Follow up"));
+    await waitFor(() => {
+      expect(calls.find((c) => c.api === "openForm")?.args).toEqual(["phonecall", "ac2"]);
+    });
   });
 
   it("activity invoke errors readably when activitytypecode is absent", async () => {

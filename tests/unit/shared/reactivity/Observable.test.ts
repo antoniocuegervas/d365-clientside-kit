@@ -81,6 +81,25 @@ describe("Observable", () => {
     expect(calls).toEqual(["a", "b", "b"]);
   });
 
+  it("gives every listener of one change a consistent old/new pair under re-entrancy", () => {
+    const obs = new Observable<string>("A");
+    let reentered = false;
+    // The first listener triggers a nested change once, mid-notification.
+    obs.subscribe((next) => {
+      if (next === "B" && !reentered) {
+        reentered = true;
+        obs.setValue("C");
+      }
+    });
+    const received: Array<[string, string]> = [];
+    obs.subscribe((next, prev) => received.push([next, prev]));
+    obs.setValue("B");
+    // The second listener must see this change's own pair, never the newest
+    // value paired with the original previous (the re-entrancy glitch).
+    expect(received).toContainEqual(["B", "A"]);
+    expect(received).not.toContainEqual(["C", "A"]);
+  });
+
   it("isObservable / valueOf unwrap OrObservable props", () => {
     const obs = new Observable<string>("live");
     expect(isObservable(obs)).toBe(true);

@@ -1,4 +1,16 @@
+import type * as React from "react";
 import type { OrObservable } from "../../reactivity/Observable";
+
+/**
+ * onError handler for decorative icon images (entity icons on lookup values
+ * and result rows). The icon URLs are supplied by the host and never checked
+ * up front, so a moved or missing icon would render as a broken-image glyph.
+ * Blanking the image instead keeps its box, so row alignment holds and the
+ * icon simply is not there.
+ */
+export function hideBrokenImage(event: React.SyntheticEvent<HTMLImageElement>): void {
+  event.currentTarget.style.visibility = "hidden";
+}
 
 /**
  * Props shared by every presentational field control.

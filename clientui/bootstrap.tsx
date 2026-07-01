@@ -4,6 +4,7 @@ import { FluentProvider } from "@fluentui/react-components";
 import { createContextFromXrm } from "../shared/context/createWebResourceContext";
 import { findXrm } from "../shared/context/createWebResourceContext";
 import { ViewModelContextProvider } from "../shared/context/ViewModelContextProvider";
+import { ErrorBoundary } from "../shared/controls/presentational/ErrorBoundary";
 import { resolveKitTheme } from "../shared/theme/d365Theme";
 import { LibraryUtils } from "../shared/utils/LibraryUtils";
 import { getApp, listApps } from "./registry";
@@ -67,7 +68,9 @@ export async function bootstrap(options: IBootstrapOptions = {}): Promise<Root |
     const root = createRoot(container);
     root.render(
       <FluentProvider theme={theme} style={{ height: "100%" }}>
-        <ViewModelContextProvider context={context}>{app.render(host)}</ViewModelContextProvider>
+        <ErrorBoundary>
+          <ViewModelContextProvider context={context}>{app.render(host)}</ViewModelContextProvider>
+        </ErrorBoundary>
       </FluentProvider>
     );
 

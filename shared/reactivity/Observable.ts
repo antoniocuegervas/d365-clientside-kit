@@ -59,11 +59,15 @@ export class Observable<T> implements ISubscribable {
       return;
     }
     const previous = this._value;
-    this._value = freezeInDev(next);
+    const current = freezeInDev(next);
+    this._value = current;
     // Copy the listeners first: one of them might add or remove a listener while
-    // we are still calling them.
+    // we are still calling them. Pass the snapshot pair (current/previous) rather
+    // than re-reading this._value, so if a listener re-enters setValue the
+    // remaining listeners still get THIS change's old/new pair, not a newer value
+    // paired with the old previous.
     for (const listener of [...this.listeners]) {
-      listener(this._value, previous);
+      listener(current, previous);
     }
   }
 

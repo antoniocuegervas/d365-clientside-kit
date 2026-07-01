@@ -245,10 +245,10 @@ class PcfWebApi implements IWebApi {
   }
 
   fetch(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {
-    return this.retrieveMultipleRecords(
-      entityLogicalName,
-      `?fetchXml=${encodeURIComponent(fetchXml)}`
-    );
+    // Ride cds-client, like fetchPage, so the FetchXML annotations survive. The
+    // native ComponentFramework Web API drops them, which would differ from the
+    // other hosts and break paging labels driven by the result annotations.
+    return this.client.fetch(LibraryUtils.entitySetName(entityLogicalName), fetchXml);
   }
 
   fetchPage(entityLogicalName: string, fetchXml: string): Promise<IRetrieveMultipleResult> {

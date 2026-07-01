@@ -94,11 +94,17 @@ export class CdsClient {
   }
 
   /** Updates a record (PATCH semantics, only the supplied attributes change). */
-  async updateRecord(entitySet: string, id: string, data: Record<string, unknown>): Promise<void> {
+  async updateRecord(
+    entitySet: string,
+    id: string,
+    data: Record<string, unknown>,
+    ifMatch?: string
+  ): Promise<void> {
     await this.request(
       "PATCH",
       `${this.apiUrl}${entitySet}(${normalizeGuid(id)})`,
-      JSON.stringify(data)
+      JSON.stringify(data),
+      ifMatch ? { "If-Match": ifMatch } : undefined
     );
   }
 

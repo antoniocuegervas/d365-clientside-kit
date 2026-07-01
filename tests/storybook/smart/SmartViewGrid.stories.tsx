@@ -27,7 +27,8 @@ const meta: Meta<typeof SmartViewGrid> = {
           "while keeping the view's layout, and `quickFind` / `filters` / `multiSelect` Observables " +
           "a ViewModel drives. See the Company Search sample for live quick find, and the " +
           "Activities grid for activitypointer type routing. Runs against an in-memory metadata " +
-          "fake (no org); each story's Show code panel shows the host wiring.",
+          "fake (no org); each story's Show code panel shows the host wiring. See the End-to-end " +
+          "wiring page for the full ViewModel + View + provider assembly.",
       },
     },
   },

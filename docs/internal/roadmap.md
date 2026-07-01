@@ -309,6 +309,32 @@ Generalizing it into a shared preview surface (and the hover card) is the broade
 follow-up, picked up naturally alongside the native-first metadata direction,
 since the column values are offline-capable Web API reads.
 
+## Smaller follow-ups (carried out of the 2026-07 hardening round)
+
+Bounded items, not directions. Each was deliberately deferred from a resolved
+piece of that round (the posture is recorded in decisions.md, D-051) and lives
+here so it is not lost with the round's working notes.
+
+- **Move the counterparty "+N more" hovercard off `Popover`.** The hovercard in
+  `CounterpartyCell` is read-only display and needs no focus trap, so it can ride
+  the same tabster-free surface the tooltip PCF now uses (Fluent `Tooltip` or a
+  positioning-only surface). Evaluate, then move it, which shrinks the
+  counterparty grid's tabster exposure to the DataGrid itself. Relates to the
+  "real tooltip" direction above: if a kit-owned info surface gets built there,
+  the hovercard should reuse it.
+- **Centralize the PCF Fluent/tabster pin.** Today each focus-managed PCF carries
+  its own pinned versions and `overrides` block, and nothing stops a new PCF
+  copied from a sample from skipping them (that is exactly how the last drift
+  happened). Options: a shared base config the PCF projects extend, or a CI/lint
+  check that fails a PCF build importing `@fluentui/react-components` without the
+  matching `overrides`.
+- **Hold the Storybook snippet bar on the non-field stories.** The smart field
+  pages and the end-to-end wiring story meet the defined bar (the binding
+  contract, what the kit resolves for you, the value round-trip, the surrounding
+  provider structure). The presentational, scenario, and complex smart stories
+  (`SmartViewGrid`, `SmartLookup`, `SmartNativeLookup`) have not been audited
+  against it; do that as one focused pass.
+
 ## Shipped (were roadmap items)
 
 - **Multi-stage gated data input (the wizard capability).** Built as a reusable

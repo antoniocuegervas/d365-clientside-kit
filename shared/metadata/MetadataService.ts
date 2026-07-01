@@ -47,13 +47,39 @@ export class MetadataService implements IMetadataApi {
     this.client = client;
   }
 
-  getEntityMetadata(entityLogicalName: string): Promise<IEntityMetadata> {
-    let cached = this.entityCache.get(entityLogicalName);
-    if (!cached) {
-      cached = this.loadEntityMetadata(entityLogicalName);
-      this.entityCache.set(entityLogicalName, cached);
+  /**
+   * Returns the cached promise for a key, or starts the load and caches it. A
+   * successful result stays cached for the whole session (metadata is
+   * effectively immutable at runtime). A failed read is removed from the cache
+   * so the next caller tries again, instead of every later caller awaiting the
+   * same failure until the page is reloaded. The caller still receives the
+   * original rejection: the eviction runs alongside, it does not swallow the error.
+   */
+  private getOrLoad<T>(
+    cache: Map<string, Promise<T>>,
+    key: string,
+    load: () => Promise<T>
+  ): Promise<T> {
+    const existing = cache.get(key);
+    if (existing) {
+      return existing;
     }
-    return cached;
+    const created = load();
+    cache.set(key, created);
+    created.catch(() => {
+      // Drop the failed entry, but only if it is still the one we stored, so a
+      // retry a later caller has already started is left in place.
+      if (cache.get(key) === created) {
+        cache.delete(key);
+      }
+    });
+    return created;
+  }
+
+  getEntityMetadata(entityLogicalName: string): Promise<IEntityMetadata> {
+    return this.getOrLoad(this.entityCache, entityLogicalName, () =>
+      this.loadEntityMetadata(entityLogicalName)
+    );
   }
 
   getAttributeMetadata(
@@ -61,73 +87,60 @@ export class MetadataService implements IMetadataApi {
     attributeLogicalName: string
   ): Promise<IAttributeMetadata> {
     const key = `${entityLogicalName}.${attributeLogicalName}`;
-    let cached = this.attributeCache.get(key);
-    if (!cached) {
-      cached = this.loadAttributeMetadata(entityLogicalName, attributeLogicalName);
-      this.attributeCache.set(key, cached);
-    }
-    return cached;
+    return this.getOrLoad(this.attributeCache, key, () =>
+      this.loadAttributeMetadata(entityLogicalName, attributeLogicalName)
+    );
   }
 
   getView(entityLogicalName: string, savedQueryId?: string): Promise<IViewDefinition> {
     const key = savedQueryId ? normalizeGuid(savedQueryId) : `default:${entityLogicalName}`;
-    let cached = this.viewCache.get(key);
-    if (!cached) {
-      cached = this.loadView(entityLogicalName, savedQueryId);
-      this.viewCache.set(key, cached);
-    }
-    return cached;
+    return this.getOrLoad(this.viewCache, key, () => this.loadView(entityLogicalName, savedQueryId));
   }
 
   getLookupView(entityLogicalName: string): Promise<IViewDefinition> {
     const key = `lookup:${entityLogicalName}`;
-    let cached = this.viewCache.get(key);
-    if (!cached) {
-      cached = this.loadLookupView(entityLogicalName);
-      this.viewCache.set(key, cached);
-    }
-    return cached;
+    return this.getOrLoad(this.viewCache, key, () => this.loadLookupView(entityLogicalName));
   }
 
   getActivityTypes(): Promise<IActivityTypeInfo[]> {
-    this.activityTypesPromise ??= this.loadActivityTypes();
-    return this.activityTypesPromise;
+    const existing = this.activityTypesPromise;
+    if (existing) {
+      return existing;
+    }
+    const created = this.loadActivityTypes();
+    this.activityTypesPromise = created;
+    created.catch(() => {
+      // Same eviction as getOrLoad, but this cache is a single field, not a Map.
+      if (this.activityTypesPromise === created) {
+        this.activityTypesPromise = undefined;
+      }
+    });
+    return created;
   }
 
   getCurrencySymbol(transactionCurrencyId: string): Promise<ICurrencyInfo> {
     const key = normalizeGuid(transactionCurrencyId);
-    let cached = this.currencyCache.get(key);
-    if (!cached) {
-      cached = this.loadCurrencySymbol(key);
-      this.currencyCache.set(key, cached);
-    }
-    return cached;
+    return this.getOrLoad(this.currencyCache, key, () => this.loadCurrencySymbol(key));
   }
 
   getEntityIconUrl(entityLogicalName: string): Promise<string | undefined> {
-    let cached = this.iconCache.get(entityLogicalName);
-    if (!cached) {
-      cached = this.loadEntityIconUrl(entityLogicalName);
-      this.iconCache.set(entityLogicalName, cached);
-    }
-    return cached;
+    return this.getOrLoad(this.iconCache, entityLogicalName, () =>
+      this.loadEntityIconUrl(entityLogicalName)
+    );
   }
 
   getViewByName(entityLogicalName: string, viewName: string): Promise<IViewDefinition> {
     const key = `name:${entityLogicalName}:${viewName}`;
-    let cached = this.viewCache.get(key);
-    if (!cached) {
-      cached = this.loadViewByName(entityLogicalName, viewName);
-      this.viewCache.set(key, cached);
-    }
-    return cached;
+    return this.getOrLoad(this.viewCache, key, () =>
+      this.loadViewByName(entityLogicalName, viewName)
+    );
   }
 
   //#region loads
 
   private async loadEntityMetadata(entityLogicalName: string): Promise<IEntityMetadata> {
     const raw = await this.client.get(
-      `EntityDefinitions(LogicalName='${entityLogicalName}')` +
+      `EntityDefinitions(LogicalName='${LibraryUtils.escapeODataString(entityLogicalName)}')` +
         `?$select=LogicalName,DisplayName,EntitySetName,PrimaryIdAttribute,PrimaryNameAttribute`
     );
     const entitySetName = (raw.EntitySetName as string) ?? "";
@@ -149,8 +162,8 @@ export class MetadataService implements IMetadataApi {
     attributeLogicalName: string
   ): Promise<IAttributeMetadata> {
     const basePath =
-      `EntityDefinitions(LogicalName='${entityLogicalName}')` +
-      `/Attributes(LogicalName='${attributeLogicalName}')`;
+      `EntityDefinitions(LogicalName='${LibraryUtils.escapeODataString(entityLogicalName)}')` +
+      `/Attributes(LogicalName='${LibraryUtils.escapeODataString(attributeLogicalName)}')`;
     const base = await this.client.get(
       `${basePath}?$select=LogicalName,DisplayName,Description,AttributeTypeName,RequiredLevel,IsSecured`
     );
@@ -299,7 +312,7 @@ export class MetadataService implements IMetadataApi {
       // Default public grid view for the entity (querytype 0).
       const result = await this.client.retrieveMultiple(
         "savedqueries",
-        `${select}&$filter=returnedtypecode eq '${entityLogicalName}' and querytype eq 0 ` +
+        `${select}&$filter=returnedtypecode eq '${LibraryUtils.escapeODataString(entityLogicalName)}' and querytype eq 0 ` +
           `and isdefault eq true and statecode eq 0&$top=1`
       );
       if (result.entities.length === 0) {
@@ -316,7 +329,7 @@ export class MetadataService implements IMetadataApi {
     // single-record lookup uses.
     const result = await this.client.retrieveMultiple(
       "savedqueries",
-      `${select}&$filter=returnedtypecode eq '${entityLogicalName}' and querytype eq 64 ` +
+      `${select}&$filter=returnedtypecode eq '${LibraryUtils.escapeODataString(entityLogicalName)}' and querytype eq 64 ` +
         `and isdefault eq true and statecode eq 0&$top=1`
     );
     if (result.entities.length === 0) {
@@ -334,7 +347,7 @@ export class MetadataService implements IMetadataApi {
    */
   private async loadEntityIconUrl(entityLogicalName: string): Promise<string | undefined> {
     const raw = await this.client.get(
-      `EntityDefinitions(LogicalName='${entityLogicalName}')` +
+      `EntityDefinitions(LogicalName='${LibraryUtils.escapeODataString(entityLogicalName)}')` +
         `?$select=LogicalName,ObjectTypeCode,IconVectorName`
     );
     const base = this.client.clientUrl;
@@ -396,7 +409,7 @@ export class MetadataService implements IMetadataApi {
     const select = "$select=name,fetchxml,layoutxml,layoutjson,returnedtypecode,savedqueryid";
     const filter =
       `$filter=name eq '${LibraryUtils.escapeODataString(viewName)}' and ` +
-      `returnedtypecode eq '${entityLogicalName}' and statecode eq 0`;
+      `returnedtypecode eq '${LibraryUtils.escapeODataString(entityLogicalName)}' and statecode eq 0`;
     const result = await this.client.retrieveMultiple("savedqueries", `?${select}&${filter}`);
     if (result.entities.length === 0) {
       throw new Error(`No active view named '${viewName}' found for entity '${entityLogicalName}'`);

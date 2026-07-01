@@ -5,6 +5,7 @@ import { FluentProvider } from "@fluentui/react-components";
 import { d365Theme } from "../../../shared/theme/d365Theme";
 import { PCFContext, type IPcfContextLike } from "../../../shared/context/PCFContext";
 import { ViewModelContextProvider } from "../../../shared/context/ViewModelContextProvider";
+import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoundary";
 import { Observable } from "../../../shared/reactivity/Observable";
 import { normalizeGuid, type IEntityReference } from "../../../shared/utils/EntityModel";
 import { NativeLookupApp } from "./App";
@@ -78,18 +79,22 @@ export class KitNativeLookup implements ComponentFramework.StandardControl<IInpu
         FluentProvider,
         { theme: d365Theme },
         React.createElement(
-          ViewModelContextProvider,
-          { context: this.kitContext },
-          React.createElement(NativeLookupApp, {
-            entity: hostEntity(context),
-            attribute: context.parameters.attribute.raw ?? "",
-            viewName: context.parameters.viewName.raw ?? undefined,
-            showIcons: context.parameters.showIcons.raw === true,
-            disabled: context.mode.isControlDisabled,
-            value: this.value,
-            // The control writes the value observable itself; reflect to the host.
-            onChange: () => this.notifyOutputChanged?.(),
-          })
+          ErrorBoundary,
+          null,
+          React.createElement(
+            ViewModelContextProvider,
+            { context: this.kitContext },
+            React.createElement(NativeLookupApp, {
+              entity: hostEntity(context),
+              attribute: context.parameters.attribute.raw ?? "",
+              viewName: context.parameters.viewName.raw ?? undefined,
+              showIcons: context.parameters.showIcons.raw === true,
+              disabled: context.mode.isControlDisabled,
+              value: this.value,
+              // The control writes the value observable itself; reflect to the host.
+              onChange: () => this.notifyOutputChanged?.(),
+            })
+          )
         )
       )
     );

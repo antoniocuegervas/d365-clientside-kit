@@ -86,6 +86,45 @@ export class SmartNativeLookup extends SmartFieldBase<
     }
   }
 
+  /**
+   * Reset the per-target state when the binding changes on a reused instance
+   * (a form branch or wizard step swaps entity, attribute, or targetEntity). The
+   * base class reloads metadata; the initialized flag, active target, switcher
+   * list, and result caches are this subclass's own, so it clears them here,
+   * otherwise the flyout would keep searching the previous target.
+   */
+  override componentDidUpdate(prevProps: ISmartNativeLookupProps): void {
+    super.componentDidUpdate(prevProps);
+    const attributeChanged =
+      prevProps.entity !== this.props.entity || prevProps.attribute !== this.props.attribute;
+    const targetChanged = prevProps.targetEntity !== this.props.targetEntity;
+    if (!attributeChanged && !targetChanged) {
+      return;
+    }
+    this.resetTargetState();
+    // An entity or attribute change reloads metadata and re-renders, so renderField
+    // re-runs initTargets. A targetEntity-only change keeps the same metadata, so
+    // re-pick the target now from the metadata already in hand.
+    if (!attributeChanged && this.currentMetadata) {
+      this.initTargets(this.currentMetadata);
+    }
+  }
+
+  /** Clears every per-target field so the next binding starts clean. */
+  private resetTargetState(): void {
+    this.initialized = false;
+    this.activeTarget.value = undefined;
+    this.switcherTargets.value = undefined;
+    this.results.value = [];
+    this.searching.value = false;
+    this.tableLabel.value = undefined;
+    this.targetContexts.clear();
+    if (this.debounceHandle !== undefined) {
+      clearTimeout(this.debounceHandle);
+      this.debounceHandle = undefined;
+    }
+  }
+
   /** Picks the initial target and, for a polymorphic lookup, resolves the switcher labels. */
   private initTargets(metadata: IAttributeMetadata): void {
     if (this.initialized) {
@@ -227,6 +266,13 @@ export class SmartNativeLookup extends SmartFieldBase<
   private readonly handleTargetChange = (entity: string): void => {
     if (entity === this.activeTarget.value) {
       return;
+    }
+    // Cancel a search still debounced against the previous target, so it cannot
+    // fire after the switch (searchSequence would discard its response, but the
+    // query itself is wasted), the same clear onUnmount does.
+    if (this.debounceHandle !== undefined) {
+      clearTimeout(this.debounceHandle);
+      this.debounceHandle = undefined;
     }
     this.activeTarget.value = entity;
     this.results.value = [];

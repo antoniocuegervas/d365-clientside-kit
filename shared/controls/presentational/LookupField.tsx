@@ -5,7 +5,7 @@ import { ObserverComponent } from "../../reactivity/ObserverComponent";
 import { valueOf, type Observable, type OrObservable } from "../../reactivity/Observable";
 import type { IEntityReference } from "../../utils/EntityModel";
 import { FieldShell } from "./FieldShell";
-import type { ICommonFieldProps } from "./fieldProps";
+import { hideBrokenImage, type ICommonFieldProps } from "./fieldProps";
 
 export interface ILookupFieldProps extends ICommonFieldProps {
   /** Host-owned selected reference. */
@@ -205,6 +205,7 @@ const Body: React.FC<
                 width={16}
                 height={16}
                 className={styles.optionIcon}
+                onError={hideBrokenImage}
               />
             ) : null}
             <span className={styles.selectedName}>{valueDisplay}</span>
@@ -256,6 +257,7 @@ const Body: React.FC<
                       width={16}
                       height={16}
                       className={styles.optionIcon}
+                      onError={hideBrokenImage}
                     />
                   ) : null}
                   {result.name ?? result.id}

@@ -1,5 +1,10 @@
 # Deployment
 
+Expectation-setting up front: this guide assumes you already deploy webresources to a
+Dataverse org some way (SPKL here, but any webresource deployment works) and have a
+model-driven app to host them. Without an org you can still run everything locally,
+Storybook and the full verify gate, you just cannot see the controls on a real form.
+
 ## Artifacts
 
 | Artifact | Webresource / target |
@@ -88,6 +93,62 @@ inner-loop UI work, prefer Storybook (no live org needed) and deploy only for
 metadata/integration checkpoints; that removes most publish cycles entirely. As
 a last-resort fallback while testing, keep DevTools open with "Disable cache"
 checked, which also bypasses the Unified Interface service worker.
+
+## PCF controls: production build, deploy, and the tabster pin
+
+The field and grid PCFs (`pcfs/`) do not go through SPKL. Build a Release bundle and
+import it in a solution:
+
+- Build Release (production, minified), never `pac pcf push`, which ships a debug bundle
+  that can blow past the 5 MB webresource ceiling. Wrap the controls in a solution project
+  once (`pac solution init` plus a `pac solution add-reference` per control), then
+  `dotnet build -c Release -p:SolutionPackageType=Unmanaged` and
+  `pac solution import --force-overwrite --publish-changes`.
+- Bump the control version in `ControlManifest.Input.xml` on every redeploy. Reimporting
+  the same version publishes, but the form keeps serving the cached previous bundle, so a
+  fix looks like it did not deploy.
+- The done bar for a PCF is "opened on a real model-driven form and observed rendering",
+  not "compiles" or "renders in the test harness". Two of the failure modes below only show
+  once the control runs beside the platform's own Fluent.
+
+### Re-pinning tabster to the host
+
+A PCF that bundles its own React 18 and Fluent v9 shares one tabster (focus manager)
+instance with the model-driven app on `window`. If the bundled tabster is newer than the
+host's, a focus-managed component augments that shared instance with a shape the older host
+copy lacks and throws during init, blanking the control with no data queries fired. So the
+focus-managed controls pin their bundled Fluent chain to the host's platform-library floor:
+`@fluentui/react-components` at the host version, with an `overrides` block forcing
+`@fluentui/react-tabster` and `tabster` to the versions that host version resolves.
+
+This pin is a standing maintenance cost, not a one-time fix. Microsoft advances the platform
+Fluent on its release waves (roughly twice a year), and a fresh `npm install` floats the
+bundled versions ahead again, so parity has to be re-established on the fork:
+
+1. Read the host's live tabster version from a form: open any model-driven form in the
+   target org, open the browser console, and read `window.__tabsterInstance._version`. Note
+   the platform-library Fluent version too (the loaded `platformlibs/fluent/<ver>/` script).
+2. Set each pinned PCF's `@fluentui/react-components` to that platform-library version and
+   the `overrides` `tabster` / `@fluentui/react-tabster` to the versions it resolves, then
+   `npm install` to refresh the lockfile.
+3. Rebuild Release and redeploy, with the manifest version bump above.
+4. Verify on a live form: open a record and confirm each control renders. A build that
+   succeeds is not evidence, the collision only shows on the shared-window host.
+
+Which controls carry the pin: the focus-managed ones (date picker, option set, native
+lookup, counterparty grid), because the Fluent controls they use (DatePicker, Dropdown,
+Combobox, DataGrid, the lookup flyout) genuinely engage tabster. The tooltip control does
+not: it renders on a Fluent Tooltip (positioning only, no focus trap), which never touches
+the shared instance, so it carries no pin and needs no re-pin. That was confirmed by
+bundling a deliberately newer tabster than the host and watching it still render.
+
+### The error boundary
+
+Every PCF renders its control inside the shared `ErrorBoundary`
+(`shared/controls/presentational/ErrorBoundary.tsx`), so a render throw (a bad prop, or a
+tabster collision that slips through between re-pins) shows a neutral "could not be
+displayed" message instead of a silently blank container. That message is plain markup with
+no Fluent, on purpose, so it still renders when the failure is in the Fluent stack itself.
 
 ## CI
 

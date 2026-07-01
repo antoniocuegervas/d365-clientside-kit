@@ -1,6 +1,7 @@
 import * as React from "react";
 import type { IViewModelContext } from "../shared/context/IViewModelContext";
 import type { IWebResourceParams } from "../shared/utils/LibraryUtils";
+import { ErrorBoundary } from "../shared/controls/presentational/ErrorBoundary";
 
 /**
  * App adapter contract: apps are RENDER-ONLY. The shell calls
@@ -43,6 +44,13 @@ class AppDisposer extends React.Component<{ onUnmount: () => void; children?: Re
  * (usually `host => ({ viewModel: new XyzViewModel(host.context) })`). When the
  * props carry a `viewModel` with a `dispose()` method, it is disposed on
  * unmount, so app Views stay render-only and never leak their ViewModel.
+ *
+ * The View renders inside an ErrorBoundary that sits BELOW the AppDisposer on
+ * purpose: a render throw is then contained as a degraded state, and, because
+ * the boundary recovers the subtree, the AppDisposer still commits, so its
+ * componentWillUnmount fires and the ViewModel is disposed. A boundary above the
+ * disposer would show the degraded state but leak the ViewModel, since the
+ * disposer would never mount.
  */
 export function createViewApp<P extends object>(
   title: string,
@@ -56,7 +64,7 @@ export function createViewApp<P extends object>(
       return React.createElement(
         AppDisposer,
         { onUnmount: () => (props as IMaybeViewModel).viewModel?.dispose?.() },
-        React.createElement(View, props)
+        React.createElement(ErrorBoundary, null, React.createElement(View, props))
       );
     },
   };

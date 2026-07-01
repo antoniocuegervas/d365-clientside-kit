@@ -83,4 +83,14 @@ describe("NativeLookupField flyout", () => {
     expect(screen.getByRole("button", { name: /More details for record: Coho Winery/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /More details for record: Counterparty Demo Co/ })).toBeNull();
   });
+
+  it("blanks a row icon that fails to load instead of showing a broken image", () => {
+    renderField([{ ...nameOnly, iconUrl: "/_imgs/svg_2.svg" }]);
+    fireEvent.click(screen.getByPlaceholderText("Look for Primary Contact"));
+    const icon = document.body.querySelector('img[src="/_imgs/svg_2.svg"]') as HTMLImageElement;
+    expect(icon).toBeTruthy();
+    fireEvent.error(icon);
+    // visibility (not display) keeps the 16px box, so the row text stays aligned
+    expect(icon.style.visibility).toBe("hidden");
+  });
 });

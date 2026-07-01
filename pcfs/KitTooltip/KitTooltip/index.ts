@@ -6,6 +6,7 @@ import { d365Theme } from "../../../shared/theme/d365Theme";
 import { Observable } from "../../../shared/reactivity/Observable";
 import { PCFContext, type IPcfContextLike } from "../../../shared/context/PCFContext";
 import { ViewModelContextProvider } from "../../../shared/context/ViewModelContextProvider";
+import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoundary";
 import { TooltipApp } from "./App";
 
 /**
@@ -58,18 +59,22 @@ export class KitTooltip implements ComponentFramework.StandardControl<IInputs, I
         FluentProvider,
         { theme: d365Theme },
         React.createElement(
-          ViewModelContextProvider,
-          { context: this.kitContext },
-          React.createElement(TooltipApp, {
-            entityLogicalName,
-            attributeLogicalName,
-            value: this.value,
-            disabled: context.mode.isControlDisabled,
-            onChange: (next: string | null) => {
-              this.value.value = next;
-              this.notifyOutputChanged?.();
-            },
-          })
+          ErrorBoundary,
+          null,
+          React.createElement(
+            ViewModelContextProvider,
+            { context: this.kitContext },
+            React.createElement(TooltipApp, {
+              entityLogicalName,
+              attributeLogicalName,
+              value: this.value,
+              disabled: context.mode.isControlDisabled,
+              onChange: (next: string | null) => {
+                this.value.value = next;
+                this.notifyOutputChanged?.();
+              },
+            })
+          )
         )
       )
     );

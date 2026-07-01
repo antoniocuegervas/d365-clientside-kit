@@ -5,6 +5,7 @@ import { FluentProvider } from "@fluentui/react-components";
 import { d365Theme } from "../../../shared/theme/d365Theme";
 import { Observable } from "../../../shared/reactivity/Observable";
 import { OptionSetField } from "../../../shared/controls/presentational/OptionSetField";
+import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoundary";
 import type { IOptionItem } from "../../../shared/utils/EntityModel";
 
 /**
@@ -50,15 +51,19 @@ export class KitOptionSet implements ComponentFramework.StandardControl<IInputs,
       React.createElement(
         FluentProvider,
         { theme: d365Theme },
-        React.createElement(OptionSetField, {
-          options: this.options,
-          selectedValue: this.selectedValue,
-          disabled: context.mode.isControlDisabled,
-          onChange: (value: number | null) => {
-            this.selectedValue.value = value;
-            this.notifyOutputChanged?.();
-          },
-        })
+        React.createElement(
+          ErrorBoundary,
+          null,
+          React.createElement(OptionSetField, {
+            options: this.options,
+            selectedValue: this.selectedValue,
+            disabled: context.mode.isControlDisabled,
+            onChange: (value: number | null) => {
+              this.selectedValue.value = value;
+              this.notifyOutputChanged?.();
+            },
+          })
+        )
       )
     );
   }

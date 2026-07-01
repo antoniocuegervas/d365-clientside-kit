@@ -18,6 +18,12 @@ import { Pagination } from "../presentational/Pagination";
 // are defined at the BOTTOM of this file (grid-internal, exported there only
 // for unit tests, not re-exported from the kit barrel).
 
+/**
+ * Row key holding the raw activitytypecode beside its display cell. Prefixed
+ * so it can never collide with a real view column name.
+ */
+const rawActivityTypeKey = "__rawActivityType";
+
 export interface ISmartViewGridProps {
   /** Entity logical name, e.g. "account". */
   entity: string;
@@ -189,6 +195,18 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   /** Rich paging the grid drives itself (saved view, no host override). */
   private isRichSavedView(): boolean {
     return this.richMode() && !this.props.overrideFetchXml;
+  }
+
+  /**
+   * The override FetchXML when the grid must page it itself: an override plus a
+   * pageSize in the default (simple) mode. A FetchXML query pages via page/count
+   * and morerecords, so this path uses fetchPage and never the OData nextLink the
+   * plain simple path relies on (FetchXML never returns one). Rich + override
+   * stays host-controlled, so it is excluded here.
+   */
+  private overrideSimpleXml(): string | undefined {
+    const override = this.props.overrideFetchXml?.value;
+    return override && this.props.pageSize && !this.richMode() ? override : undefined;
   }
 
   protected override onUnmount(): void {
@@ -402,6 +420,12 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       for (const [key, spec] of Object.entries(overrides)) {
         row[key] = this.renderDynamicCell(spec, record, row);
       }
+      if (view.entityLogicalName === "activitypointer") {
+        // Keep the raw activitytypecode beside the visible cell: the cell holds
+        // the localized label, but opening the row needs the entity logical name,
+        // which is what the raw value carries.
+        row[rawActivityTypeKey] = record["activitytypecode"];
+      }
       return row;
     });
   }
@@ -416,6 +440,13 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     // and request the total once.
     if (this.isRichSavedView()) {
       await this.loadRichPage(1, true);
+      return;
+    }
+    // Override + simple paging: page the FetchXML by page/count rather than
+    // fetching it whole and keying next off a nextLink it never returns.
+    const overrideSimple = this.overrideSimpleXml();
+    if (overrideSimple) {
+      await this.loadOverridePage(overrideSimple, 1);
       return;
     }
     this.loading.value = true;
@@ -530,6 +561,36 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     }
   }
 
+  /**
+   * Loads a page of a FetchXML override via page/count + fetchPage (override +
+   * simple paging). Caps the fetch at pageSize instead of letting Dataverse
+   * return its default page of up to 5000 rows, and keys next off morerecords,
+   * since a FetchXML query never returns an OData nextLink.
+   */
+  private async loadOverridePage(overrideXml: string, target: number): Promise<void> {
+    const view = this.view;
+    if (!view || target < 1) {
+      return;
+    }
+    this.loading.value = true;
+    try {
+      const paged = setFetchPaging(overrideXml, { page: target, count: this.props.pageSize! });
+      const result = await this.vmContext.webAPI.fetchPage(view.entityLogicalName, paged);
+      if (this.isDisposed) {
+        return;
+      }
+      const rows = this.mapRows(view, result.entities);
+      this.rows.value = rows;
+      this.pageRecordCount.value = rows.length;
+      this.page.value = target;
+      this.hasNextPage.value = result.moreRecords ?? false;
+    } finally {
+      if (!this.isDisposed) {
+        this.loading.value = false;
+      }
+    }
+  }
+
   /** Jump to a page (rich): saved-view fetches it; override mode hands off to the host. */
   private readonly goToPage = async (target: number): Promise<void> => {
     if (!this.view || target < 1) {
@@ -570,6 +631,11 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     if (!view) {
       return;
     }
+    const overrideSimple = this.overrideSimpleXml();
+    if (overrideSimple) {
+      await this.loadOverridePage(overrideSimple, this.page.value + 1);
+      return;
+    }
     const target = this.page.value + 1;
     if (this.pageRows.has(target)) {
       this.applyPage(target);
@@ -601,6 +667,11 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   };
 
   private readonly goPrevious = (): void => {
+    const overrideSimple = this.overrideSimpleXml();
+    if (overrideSimple) {
+      void this.loadOverridePage(overrideSimple, this.page.value - 1);
+      return;
+    }
     const target = this.page.value - 1;
     if (target >= 1) {
       this.applyPage(target);
@@ -623,10 +694,9 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   /**
    * Invoke (double-click / Enter): override prop, else open the record's form.
    * Activity views are special-cased: `activitypointer` is not an
-   * openable form, so the real activity type is resolved per row from the
-   * `activitytypecode` formatted value (e.g. "phonecall") and the id from
-   * `activityid` (the row key). A readable error surfaces when the view doesn't
-   * carry `activitytypecode`.
+   * openable form, so the real activity type is resolved per row from the raw
+   * `activitytypecode` value and the id from `activityid` (the row key). A
+   * readable error surfaces when the view doesn't carry `activitytypecode`.
    */
   private readonly handleItemInvoked = (row: IGridRow): void => {
     if (this.props.onItemInvoked) {
@@ -638,24 +708,45 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       return;
     }
     if (view.entityLogicalName === "activitypointer") {
-      // The row carries the real type in the activitytypecode formatted value
-      // (e.g. "phonecall"). Normalize casing and whitespace: entity logical names
-      // are always lowercase, so a stray case or space difference would otherwise
-      // route us to a form that does not exist. See the activity-type gotcha for
-      // the locale limit of reading the formatted value.
-      const rawType = row.activitytypecode;
-      const realType = typeof rawType === "string" ? rawType.trim().toLowerCase() : "";
-      if (!realType) {
-        void this.vmContext.navigation.openErrorDialog({
-          message: "Activity Type Code is required on the view to open the records.",
-        });
-        return;
-      }
-      void this.vmContext.navigation.openForm(realType, row.key);
+      void this.openActivityRow(row);
       return;
     }
     void this.vmContext.navigation.openForm(view.entityLogicalName, row.key);
   };
+
+  /**
+   * Opens an activity row's real form. The raw activitytypecode is the entity
+   * logical name (the Web API returns EntityName values that way in every
+   * language), so it routes directly. Two fallbacks cover other row shapes: a
+   * numeric type code resolves through the activity-type metadata, and a row
+   * without the raw value falls back to the visible cell text, which only
+   * matches the logical name in English orgs.
+   */
+  private async openActivityRow(row: IGridRow): Promise<void> {
+    const raw = row[rawActivityTypeKey];
+    let realType = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+    if (!realType && typeof raw === "number") {
+      try {
+        const types = await this.vmContext.metadata.getActivityTypes();
+        realType = types.find((type) => type.objectTypeCode === raw)?.logicalName ?? "";
+      } catch {
+        // Metadata unavailable: fall through to the cell text below.
+      }
+      if (this.isDisposed) {
+        return;
+      }
+    }
+    if (!realType && typeof row.activitytypecode === "string") {
+      realType = row.activitytypecode.trim().toLowerCase();
+    }
+    if (!realType) {
+      void this.vmContext.navigation.openErrorDialog({
+        message: "Activity Type Code is required on the view to open the records.",
+      });
+      return;
+    }
+    void this.vmContext.navigation.openForm(realType, row.key);
+  }
 
   override render(): React.ReactNode {
     if (this.state.loadError) {

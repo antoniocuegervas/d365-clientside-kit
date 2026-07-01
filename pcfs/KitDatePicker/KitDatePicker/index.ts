@@ -5,6 +5,7 @@ import { FluentProvider } from "@fluentui/react-components";
 import { d365Theme } from "../../../shared/theme/d365Theme";
 import { Observable } from "../../../shared/reactivity/Observable";
 import { DateTimeField } from "../../../shared/controls/presentational/DateTimeField";
+import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoundary";
 
 /**
  * Sample PCF, smart-via-root datepicker: the PCF root resolves
@@ -42,17 +43,21 @@ export class KitDatePicker implements ComponentFramework.StandardControl<IInputs
       React.createElement(
         FluentProvider,
         { theme: d365Theme },
-        React.createElement(DateTimeField, {
-          value: this.value,
-          includeTime,
-          disabled: context.mode.isControlDisabled,
-          // Locale via context: the host's formatter, not a hardcoded format.
-          formatDate: (date: Date) => context.formatting.formatDateShort(date),
-          onChange: (next: Date | null) => {
-            this.value.value = next;
-            this.notifyOutputChanged?.();
-          },
-        })
+        React.createElement(
+          ErrorBoundary,
+          null,
+          React.createElement(DateTimeField, {
+            value: this.value,
+            includeTime,
+            disabled: context.mode.isControlDisabled,
+            // Locale via context: the host's formatter, not a hardcoded format.
+            formatDate: (date: Date) => context.formatting.formatDateShort(date),
+            onChange: (next: Date | null) => {
+              this.value.value = next;
+              this.notifyOutputChanged?.();
+            },
+          })
+        )
       )
     );
   }

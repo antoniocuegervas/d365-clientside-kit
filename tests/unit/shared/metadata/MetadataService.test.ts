@@ -54,6 +54,44 @@ describe("MetadataService", () => {
     });
   });
 
+  it("evicts a rejected read so a later call retries instead of failing for the session", async () => {
+    let attempts = 0;
+    server.respondWith((request) => {
+      if (!request.url.startsWith(`${API}EntityDefinitions(LogicalName='account')`)) {
+        return undefined;
+      }
+      attempts += 1;
+      // Fail the first read (a transient blip), succeed on the retry.
+      return attempts === 1
+        ? { status: 503, responseText: "temporarily unavailable" }
+        : {
+            status: 200,
+            responseText: JSON.stringify({
+              LogicalName: "account",
+              DisplayName: label("Account"),
+              EntitySetName: "accounts",
+              PrimaryIdAttribute: "accountid",
+              PrimaryNameAttribute: "name",
+            }),
+          };
+    });
+
+    // First read hits the blip and rejects: a smart field would show "Unavailable".
+    await expect(service.getEntityMetadata("account")).rejects.toBeDefined();
+    // The rejected promise must not become the permanent cache entry: the next
+    // read retries against the network and succeeds.
+    const metadata = await service.getEntityMetadata("account");
+    expect(metadata.displayName).toBe("Account");
+    expect(attempts).toBe(2);
+  });
+
+  it("escapes single quotes in a logical name into the OData path, like viewName", async () => {
+    server.respondAlways({ status: 200, responseText: "{}" });
+    await service.getEntityMetadata("o'brien");
+    // The quote is doubled per OData string-literal rules, not interpolated raw.
+    expect(server.lastRequest.url).toContain("EntityDefinitions(LogicalName='o''brien')");
+  });
+
   it("lists creatable activity types, ordered by name, without the supertype or system types", async () => {
     server.respondWith((request) =>
       request.url.startsWith(`${API}EntityDefinitions?$filter=IsActivity eq true`)

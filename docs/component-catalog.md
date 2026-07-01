@@ -27,6 +27,9 @@ Two single-record lookups, by intent: `SmartLookup` is the simpler combobox
 native model-driven lookup's look and feel (the inline flyout with two-line rows
 and chevron-expand) for when muscle-memory parity is the point. Both share the
 same value contract and default their search to the entity's lookup view.
+If you are unsure which to pick, start with `SmartLookup`; reach for
+`SmartNativeLookup` only when matching the native lookup's exact look and feel
+is itself the requirement.
 
 ## Beyond fields, controls that bypass native limitations
 

@@ -27,7 +27,7 @@ import { ObserverComponent } from "../../reactivity/ObserverComponent";
 import { valueOf, type Observable, type OrObservable } from "../../reactivity/Observable";
 import type { IEntityReference } from "../../utils/EntityModel";
 import { FieldShell } from "./FieldShell";
-import type { ICommonFieldProps } from "./fieldProps";
+import { hideBrokenImage, type ICommonFieldProps } from "./fieldProps";
 
 //#region Types
 
@@ -552,7 +552,9 @@ const Body: React.FC<BodyProps> = (props) => {
     ""
   ) : (
     <span className={styles.valueWithIcon}>
-      {valueIcon ? <img src={valueIcon} alt="" aria-hidden className={styles.icon16} /> : null}
+      {valueIcon ? (
+        <img src={valueIcon} alt="" aria-hidden className={styles.icon16} onError={hideBrokenImage} />
+      ) : null}
       {valueName}
     </span>
   );
@@ -722,7 +724,7 @@ const ResultRow: React.FC<{
       onMouseEnter={() => onSetActive(result.id)}
     >
       {result.iconUrl ? (
-        <img src={result.iconUrl} alt="" aria-hidden className={styles.icon16} />
+        <img src={result.iconUrl} alt="" aria-hidden className={styles.icon16} onError={hideBrokenImage} />
       ) : (
         <span className={styles.icon16} aria-hidden />
       )}

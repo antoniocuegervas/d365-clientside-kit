@@ -6,6 +6,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createModernXrmMock, createV8XrmMock } from "../mocks/XrmMock";
+import { FakeXhrServer } from "../mocks/FakeXhr";
 
 const prefix = (
   JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../kit.config.json"), "utf8")) as {
@@ -70,6 +71,68 @@ describe("clientui bundle smoke", () => {
     const clientUI = loadBundle();
     await clientUI.bootstrap({ search: "?app=samples", xrmTimeoutMs: 2000 });
     await waitForContent(container, (html) => html.includes("Sample Apps"));
+  });
+
+  it("walks the LEGACY data path: FetchXML through cds-client renders merged activity rows", async () => {
+    // The v8 host has no Xrm.WebApi, so webAPI.fetch rides cds-client's raw
+    // XMLHttpRequest to the OData endpoint. Serving those requests from a fake
+    // XHR proves the whole legacy chain in the production bundle: adapter
+    // routing, URL building, the collection parse (including formatted-value
+    // annotations), and the rows reaching the DOM.
+    const server = new FakeXhrServer();
+    server.install();
+    try {
+      const annotate = "@OData.Community.Display.V1.FormattedValue";
+      const activityRow = (id: string, subject: string) => ({
+        activityid: id,
+        subject,
+        scheduledend: "2026-07-03T10:00:00Z",
+        [`scheduledend${annotate}`]: "7/3/2026 10:00 AM",
+        _regardingobjectid_value: "b1000000-0000-0000-0000-000000000001",
+        [`_regardingobjectid_value${annotate}`]: "Contoso Ltd",
+        statecode: 0,
+        [`statecode${annotate}`]: "Open",
+      });
+      const collection = (rows: object[]) => ({
+        status: 200,
+        responseText: JSON.stringify({ value: rows }),
+      });
+      server.respondWith((request) =>
+        request.url.includes("/tasks?fetchXml=")
+          ? collection([activityRow("aa000000-0000-0000-0000-000000000001", "Prepare the proposal")])
+          : undefined
+      );
+      server.respondWith((request) =>
+        request.url.includes("/phonecalls?fetchXml=")
+          ? collection([activityRow("aa000000-0000-0000-0000-000000000002", "Call the client back")])
+          : undefined
+      );
+      server.respondWith((request) =>
+        request.url.includes("/appointments?fetchXml=")
+          ? collection([activityRow("aa000000-0000-0000-0000-000000000003", "Quarterly review")])
+          : undefined
+      );
+
+      (window as { Xrm?: unknown }).Xrm = createV8XrmMock().xrm;
+      const clientUI = loadBundle();
+      await clientUI.bootstrap({ search: "?app=sample-activities-grid", xrmTimeoutMs: 2000 });
+
+      // All three sources merged into one rendered list.
+      await waitForContent(container, (html) => html.includes("Prepare the proposal"));
+      expect(container.innerHTML).toContain("Call the client back");
+      expect(container.innerHTML).toContain("Quarterly review");
+      // Formatted-value annotations survived the cds parse into the cells.
+      expect(container.innerHTML).toContain("Contoso Ltd");
+      expect(container.innerHTML).toContain("Open");
+      // The queries really went out over XHR against the legacy endpoint.
+      const fetches = server.requests.filter((request) => request.url.includes("fetchXml="));
+      expect(fetches).toHaveLength(3);
+      for (const request of fetches) {
+        expect(request.url).toContain("/api/data/v8.2/");
+      }
+    } finally {
+      server.uninstall();
+    }
   });
 
   it("accepts app selection through the CRM data payload", async () => {

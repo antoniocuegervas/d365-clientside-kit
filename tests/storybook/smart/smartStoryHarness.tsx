@@ -453,4 +453,5 @@ export const fieldContractNote =
   "`required`, `hint`, `labelPosition`, `disabled`, `readOnly`, `errorMessage`), exactly like " +
   "overriding a field on a form. The `hint` defaults to the attribute's Dataverse Description; a " +
   "free-form `placeholder` is still not offered, because what a smart field shows should come " +
-  "from metadata, not the call site.";
+  "from metadata, not the call site. For how a ViewModel, View, and provider assemble into a " +
+  "running app, see the End-to-end wiring page in this section.";

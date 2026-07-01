@@ -189,17 +189,17 @@ Most panels never show this, because their padding leaves more than 1px of room
 around the fields and absorbs the bleed. It turns up only where a field reaches
 the panel edge with no padding, like the wizard's step area.
 
-## Opening an activity from a grid leans on the activitytypecode label
+## Opening an activity from a grid needs the Activity Type column on the view
 
 `SmartViewGrid` opens an activity row's real form (phonecall, task, appointment)
-by reading the row's `activitytypecode` formatted value, because
-`activitypointer` itself has no openable form. That formatted value is the entity
-logical name in an English org, which is why it works. The kit trims it and
-lowercases it, but it cannot rescue a localized label: in a non-English org the
-formatted value can come back localized (for example "Telefonanruf"), which is
-not a logical name and will not open. If you run activity grids in a non-English
-org, supply your own `onItemInvoked` that maps the row to a logical name (for
-example from the numeric type code) rather than relying on the label.
+from the row's raw `activitytypecode` value, because `activitypointer` itself has
+no openable form. The raw value is the entity logical name in every language
+(only the visible label is localized), so this works in non-English orgs too, and
+a numeric type code from an unusual host resolves through the activity-type
+metadata. What it cannot survive is the column being absent: if the activity view
+does not include Activity Type, the grid has nothing to route with and shows a
+readable error on invoke instead of opening a form. Keep `activitytypecode` on
+any activity view the grid binds, or supply your own `onItemInvoked`.
 
 ## Entity set names are a convention first, metadata-learned second
 
@@ -281,6 +281,25 @@ own code never uses it). They are advisory and safe to dismiss, relevant only fo
 AppSource certification, where they are flagged to the certification team as false
 positives.
 
+## A PCF whose shared code uses a Fluent *-compat package must alias that package too
+
+The React/Fluent webpack dedupe above aliases `@fluentui/react-components` to the PCF's
+own node_modules, which is enough for most controls: react-components pulls its
+react-tabster and tabster from the PCF tree, on the pinned versions. But the
+`@fluentui/*-compat` packages (`react-datepicker-compat`, `react-timepicker-compat`) are
+NOT re-exported through react-components, so a control whose shared code uses them (the
+date field, via `DateTimeField`) resolves them from the REPO-ROOT node_modules instead,
+and they drag the root's unpinned tabster (8.8.0, the collision version) into the bundle.
+The control then blanks on a form even though the PCF is pinned, and the build looks
+clean, so this is easy to miss.
+
+Alias every `@fluentui/*-compat` package the shared code touches to the PCF's
+node_modules as well, alongside react / react-dom / react-components / react-icons. Their
+internal react-tabster and tabster then resolve within the PCF tree, on the pinned 8.5.5.
+Do NOT alias `tabster` or `@fluentui/react-tabster` directly: aliasing a package to its
+directory bypasses its package.json `exports`, and react-tabster's own `import "tabster"`
+then fails to resolve. `pcfs/KitDatePicker/webpack.config.js` shows the working set.
+
 ## A PCF redeploy needs a manifest version bump, or the platform serves the old bundle
 
 Reimporting a PCF solution with the SAME `<control version>` succeeds and publishes,
@@ -289,6 +308,18 @@ deploy. Bump the version in `ControlManifest.Input.xml` (for example 1.0.0 to 1.
 on every redeploy. This is a hard requirement, not the resource-cache propagation
 lag a webresource has (which a fresh session clears); without the bump the platform
 never picks up the new bundle.
+
+## A just-published form change can be invisible until the browser's offline caches are cleared
+
+After publishing a form change (a new column placed on the form, a control swapped), the
+model-driven runtime can keep serving the previous form definition: the new field is
+simply absent from the DOM while everything else renders, so the publish looks like it
+failed. A plain reload does not refresh it, and neither does a hard reload
+(Ctrl+Shift+R), because the stale definition lives in the app's client-side storage, not
+the HTTP cache. Clear the site's IndexedDB and localStorage in DevTools (Application,
+Clear site data works too), then reload; the first load afterwards is slow (about a
+minute of cold metadata rebuild), and the published change appears. Check this before
+re-diagnosing the solution import or the control registration.
 
 ## A Fluent v9 popover in a PCF needs inline rendering, or its background is transparent
 

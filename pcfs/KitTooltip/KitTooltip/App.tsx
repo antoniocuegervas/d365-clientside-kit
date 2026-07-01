@@ -1,11 +1,5 @@
 import * as React from "react";
-import {
-  Button,
-  Input,
-  Popover,
-  PopoverSurface,
-  PopoverTrigger,
-} from "@fluentui/react-components";
+import { Button, Input, Tooltip } from "@fluentui/react-components";
 import { InfoRegular } from "@fluentui/react-icons";
 import { SmartComponent } from "../../../shared/context/ViewModelContextProvider";
 import type { IAttributeMetadata } from "../../../shared/context/IViewModelContext";
@@ -29,8 +23,12 @@ interface ITooltipAppState {
 /**
  * Smart tooltip body (pattern 2): a SmartComponent inside a
  * ViewModelContextProvider, it loads the bound attribute's metadata through
- * the kit context and surfaces the authored description as a rich tooltip
- * next to a plain text input.
+ * the kit context and surfaces the authored description on a hover and focus
+ * Fluent Tooltip next to a plain text input. The tooltip is positioning only
+ * (no focus trap), so it shares no tabster state with the host and cannot hit
+ * the shared-instance collision a Popover would. Rendering the description this
+ * way also sidesteps the transparent portal a Popover needs the inline prop to
+ * avoid.
  */
 export class TooltipApp extends SmartComponent<ITooltipAppProps, ITooltipAppState> {
   constructor(props: ITooltipAppProps) {
@@ -68,21 +66,26 @@ export class TooltipApp extends SmartComponent<ITooltipAppProps, ITooltipAppStat
           onChange={(_event, data) => this.props.onChange(data.value === "" ? null : data.value)}
         />
         {metadata ? (
-          <Popover withArrow positioning="above-end">
-            <PopoverTrigger disableButtonEnhancement>
-              <Button
-                appearance="subtle"
-                size="small"
-                icon={<InfoRegular />}
-                aria-label={`About ${metadata.displayName}`}
-              />
-            </PopoverTrigger>
-            <PopoverSurface style={{ maxWidth: 280 }}>
-              <strong>{metadata.displayName}</strong>
-              {metadata.required ? " (required)" : null}
-              <div>{metadata.description ?? "No description has been authored for this column."}</div>
-            </PopoverSurface>
-          </Popover>
+          <Tooltip
+            relationship="description"
+            appearance="inverted"
+            withArrow
+            positioning="above-end"
+            content={
+              <>
+                <strong>{metadata.displayName}</strong>
+                {metadata.required ? " (required)" : null}
+                <div>{metadata.description ?? "No description has been authored for this column."}</div>
+              </>
+            }
+          >
+            <Button
+              appearance="subtle"
+              size="small"
+              icon={<InfoRegular />}
+              aria-label={`About ${metadata.displayName}`}
+            />
+          </Tooltip>
         ) : null}
       </div>
     );

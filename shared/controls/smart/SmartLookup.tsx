@@ -56,6 +56,31 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
     }
   }
 
+  /**
+   * Reset the per-target caches when the binding changes on a reused instance
+   * (a form branch or wizard step swaps entity, attribute, or targetEntity). The
+   * base class reloads metadata and re-subscribes the value; the resolved view id
+   * and icon are this subclass's own, so it clears them here, otherwise the next
+   * search would run the previous target's saved view against the new entity.
+   */
+  override componentDidUpdate(prevProps: ISmartLookupProps): void {
+    super.componentDidUpdate(prevProps);
+    if (
+      prevProps.entity !== this.props.entity ||
+      prevProps.attribute !== this.props.attribute ||
+      prevProps.targetEntity !== this.props.targetEntity
+    ) {
+      this.resolvedViewId = undefined;
+      this.resolvedIcon = undefined;
+      this.results.value = [];
+      this.searching.value = false;
+      if (this.debounceHandle !== undefined) {
+        clearTimeout(this.debounceHandle);
+        this.debounceHandle = undefined;
+      }
+    }
+  }
+
   private resolveTarget(metadata: IAttributeMetadata): string | undefined {
     return this.props.targetEntity ?? metadata.targets?.[0];
   }

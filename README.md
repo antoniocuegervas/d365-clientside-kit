@@ -186,6 +186,10 @@ script. That portability is also a development tactic, not only a deployment cho
   subgrid, form field, or grid cell, deliver it as a PCF: a thin shell that imports the
   component you already debugged and pipes `PCFContext` in. When no bound slot is needed
   (an app page, a dialog, a search form), the webresource is the delivery shape too.
+  One recurring cost is PCF-specific: a focus-managed PCF pins its bundled Fluent to the
+  host's platform-library floor, and that pin has to be re-established on your fork each
+  release wave as Microsoft advances the platform Fluent. The runbook is in
+  [docs/deployment.md](docs/deployment.md) ("Re-pinning tabster to the host").
 - **Know the boundary.** The fast loop covers the UI and the data shape, most of the
   work. What still needs the real PCF is the binding feedback loop (the notify and
   update cycle and the platform's update timing), which a simulated binding cannot reproduce.
@@ -240,12 +244,18 @@ const Body: React.FC<ITemplateViewProps> = ({ viewModel }) => {
 
 The ViewModel owns the Observables and the save logic. The View just declares controls.
 
+`this.observe(...)` in the View's constructor is the one line that wires reactivity: list
+there every Observable the render reads, and the View re-renders whenever any of them
+changes. It is the kit's one silent contract, miss an Observable and that value simply
+stops updating the UI, with no error. The five kit terms (presentational, smart,
+ViewModel, Observable, observe) are defined once in the [glossary](docs/glossary.md).
+
 ## Getting started
 
 ```bash
 npm install           # first-time setup, reconciles the lockfile to your npm version
-npm run verify        # lint + typecheck + build + tests + smoke + storybook
-npm run storybook     # browse the controls with fixture data
+npm run storybook     # browse the controls with fixture data, the quick payoff
+npm run verify        # the full gate: lint + typecheck + build + tests + smoke + storybook (slow)
 ```
 
 Browse the controls live in the hosted Storybook:
@@ -294,6 +304,12 @@ gate (lint, typecheck, both bundle builds, unit tests, modern and legacy smoke
 tests, and a Storybook build). It has been deployed to and exercised against a live
 Dataverse v9 org using standard entities. It is a foundation built to be extended, not a
 finished product with a long track record.
+
+Native fidelity is a maintained claim, not a static property: Microsoft advances the
+Unified Interface theme and the platform Fluent on its release waves, so "looks native"
+holds only as long as the kit's Fluent version and theme tokens are revisited against
+live UCI on the same cadence, roughly twice a year, alongside the PCF re-pin described
+in [docs/deployment.md](docs/deployment.md).
 
 ## Contributing and reuse
 

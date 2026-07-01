@@ -61,6 +61,9 @@ flowchart TB
 Presentational purity is enforced by an ESLint `no-restricted-imports` rule
 scoped to `shared/controls/presentational/`, not by convention.
 
+The five kit terms used throughout (presentational, smart, ViewModel, Observable,
+observe) are defined once in the [glossary](glossary.md).
+
 ## Repository topology
 
 ```text

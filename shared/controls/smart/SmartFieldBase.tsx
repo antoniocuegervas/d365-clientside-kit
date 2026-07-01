@@ -58,6 +58,12 @@ export abstract class SmartFieldBase<
   TValue,
   TProps extends ISmartFieldProps<TValue> = ISmartFieldProps<TValue>,
 > extends SmartComponent<TProps, ISmartFieldState> {
+  /**
+   * Bumped on every metadata load. A load only writes its result when it is
+   * still the latest, so a slow earlier load cannot overwrite a newer rebind.
+   */
+  private metadataSequence = 0;
+
   constructor(props: TProps) {
     super(props);
     this.state = {};
@@ -114,13 +120,16 @@ export abstract class SmartFieldBase<
 
   private async loadMetadata(): Promise<void> {
     const { entity, attribute } = this.props;
+    const sequence = ++this.metadataSequence;
     try {
       const metadata = await this.vmContext.metadata.getAttributeMetadata(entity, attribute);
-      if (!this.isDisposed) {
+      // Stale-response guard: only the latest load may write, so a slow earlier
+      // load (a previous attribute) cannot overwrite a newer rebind.
+      if (!this.isDisposed && sequence === this.metadataSequence) {
         this.setState({ metadata });
       }
     } catch (error) {
-      if (!this.isDisposed) {
+      if (!this.isDisposed && sequence === this.metadataSequence) {
         // Never surface raw SDK text to the user; log it for developers and show a neutral message under the field label.
         // Seeing this logged during a unit test run is expected and not a failure: a SmartFieldBase
         // test fails a metadata load on purpose to exercise this fallback, and the test passes.

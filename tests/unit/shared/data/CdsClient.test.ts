@@ -60,6 +60,25 @@ describe("CdsClient", () => {
       );
     });
 
+    it("updateRecord sets the If-Match header when an etag is given (optimistic concurrency)", async () => {
+      server.respondAlways({ status: 204 });
+      await makeClient().updateRecord(
+        "accounts",
+        "abc00000-0000-0000-0000-000000000009",
+        { name: "Renamed" },
+        'W/"1001"'
+      );
+      expect(server.lastRequest.headers["If-Match"]).toBe('W/"1001"');
+    });
+
+    it("updateRecord omits If-Match when no etag is given", async () => {
+      server.respondAlways({ status: 204 });
+      await makeClient().updateRecord("accounts", "abc00000-0000-0000-0000-000000000009", {
+        name: "Renamed",
+      });
+      expect(server.lastRequest.headers["If-Match"]).toBeUndefined();
+    });
+
     it("deleteRecord DELETEs the record URL", async () => {
       server.respondAlways({ status: 204 });
       await makeClient().deleteRecord("contacts", "abc00000-0000-0000-0000-000000000001");

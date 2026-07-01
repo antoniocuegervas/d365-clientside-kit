@@ -105,15 +105,30 @@ describe("WebResourceContext (modern)", () => {
     });
   });
 
-  it("fetch() wraps FetchXML in the ?fetchXml= channel", async () => {
-    const { xrm, calls } = createModernXrmMock();
-    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
-    const fetchXml = "<fetch><entity name='account'/></fetch>";
-    await context.webAPI.fetch("account", fetchXml);
-    expect(calls).toContainEqual({
-      api: "WebApi.retrieveMultipleRecords",
-      args: ["account", `?fetchXml=${encodeURIComponent(fetchXml)}`],
-    });
+  it("fetch rides cds-client so annotations survive (not Xrm.WebApi)", async () => {
+    const server = new FakeXhrServer();
+    server.install();
+    try {
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({
+          value: [{ name: "A" }],
+          "@Microsoft.Dynamics.CRM.totalrecordcount": 7,
+        }),
+      });
+      const { xrm, calls } = createModernXrmMock({ clientUrl: "https://org.crm.dynamics.com" });
+      const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+      const result = await context.webAPI.fetch(
+        "account",
+        "<fetch><entity name='account'/></fetch>"
+      );
+      // The annotations survive because it rode cds-client, not Xrm.WebApi.
+      expect(result.totalRecordCount).toBe(7);
+      expect(server.lastRequest.url).toContain("/api/data/v9.2/accounts?fetchXml=");
+      expect(calls.find((c) => c.api === "WebApi.retrieveMultipleRecords")).toBeUndefined();
+    } finally {
+      server.uninstall();
+    }
   });
 
   it("openClientUI navigates to the webresource page type with the data payload", async () => {
@@ -962,13 +977,32 @@ describe("PCFContext", () => {
     const created = await context.webAPI.createRecord("contact", { lastname: "Doe" });
     expect(created.id).toBe("abc00000-0000-0000-0000-000000000007");
     expect(calls).toContainEqual({ api: "createRecord", args: ["contact", { lastname: "Doe" }] });
+  });
 
-    const result = await context.webAPI.fetch("contact", "<fetch/>");
-    expect(result.entities).toEqual([{ name: "From PCF" }]);
-    expect(calls).toContainEqual({
-      api: "retrieveMultipleRecords",
-      args: ["contact", `?fetchXml=${encodeURIComponent("<fetch/>")}`],
-    });
+  it("fetch rides cds-client so annotations survive (not the native Web API)", async () => {
+    const server = new FakeXhrServer();
+    server.install();
+    try {
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({
+          value: [{ name: "A" }],
+          "@Microsoft.Dynamics.CRM.totalrecordcount": 7,
+        }),
+      });
+      const { source, calls } = makeSource();
+      const context = new PCFContext(source);
+      const result = await context.webAPI.fetch(
+        "account",
+        "<fetch><entity name='account'/></fetch>"
+      );
+      // Rode cds-client (annotations present), not the native retrieveMultipleRecords.
+      expect(result.totalRecordCount).toBe(7);
+      expect(server.lastRequest.url).toContain("/api/data/v9.2/accounts?fetchXml=");
+      expect(calls.find((c) => c.api === "retrieveMultipleRecords")).toBeUndefined();
+    } finally {
+      server.uninstall();
+    }
   });
 
   it("builds the globalContext from PCF userSettings and rejects app properties", async () => {
