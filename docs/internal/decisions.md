@@ -1211,3 +1211,36 @@ tooltip-only PCF needs none. Reproducibility still comes from its committed lock
 - The cds-client's hand-rolled multipart `$batch` parsing stays. It is bespoke protocol
   code carrying correctness weight, so the live-org verification that D-045 established
   remains the standing regression gate whenever that parser is touched.
+
+## D-052, the shell stays a single bundle; the app manifest is the size lever, not code-splitting
+
+A reviewer flagged that the shell statically imports every sample app into one
+entry, so the bundle grows with app count. Measured while deciding this (production
+build, minified): the full ten-app shell is 889 KB, and a shell trimmed to just the
+template and the samples hub is 425 KB. So the sample apps cost about 474 KB, over
+half the bundle, mostly the grid and wizard stacks and the extra Fluent surface they
+pull in. The growth claim is real, not theoretical.
+
+Per-app `React.lazy` chunks were considered and rejected for now, not on the
+savings (real) but on what chunking does to the webresource delivery contract.
+The whole pipeline leans on ONE stable artifact name: the SPKL mapping deploys one
+script webresource, the HTML entry cache-busts that one URL with the compilation
+hash, and the Fiddler autoresponder dev loop matches on that one name. Chunks break
+each of those: every chunk becomes its own named webresource to register and deploy,
+chunk requests carry no cache-bust token so the platform's aggressive webresource
+caching applies to them unguarded, the jsdom smoke tests cannot execute dynamic
+chunk loads, and, decisive for this round, whether webpack's runtime resolves chunk
+URLs correctly under the versionstamped webresource path can only be proven on a
+live form, and the kit's own bar says platform-touching changes are not done until
+they are seen working there.
+
+The consumer-facing cost has a simpler, already-working lever: the app manifest
+(`clientui/apps/index.ts`) registers each app with one import line, and deleting a
+line removes that app's code from the bundle entirely (that is how the 425 KB
+number was measured). A fork ships its own two to five apps, not the ten samples,
+so the realistic consumer bundle sits near the trimmed number, not the full one.
+
+Revisit trigger: a deployment that genuinely needs many apps behind one shell, with
+boot latency that matters. The path then is per-app chunks with stable chunk names,
+one webresource per chunk in the deploy mapping, and a live-form verification of
+chunk URL resolution and caching before anything relies on it.

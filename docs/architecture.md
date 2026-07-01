@@ -83,6 +83,19 @@ deployment/    # SPKL config + publish script
 legacy adapter → registry lookup → render app inside `FluentProvider` +
 `ViewModelContextProvider` → unmount on `beforeunload`.
 
+### One bundle, and the app manifest as the size lever
+
+The shell ships as ONE script webresource on purpose: a single stable artifact
+name is what the deploy mapping, the cache-busting HTML entry, and the local
+autoresponder dev loop all key on. The cost of that choice is that the bundle
+carries every registered app: the full ten-sample shell builds to roughly 890 KB
+minified, while a shell trimmed to just the template and the samples hub builds
+to roughly 425 KB. The apps are registered in one manifest,
+`clientui/apps/index.ts`, one import line per app, and deleting a line removes
+that app's code from the bundle entirely. When you fork the kit, trim the
+manifest to the apps you actually ship; that, not code-splitting, is the
+intended way to keep the bundle proportional to your deployment.
+
 ## Host parity
 
 `IViewModelContext` mirrors the native Xrm APIs at full parity, so a

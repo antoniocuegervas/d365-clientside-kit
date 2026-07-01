@@ -6,6 +6,18 @@ import { BooleanField } from "../../../../shared/controls/presentational/Boolean
 const meta: Meta<typeof BooleanField> = {
   title: "Presentational Controls/BooleanField",
   component: BooleanField,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Two-option (yes/no) field. `value` (a boolean-or-null Observable or plain value) " +
+          "plus `onChange`; the option labels arrive as props because a Dataverse boolean " +
+          "column carries its own label pair (Yes/No, Allow/Do Not Allow), which only the " +
+          "host knows. `SmartBooleanField` resolves that pair from the attribute's option " +
+          "metadata and renders this control.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof BooleanField>;

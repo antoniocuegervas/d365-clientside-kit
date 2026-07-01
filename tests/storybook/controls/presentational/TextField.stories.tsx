@@ -7,6 +7,20 @@ import { longText } from "../../fixtures";
 const meta: Meta<typeof TextField> = {
   title: "Presentational Controls/TextField",
   component: TextField,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Native-parity single-line text input. The contract is values in, events out: " +
+          "`value` (an Observable or a plain string) plus `onChange`, with label, required, " +
+          "disabled, readOnly, errorMessage, and hint all supplied by the host. It knows " +
+          "nothing about CRM (no metadata, no context), which is why it renders here with " +
+          "zero mocks. In an app you rarely wire these props by hand: `SmartTextField` " +
+          "resolves the label, required flag, and max length from attribute metadata and " +
+          "renders this control, see its page for the metadata-bound usage.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof TextField>;

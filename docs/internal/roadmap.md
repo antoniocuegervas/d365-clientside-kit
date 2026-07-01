@@ -328,12 +328,16 @@ here so it is not lost with the round's working notes.
   happened). Options: a shared base config the PCF projects extend, or a CI/lint
   check that fails a PCF build importing `@fluentui/react-components` without the
   matching `overrides`.
-- **Hold the Storybook snippet bar on the non-field stories.** The smart field
-  pages and the end-to-end wiring story meet the defined bar (the binding
-  contract, what the kit resolves for you, the value round-trip, the surrounding
-  provider structure). The presentational, scenario, and complex smart stories
-  (`SmartViewGrid`, `SmartLookup`, `SmartNativeLookup`) have not been audited
-  against it; do that as one focused pass.
+- **Hold the Storybook snippet bar on the non-field stories.** DONE (2026-07-02):
+  the audit found the smart and scenario tiers already at the bar; the gap was the
+  twelve field-tier presentational stories, which had no component-level contract
+  description. Each now states the values-in, events-out contract, what the host
+  supplies, and its smart counterpart.
+- **Measure real form-load impact of the kit PCFs.** The per-control bundle sizes
+  and the working per-form ceiling are published in deployment.md ("How many kit
+  PCFs one form should carry"); what is still missing is the live measurement
+  (DevTools Performance, same form with and without N kit controls, warm cache).
+  Needs an org session; re-take alongside the per-wave re-pin.
 
 ## Shipped (were roadmap items)
 

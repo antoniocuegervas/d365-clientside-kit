@@ -7,6 +7,19 @@ import { industryOptions } from "../../fixtures";
 const meta: Meta<typeof OptionSetField> = {
   title: "Presentational Controls/OptionSetField",
   component: OptionSetField,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Choice (option set) dropdown. The host supplies the `options` list (value + label " +
+          "pairs) and the selected `value` (a number-or-null Observable or plain value); the " +
+          "control raises `onChange` with the picked value. Where the options come from is " +
+          "not its business: here they are fixtures, in an app `SmartOptionSet` loads the " +
+          "attribute's option set (labels in the user's language) from metadata and renders " +
+          "this control.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof OptionSetField>;

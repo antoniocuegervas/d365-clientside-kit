@@ -6,6 +6,18 @@ import { DateTimeField } from "../../../../shared/controls/presentational/DateTi
 const meta: Meta<typeof DateTimeField> = {
   title: "Presentational Controls/DateTimeField",
   component: DateTimeField,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Date and date-time picker. `value` (a Date-or-null Observable or plain value) plus " +
+          "`onChange`; whether the time part shows (`includeTime`) and how values format are " +
+          "supplied by the host, because date-only versus date-and-time is a property of the " +
+          "column, not the control. `SmartDatePicker` resolves the attribute's date behavior " +
+          "and format from metadata and renders this control.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof DateTimeField>;

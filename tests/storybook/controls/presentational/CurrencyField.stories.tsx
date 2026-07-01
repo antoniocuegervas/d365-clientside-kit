@@ -6,6 +6,19 @@ import { CurrencyField } from "../../../../shared/controls/presentational/Curren
 const meta: Meta<typeof CurrencyField> = {
   title: "Presentational Controls/CurrencyField",
   component: CurrencyField,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Money input: a number field with a currency symbol affordance. The symbol and " +
+          "precision are SUPPLIED as props, never resolved: this control does not know which " +
+          "currency the record uses, the host does. `value` plus `onChange` carry the data. " +
+          "`SmartNumberField` handles money attributes: it resolves the record's transaction " +
+          "currency symbol and the attribute's precision from metadata and renders this " +
+          "control with them.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof CurrencyField>;

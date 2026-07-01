@@ -6,6 +6,17 @@ import { Stepper, type IStepperStep } from "../../../../shared/controls/presenta
 const meta: Meta<typeof Stepper> = {
   title: "Presentational Controls/Stepper",
   component: Stepper,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Wizard step indicator: `steps` (key + label) and `currentIndex` in, nothing out, " +
+          "it is display only. Step sequencing, gating, and navigation live in " +
+          "`WizardViewModel` (shared/wizard), which owns the index this control renders. See " +
+          "the New Account Wizard sample pattern for the assembled flow.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof Stepper>;

@@ -8,6 +8,18 @@ import { contactRefs } from "../../fixtures";
 const meta: Meta<typeof MultiLookupField> = {
   title: "Presentational Controls/MultiLookupField",
   component: MultiLookupField,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Multi-valued lookup (a tag-picker shape). Same search round-trip as LookupField: " +
+          "`onSearchTextChanged` out, `results` in, with the selection as an array of entity " +
+          "references. It has no smart counterpart: the ViewModel supplies the results and " +
+          "owns how the selection is persisted (an N:N, a party list, whatever the schema " +
+          "models), so this control is bound directly from the View.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof MultiLookupField>;

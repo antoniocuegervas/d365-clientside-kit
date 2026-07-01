@@ -7,6 +7,18 @@ import { longText } from "../../fixtures";
 const meta: Meta<typeof MultilineTextField> = {
   title: "Presentational Controls/MultilineTextField",
   component: MultilineTextField,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Multi-line text input, the memo-column counterpart of TextField. Same values-in, " +
+          "events-out contract: `value` plus `onChange`, everything else (label, required, " +
+          "readOnly, errorMessage, maxLength) supplied by the host, no CRM knowledge inside. " +
+          "`SmartTextField` picks this control automatically when the bound attribute is a " +
+          "memo, so the multiline decision comes from metadata, not from the View.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof MultilineTextField>;

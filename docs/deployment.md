@@ -150,6 +150,67 @@ tabster collision that slips through between re-pins) shows a neutral "could not
 displayed" message instead of a silently blank container. That message is plain markup with
 no Fluent, on purpose, so it still renders when the failure is in the Fluent stack itself.
 
+### How many kit PCFs one form should carry (the budget)
+
+Each kit PCF bundles its own React and Fluent copy; the webpack dedupe is within a
+control, never across controls, so two kit PCFs on one form parse two React and two
+Fluent copies. Measured production bundle sizes (minified, this repo's builds):
+
+| Control | Bundle |
+|---|---|
+| KitTooltip | ~350 KB |
+| KitOptionSet | ~380 KB |
+| KitDatePicker | ~580 KB |
+| KitNativeLookup | ~610 KB |
+| KitCounterpartyGrid | ~750 KB |
+
+The download amortizes (webresources cache hard, as this doc keeps saying), but the
+parse and execute cost repeats on every form load, per control. The working
+recommendation until live numbers say otherwise: **three or four kit field PCFs per
+form, plus at most one kit grid PCF.** If a form wants more kit UI than that, deliver
+that cluster as one webresource app instead (a section-embedded shell page): one
+bundle, one React, and every control in it shares both, which is exactly the
+per-control tax the PCF shape cannot avoid.
+
+These are working numbers, not measured form-load impact. The live measurement
+(DevTools Performance on a warm cache, the same form with and without N kit
+controls, scripting time attributed per control) still needs a real org and should
+be re-taken alongside the per-wave re-pin above.
+
+## ALM: shipping the controls to customers, not just trying the samples
+
+The managed **sample solution** on the Releases page is a demo artifact: it
+exists so someone can try the kit on a trial org and uninstall it cleanly. It is
+not the shape a customer deployment ships in. When your fork goes to a real
+customer, own the ALM like any other Dataverse code component:
+
+- **Your solution, your publisher.** Create a solution under your own publisher
+  prefix (set it once in `kit.config.json`), and put the shell webresources, the
+  hook library, and your PCF controls in it. Nothing from the sample solution
+  should reach a customer environment.
+- **Two solutions when forms are involved.** Keep the kit artifacts
+  (webresources, PCF controls) in their own solution, separate from the app
+  customizations that reference them (the forms and views a PCF is bound to).
+  Controls then promote independently of form changes, and the import order is
+  always controls first, then the app solution that depends on them.
+- **Unmanaged in dev, managed everywhere else.** Develop and iterate against an
+  unmanaged solution in dev, export managed, and promote the managed artifact
+  through test to prod, via `pac solution export`/`import` in a pipeline or
+  Power Platform pipelines. Never hand-edit customizations in test or prod.
+- **Version on every promotion.** Bump the solution version each export, and
+  bump each changed PCF's `<control version>` in its manifest (the cache rule
+  above applies in every environment, not just dev). The shell webresource
+  needs no rename: the cache-busted HTML entry handles it.
+- **Uninstall behavior.** A managed uninstall removes the webresources and
+  controls, but only after nothing references them: forms still binding a kit
+  PCF block the uninstall as dependencies. Remove the bindings (or uninstall
+  the dependent app solution) first, then the controls solution. Try the order
+  once in test before you rely on it in prod.
+
+The repo's own pipeline (below) covers the build-and-verify half of this; the
+export/import promotion half lives with your fork, since it is bound to your
+environments and connections.
+
 ## CI
 
 `azure-pipelines.yml` runs the full local gate (lint → typecheck → build →

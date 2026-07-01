@@ -6,6 +6,18 @@ import { NumberField } from "../../../../shared/controls/presentational/NumberFi
 const meta: Meta<typeof NumberField> = {
   title: "Presentational Controls/NumberField",
   component: NumberField,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Numeric input for whole, decimal, and float columns. The contract: `value` (a " +
+          "number-or-null Observable or plain value) plus `onChange`; precision and range " +
+          "arrive as props, the control only formats and clamps what it is given. No CRM " +
+          "knowledge inside. `SmartNumberField` resolves the precision and min/max from " +
+          "attribute metadata and renders this control.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof NumberField>;

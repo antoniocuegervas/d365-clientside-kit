@@ -11,6 +11,21 @@ import type { IEntityReference } from "../../../../shared/utils/EntityModel";
 const meta: Meta<typeof NativeLookupField> = {
   title: "Presentational Controls/NativeLookupField",
   component: NativeLookupField,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Pixel-level replica of the model-driven lookup: the inline flyout with two-line " +
+          "rows, chevron expand, entity icons, and the polymorphic target switcher. All of " +
+          "that is fed by props and Observables (`results`, `selected`, `targets`, the " +
+          "icons); every query, view read, and metadata read happens in the host, which is " +
+          "how the replica renders here on fixtures. `SmartNativeLookup` supplies the whole " +
+          "feed from the entity's lookup view and metadata. Reach for this control when " +
+          "matching the native lookup exactly is the requirement; otherwise start with the " +
+          "simpler LookupField/SmartLookup.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof NativeLookupField>;

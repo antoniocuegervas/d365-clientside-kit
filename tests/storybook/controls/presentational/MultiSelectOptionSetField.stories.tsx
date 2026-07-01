@@ -7,6 +7,18 @@ import { industryOptions } from "../../fixtures";
 const meta: Meta<typeof MultiSelectOptionSetField> = {
   title: "Presentational Controls/MultiSelectOptionSetField",
   component: MultiSelectOptionSetField,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Multi-select choice dropdown. Same contract as the single-select variant, plural: " +
+          "the host supplies `options` and `selectedValues` (a number-array Observable or " +
+          "plain array), the control raises `onChange` with the new selection. No metadata, " +
+          "no context inside. `SmartMultiSelectOptionSet` resolves the option list from the " +
+          "attribute's metadata and renders this control.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof MultiSelectOptionSetField>;

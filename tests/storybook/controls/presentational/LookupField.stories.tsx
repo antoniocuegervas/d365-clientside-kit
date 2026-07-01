@@ -8,6 +8,19 @@ import { accountRefs } from "../../fixtures";
 const meta: Meta<typeof LookupField> = {
   title: "Presentational Controls/LookupField",
   component: LookupField,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Combobox-style single-record lookup. The search round-trip is the contract to " +
+          "understand: the control raises `onSearchTextChanged` as the user types, the host " +
+          "runs whatever query it wants and writes the matches into the `results` Observable, " +
+          "and the control renders them; the pick lands in `selected` via `onChange`. The " +
+          "control itself never queries anything. `SmartLookup` (the default lookup choice) " +
+          "wires that round-trip to the entity's lookup view for you.",
+      },
+    },
+  },
 };
 export default meta;
 type Story = StoryObj<typeof LookupField>;
