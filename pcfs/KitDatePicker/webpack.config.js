@@ -1,40 +1,28 @@
 const path = require("path");
 
 /**
- * The control imports the kit's shared source from outside this project
- * (../../../shared). Without help, webpack resolves React and Fluent for that
- * shared code to the REPO-ROOT node_modules, while this control's own files (and
- * Fluent) resolve to the PCF's node_modules, so the bundle ends up with two
- * copies of React and Fluent. Two React copies means two hook dispatchers, and
- * Fluent v9's griffel hooks throw "Invalid hook call / more than one copy of
- * React" at runtime, leaving the control blank.
+ * As a virtual control this project bundles almost nothing: react, react-dom,
+ * and @fluentui/react-components are provided by the platform at runtime
+ * (webpack externals, wired up by pcf-scripts from the manifest's
+ * platform-library lines plus the pcfReactPlatformLibraries flag in
+ * featureconfig.json).
  *
- * Force a single copy of each shared singleton by aliasing them to this project's
- * node_modules. pcf-scripts merges this into its webpack config when
- * featureconfig.json sets pcfAllowCustomWebpack to "on".
- *
- * This control needs two aliases the field/grid PCFs do not: the shared
- * DateTimeField pulls @fluentui/react-datepicker-compat (and timepicker-compat),
- * which are NOT re-exported through @fluentui/react-components, so without their
- * own aliases they resolve from the repo-root node_modules and drag the root's
- * tabster (8.8.0, unpinned) into the bundle, the version that collides with the
- * host's frozen tabster and blanks the control. Aliasing the compat packages to
- * this project is enough: their internal @fluentui/react-tabster and tabster then
- * resolve naturally within this project's tree, on the pinned 8.5.5. (Do NOT alias
- * tabster or @fluentui/react-tabster directly: aliasing a package to its directory
- * bypasses its package.json "exports", and react-tabster's own `import "tabster"`
- * then fails to resolve.)
+ * The two compat packages are the exception: the platform Fluent library does
+ * not carry the date and time pickers, so they ride in the bundle. The control
+ * reaches them through the kit's shared source OUTSIDE this project
+ * (../../../shared), and without help webpack would resolve them for that
+ * shared code from the REPO-ROOT node_modules, dragging the root's unpinned
+ * tabster into the bundle, the version that collides with the host's frozen
+ * tabster instance and blanks the control. Aliasing the compat packages to
+ * this project is enough: their internal @fluentui/react-tabster and tabster
+ * then resolve within this project's tree, on the pinned versions. (Do NOT
+ * alias tabster or @fluentui/react-tabster directly: aliasing a package to its
+ * directory bypasses its package.json "exports", and react-tabster's own
+ * `import "tabster"` then fails to resolve.)
  */
 module.exports = {
   resolve: {
     alias: {
-      react: path.resolve(__dirname, "node_modules/react"),
-      "react-dom": path.resolve(__dirname, "node_modules/react-dom"),
-      "@fluentui/react-components": path.resolve(
-        __dirname,
-        "node_modules/@fluentui/react-components"
-      ),
-      "@fluentui/react-icons": path.resolve(__dirname, "node_modules/@fluentui/react-icons"),
       "@fluentui/react-datepicker-compat": path.resolve(
         __dirname,
         "node_modules/@fluentui/react-datepicker-compat"

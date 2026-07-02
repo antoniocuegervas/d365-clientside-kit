@@ -85,6 +85,12 @@ const Body: React.FC<
   }
 > = (props) => {
   const styles = useStyles();
+  // Anchor for the time list's overlay. By default it would mount at the end
+  // of the document, outside the themed FluentProvider, and in an embedded
+  // host (a PCF on a form) the theme's CSS variables are undefined out there,
+  // leaving the list transparent. Mounting it here keeps it inside the themed
+  // part of the page; Fluent still floats it beside the field.
+  const [overlayHome, setOverlayHome] = React.useState<HTMLDivElement | null>(null);
   const { value, disabled, readOnly, includeTime, formatDate, parseDate, strings, firstDayOfWeek, placeholder } =
     props;
   const current = value.value;
@@ -107,6 +113,13 @@ const Body: React.FC<
             disabled={disabled || readOnly}
             placeholder={readOnly ? undefined : placeholder ?? "---"}
             allowTextInput
+            // Render the calendar in place rather than in a portal. A portal
+            // mounts outside the themed FluentProvider, and in an embedded host
+            // (a PCF on a form) the theme's CSS variables are undefined out
+            // there, leaving the surface transparent. In place it inherits
+            // them, and Fluent positions the surface fixed, so an overflow
+            // ancestor never clips it (the native lookup flyout does the same).
+            inlinePopup
           />
         </div>
         {includeTime ? (
@@ -116,7 +129,9 @@ const Body: React.FC<
               value={current ? formatDateToTimeString(current) : ""}
               onTimeChange={props.onTimeChange}
               disabled={disabled || readOnly || !current}
+              mountNode={overlayHome ?? undefined}
             />
+            <div ref={setOverlayHome} />
           </div>
         ) : null}
       </div>

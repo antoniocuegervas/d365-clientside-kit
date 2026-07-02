@@ -1,5 +1,6 @@
 import * as React from "react";
 import { isObservable, type ISubscribable, type OrObservable, type Unsubscribe } from "./Observable";
+import { scheduleRender } from "./RenderBatch";
 
 /**
  * Base class for controls that render host-owned Observables.
@@ -26,6 +27,18 @@ export abstract class ObserverComponent<P = object, S = object> extends React.Co
   private observerSubscriptions: Unsubscribe[] = [];
   private observerDisposed = false;
 
+  /**
+   * The render request handed to the shared queue. One stable instance per
+   * component, so a burst of Observable writes collapses into one repaint
+   * (see RenderBatch). Checked against disposal again at run time, because
+   * the component can unmount between the request and the repaint.
+   */
+  private readonly runQueuedRender = (): void => {
+    if (!this.observerDisposed) {
+      this.forceUpdate();
+    }
+  };
+
   /** True once the component has unmounted, guard async callbacks with this. */
   protected get isDisposed(): boolean {
     return this.observerDisposed;
@@ -51,7 +64,7 @@ export abstract class ObserverComponent<P = object, S = object> extends React.Co
       }
       const unsubscribe = subscribable.subscribe(() => {
         if (!this.observerDisposed) {
-          this.forceUpdate();
+          scheduleRender(this.runQueuedRender);
         }
       });
       this.observerSubscriptions.push(unsubscribe);

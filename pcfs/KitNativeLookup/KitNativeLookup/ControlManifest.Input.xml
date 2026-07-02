@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="D365Kit" constructor="KitNativeLookup" version="1.0.3" display-name-key="Kit Example: Native Lookup" description-key="Native-parity single-record lookup, the kit SmartNativeLookup bound to a lookup column. See docs/adding-a-pcf.md." control-type="standard" >
+  <control namespace="D365Kit" constructor="KitNativeLookup" version="1.1.0" display-name-key="Kit Example: Native Lookup" description-key="Native-parity single-record lookup, the kit SmartNativeLookup bound to a lookup column. See docs/adding-a-pcf.md." control-type="virtual" >
     <external-service-usage enabled="false">
     </external-service-usage>
     <!-- The bound lookup column, as a type-group so the control can bind to a
@@ -24,6 +24,14 @@
     <property name="showIcons" display-name-key="Show entity icons" description-key="Resolve and show the target entity icon in the flyout rows" of-type="TwoOptions" usage="input" required="false" />
     <resources>
       <code path="index.ts" order="1"/>
+      <!-- The platform hands the control its own React and Fluent at runtime.
+           The declared versions are a compatibility floor, not the delivery:
+           the org serves its current copies (and rejects imports declaring a
+           version newer than it supports), so declare low and receive current.
+           The icon package is not part of the platform Fluent library, so the
+           icons the lookup renders stay in the bundle. -->
+      <platform-library name="React" version="16.14.0" />
+      <platform-library name="Fluent" version="9.46.2" />
     </resources>
     <feature-usage>
       <uses-feature name="Utility" required="true" />

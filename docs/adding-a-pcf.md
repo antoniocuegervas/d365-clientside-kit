@@ -7,18 +7,25 @@ importing `shared/` **as source** via relative paths, no publishing step.
 
 ```powershell
 cd pcfs
-pac pcf init --namespace D365Kit --name MyControl --template field --run-npm-install false
+pac pcf init --namespace D365Kit --name MyControl --template field --framework react --run-npm-install false
 ```
 
 Then align the project with the kit toolchain (copy from `pcfs/KitOptionSet`):
 
-- `package.json`: add `react@18.3.1`, `react-dom@18.3.1`,
-  `@fluentui/react-components`, pin `typescript` to the repo version,
-  add `@types/react`/`@types/react-dom`.
-- `tsconfig.json` `compilerOptions`: `"jsx": "react-jsx"`,
-  `"esModuleInterop": true`, `"skipLibCheck": true`.
-- v1 PCFs **bundle their own React/Fluent**, do not use `--framework react`
-  (platform libraries are a future optimization, see internal/decisions.md).
+- Kit PCFs are **virtual controls**: the platform hands them the host's own React
+  and Fluent at runtime, so the manifest declares the shared `platform-library`
+  versions and the bundle carries neither. The floor values live in
+  `pcfs/platform-floor.json`, and `npm run verify` fails until a new PCF matches
+  them (manifest declarations, React and Fluent in devDependencies only at the
+  floor versions, `pcfReactPlatformLibraries` on in featureconfig.json).
+- `package.json`: React, react-dom, and `@fluentui/react-components` go in
+  devDependencies at the floor versions; pin `typescript` to the repo version;
+  `@fluentui/react-icons` stays a real dependency if the control renders icons
+  (it is not a platform library).
+- `tsconfig.json` `compilerOptions`: `"jsx": "react"`, `"esModuleInterop": true`,
+  `"skipLibCheck": true`, plus `baseUrl`/`paths` mapping `react`, `react-dom`,
+  and `@fluentui/react-components` to the project's own node_modules, so shared
+  source compiles against the floor types instead of the repo root's.
 
 ## 2. Pick the integration pattern
 
@@ -41,8 +48,9 @@ for Pattern 3 only when you want customization niche enough that the smart
 control's default behavior gets in your way, or that goes beyond what a reasonable
 extension prop would cover. Uncommon, but a real case.
 
-All three patterns: `createRoot(container)` in `init`, render in `updateView`,
-`root.unmount()` in `destroy`.
+All three patterns: implement `ComponentFramework.ReactControl`, keep context
+wiring in `init`, RETURN the element from `updateView` (the platform owns the
+React root, so there is no createRoot and nothing to unmount in `destroy`).
 
 ## 3. Build
 

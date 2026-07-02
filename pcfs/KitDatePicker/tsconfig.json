@@ -4,9 +4,17 @@
         "typeRoots": [
             "node_modules/@types"
         ],
-        "jsx": "react-jsx",
+        "jsx": "react",
         "esModuleInterop": true,
         "skipLibCheck": true,
-        "types": ["powerapps-component-framework", "node", "react", "react-dom"]
+        "types": ["powerapps-component-framework", "node", "react", "react-dom"],
+        "baseUrl": ".",
+        "paths": {
+            "react": ["./node_modules/@types/react"],
+            "react-dom": ["./node_modules/@types/react-dom"],
+            "@fluentui/react-components": ["./node_modules/@fluentui/react-components"],
+            "@fluentui/react-datepicker-compat": ["./node_modules/@fluentui/react-datepicker-compat"],
+            "@fluentui/react-timepicker-compat": ["./node_modules/@fluentui/react-timepicker-compat"]
+        }
     }
 }

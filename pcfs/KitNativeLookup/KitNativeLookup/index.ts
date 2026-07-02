@@ -1,6 +1,5 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import * as React from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { FluentProvider } from "@fluentui/react-components";
 import { d365Theme } from "../../../shared/theme/d365Theme";
 import { PCFContext, type IPcfContextLike } from "../../../shared/context/PCFContext";
@@ -11,21 +10,22 @@ import { normalizeGuid, type IEntityReference } from "../../../shared/utils/Enti
 import { NativeLookupApp } from "./App";
 
 /**
- * KitNativeLookup root, a standard control that BUNDLES React 18 + Fluent v9 and
- * renders the kit's native-parity lookup (SmartNativeLookup) over a field-bound
- * lookup column. It reuses one PCFContext (the same IViewModelContext the
- * webresource and form-script hosts use), so the search, view, and metadata
- * resolution are identical to the rest of the kit. The bundled Fluent is pinned
- * to the host platform-library version (see package.json) so the single tabster
- * instance the form shares on the window stays compatible.
+ * KitNativeLookup root, a virtual control: the platform hands it the host's
+ * own React and Fluent at runtime and owns the React root (updateView RETURNS
+ * the element). It renders the kit's native-parity lookup (SmartNativeLookup)
+ * over a field-bound lookup column, reusing one PCFContext (the same
+ * IViewModelContext the webresource and form-script hosts use), so the search,
+ * view, and metadata resolution are identical to the rest of the kit. With the
+ * platform providing Fluent there is exactly one focus-management instance on
+ * the page, the host's, so the flyout cannot hit the shared-instance version
+ * skew a bundled Fluent risked.
  *
  * A field-bound PCF does not expose its own attribute name, and the smart control
  * resolves the targets, lookup view, and icon from the entity + attribute
  * metadata, so the entity comes from the form (contextInfo) and the attribute
  * logical name is a maker-supplied property.
  */
-export class KitNativeLookup implements ComponentFramework.StandardControl<IInputs, IOutputs> {
-  private root: Root | undefined;
+export class KitNativeLookup implements ComponentFramework.ReactControl<IInputs, IOutputs> {
   private kitContext: PCFContext | undefined;
   private notifyOutputChanged: (() => void) | undefined;
   // Host-owned value bridging the bound lookup column to the control. The control
@@ -35,19 +35,15 @@ export class KitNativeLookup implements ComponentFramework.StandardControl<IInpu
   public init(
     context: ComponentFramework.Context<IInputs>,
     notifyOutputChanged: () => void,
-    _state: ComponentFramework.Dictionary,
-    container: HTMLDivElement
+    _state: ComponentFramework.Dictionary
   ): void {
     this.kitContext = new PCFContext(context as unknown as IPcfContextLike);
     this.notifyOutputChanged = notifyOutputChanged;
-    this.root = createRoot(container);
-    this.syncValue(context);
-    this.render(context);
   }
 
-  public updateView(context: ComponentFramework.Context<IInputs>): void {
+  public updateView(context: ComponentFramework.Context<IInputs>): React.ReactElement {
     this.syncValue(context);
-    this.render(context);
+    return this.render(context);
   }
 
   /**
@@ -70,31 +66,27 @@ export class KitNativeLookup implements ComponentFramework.StandardControl<IInpu
     }
   }
 
-  private render(context: ComponentFramework.Context<IInputs>): void {
-    if (!this.kitContext || !this.root) {
-      return;
-    }
-    this.root.render(
+  private render(context: ComponentFramework.Context<IInputs>): React.ReactElement {
+    return React.createElement(
+      FluentProvider,
+      { theme: d365Theme },
       React.createElement(
-        FluentProvider,
-        { theme: d365Theme },
+        ErrorBoundary,
+        null,
         React.createElement(
-          ErrorBoundary,
-          null,
-          React.createElement(
-            ViewModelContextProvider,
-            { context: this.kitContext },
-            React.createElement(NativeLookupApp, {
-              entity: hostEntity(context),
-              attribute: context.parameters.attribute.raw ?? "",
-              viewName: context.parameters.viewName.raw ?? undefined,
-              showIcons: context.parameters.showIcons.raw === true,
-              disabled: context.mode.isControlDisabled,
-              value: this.value,
-              // The control writes the value observable itself; reflect to the host.
-              onChange: () => this.notifyOutputChanged?.(),
-            })
-          )
+          ViewModelContextProvider,
+          // init always runs before the first updateView, so the context exists.
+          { context: this.kitContext as PCFContext },
+          React.createElement(NativeLookupApp, {
+            entity: hostEntity(context),
+            attribute: context.parameters.attribute.raw ?? "",
+            viewName: context.parameters.viewName.raw ?? undefined,
+            showIcons: context.parameters.showIcons.raw === true,
+            disabled: context.mode.isControlDisabled,
+            value: this.value,
+            // The control writes the value observable itself; reflect to the host.
+            onChange: () => this.notifyOutputChanged?.(),
+          })
         )
       )
     );
@@ -110,7 +102,7 @@ export class KitNativeLookup implements ComponentFramework.StandardControl<IInpu
   }
 
   public destroy(): void {
-    this.root?.unmount();
+    // The platform owns the React root for a virtual control.
   }
 }
 

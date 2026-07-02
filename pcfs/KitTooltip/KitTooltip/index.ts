@@ -1,6 +1,5 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import * as React from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { FluentProvider } from "@fluentui/react-components";
 import { d365Theme } from "../../../shared/theme/d365Theme";
 import { Observable } from "../../../shared/reactivity/Observable";
@@ -16,9 +15,12 @@ import { TooltipApp } from "./App";
  * it through ViewModelContextProvider, and the smart TooltipApp fetches
  * attribute metadata through the SAME IViewModelContext contract used by
  * webresources and client hooks.
+ *
+ * This is a virtual control: the platform hands it the host's own React
+ * and Fluent at runtime and owns the React root. updateView RETURNS the
+ * element instead of rendering into a container.
  */
-export class KitTooltip implements ComponentFramework.StandardControl<IInputs, IOutputs> {
-  private root: Root | undefined;
+export class KitTooltip implements ComponentFramework.ReactControl<IInputs, IOutputs> {
   private notifyOutputChanged: (() => void) | undefined;
   private kitContext: PCFContext | undefined;
 
@@ -27,24 +29,14 @@ export class KitTooltip implements ComponentFramework.StandardControl<IInputs, I
   public init(
     context: ComponentFramework.Context<IInputs>,
     notifyOutputChanged: () => void,
-    _state: ComponentFramework.Dictionary,
-    container: HTMLDivElement
+    _state: ComponentFramework.Dictionary
   ): void {
     this.notifyOutputChanged = notifyOutputChanged;
     // One PCFContext for the control lifetime.
     this.kitContext = new PCFContext(context as unknown as IPcfContextLike);
-    this.root = createRoot(container);
-    this.render(context);
   }
 
-  public updateView(context: ComponentFramework.Context<IInputs>): void {
-    this.render(context);
-  }
-
-  private render(context: ComponentFramework.Context<IInputs>): void {
-    if (!this.kitContext) {
-      return;
-    }
+  public updateView(context: ComponentFramework.Context<IInputs>): React.ReactElement {
     this.value.value = context.parameters.value.raw ?? null;
 
     // contextInfo carries the hosting table's logical name on field controls.
@@ -54,27 +46,26 @@ export class KitTooltip implements ComponentFramework.StandardControl<IInputs, I
     const entityLogicalName = contextInfo?.entityTypeName ?? "";
     const attributeLogicalName = context.parameters.value.attributes?.LogicalName ?? "";
 
-    this.root?.render(
+    return React.createElement(
+      FluentProvider,
+      { theme: d365Theme },
       React.createElement(
-        FluentProvider,
-        { theme: d365Theme },
+        ErrorBoundary,
+        null,
         React.createElement(
-          ErrorBoundary,
-          null,
-          React.createElement(
-            ViewModelContextProvider,
-            { context: this.kitContext },
-            React.createElement(TooltipApp, {
-              entityLogicalName,
-              attributeLogicalName,
-              value: this.value,
-              disabled: context.mode.isControlDisabled,
-              onChange: (next: string | null) => {
-                this.value.value = next;
-                this.notifyOutputChanged?.();
-              },
-            })
-          )
+          ViewModelContextProvider,
+          // init always runs before the first updateView, so the context exists.
+          { context: this.kitContext as PCFContext },
+          React.createElement(TooltipApp, {
+            entityLogicalName,
+            attributeLogicalName,
+            value: this.value,
+            disabled: context.mode.isControlDisabled,
+            onChange: (next: string | null) => {
+              this.value.value = next;
+              this.notifyOutputChanged?.();
+            },
+          })
         )
       )
     );
@@ -85,6 +76,6 @@ export class KitTooltip implements ComponentFramework.StandardControl<IInputs, I
   }
 
   public destroy(): void {
-    this.root?.unmount();
+    // The platform owns the React root for a virtual control.
   }
 }

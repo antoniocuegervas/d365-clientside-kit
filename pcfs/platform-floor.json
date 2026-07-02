@@ -1,0 +1,15 @@
+{
+  "comment": "Single source for the PCF platform-library floor. Every kit PCF is a virtual control: the platform hands it the host's own React and Fluent at runtime, so nothing pins a bundled Fluent anymore. Two floors matter and they are different numbers. declaredPlatformLibraries is what every manifest must declare: the version the org must ACCEPT at solution import (declaring newer than the org supports fails the import; the runtime serves its current copy regardless, so declare low and receive current). fluentApiFloor is the oldest Fluent delivery the kit's code actually works against: every PCF compiles with this exact version in devDependencies, so using an API the floor does not export fails the build (that is the enforcement, not a hand-kept API list). Raise fluentApiFloor deliberately when the kit adopts a newer Fluent API, and state the supported floor in the README. npm run verify runs scripts/check-pcf-floor.mjs against this file.",
+  "declaredPlatformLibraries": {
+    "React": "16.14.0",
+    "Fluent": "9.46.2"
+  },
+  "reactDevVersion": "16.14.0",
+  "fluentApiFloor": "9.61.0",
+  "fluentApiFloorReason": "SearchBox (the grid's search bar) first ships in @fluentui/react-components 9.61.0; everything else the kit uses is older.",
+  "compatComment": "The date and time picker compat packages are not part of the platform Fluent library, so a control that uses them bundles them, and their internal focus-management chain must match the host's shared tabster instance on window. Any PCF with an @fluentui/*-compat dependency must carry exactly these overrides and alias the compat packages in webpack.config.js; a PCF without compat dependencies must carry no tabster overrides at all. Read the host's live version (window.__tabsterInstance._version) before re-pinning after a platform bump.",
+  "compatTabsterPins": {
+    "@fluentui/react-tabster": "9.26.1",
+    "tabster": "8.5.5"
+  }
+}

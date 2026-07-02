@@ -50,7 +50,7 @@ describe("ViewModelContextProvider (React bridge)", () => {
     consoleError.mockRestore();
   });
 
-  it("SmartComponent inherits ObserverComponent re-rendering", () => {
+  it("SmartComponent inherits ObserverComponent re-rendering", async () => {
     const { context } = createFakeViewModelContext();
     const label = new Observable<string>("before");
     render(
@@ -59,7 +59,7 @@ describe("ViewModelContextProvider (React bridge)", () => {
       </ViewModelContextProvider>
     );
     expect(screen.getByTestId("label").textContent).toBe("before");
-    React.act(() => {
+    await React.act(async () => {
       label.value = "after";
     });
     expect(screen.getByTestId("label").textContent).toBe("after");

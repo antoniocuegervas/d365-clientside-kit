@@ -94,56 +94,75 @@ metadata/integration checkpoints; that removes most publish cycles entirely. As
 a last-resort fallback while testing, keep DevTools open with "Disable cache"
 checked, which also bypasses the Unified Interface service worker.
 
-## PCF controls: production build, deploy, and the tabster pin
+## PCF controls: production build, deploy, and the platform-library floor
 
 The field and grid PCFs (`pcfs/`) do not go through SPKL. Build a Release bundle and
 import it in a solution:
 
-- Build Release (production, minified), never `pac pcf push`, which ships a debug bundle
-  that can blow past the 5 MB webresource ceiling. Wrap the controls in a solution project
-  once (`pac solution init` plus a `pac solution add-reference` per control), then
+- Build Release (production, minified), never `pac pcf push`, which ships a debug bundle.
+  Wrap the controls in a solution project once (`pac solution init` plus a
+  `pac solution add-reference` per control), then
   `dotnet build -c Release -p:SolutionPackageType=Unmanaged` and
   `pac solution import --force-overwrite --publish-changes`.
 - Bump the control version in `ControlManifest.Input.xml` on every redeploy. Reimporting
   the same version publishes, but the form keeps serving the cached previous bundle, so a
   fix looks like it did not deploy.
 - The done bar for a PCF is "opened on a real model-driven form and observed rendering",
-  not "compiles" or "renders in the test harness". Two of the failure modes below only show
-  once the control runs beside the platform's own Fluent.
+  not "compiles" or "renders in the test harness". Several failure modes only show once
+  the control runs inside the real host.
 
-### Re-pinning tabster to the host
+### Virtual controls and the platform-library floor
 
-A PCF that bundles its own React 18 and Fluent v9 shares one tabster (focus manager)
-instance with the model-driven app on `window`. If the bundled tabster is newer than the
-host's, a focus-managed component augments that shared instance with a shape the older host
-copy lacks and throws during init, blanking the control with no data queries fired. So the
-focus-managed controls pin their bundled Fluent chain to the host's platform-library floor:
-`@fluentui/react-components` at the host version, with an `overrides` block forcing
-`@fluentui/react-tabster` and `tabster` to the versions that host version resolves.
+Every kit PCF is a `control-type="virtual"` control: the platform hands it the host's
+OWN React and Fluent at runtime, so the bundles carry neither (tens of KB each instead
+of hundreds), native fidelity tracks the host automatically, and there is exactly one
+focus-management (tabster) instance on the page, the host's, so the version-skew
+collision that used to blank bundled controls is structurally impossible. The old
+re-pin-per-wave runbook is retired with it.
 
-This pin is a standing maintenance cost, not a one-time fix. Microsoft advances the platform
-Fluent on its release waves (roughly twice a year), and a fresh `npm install` floats the
-bundled versions ahead again, so parity has to be re-established on the fork:
+Two version floors matter, and they are deliberately different numbers, both held in
+`pcfs/platform-floor.json` and enforced by `npm run check:pcf-floor` (first step of
+`npm run verify`):
 
-1. Read the host's live tabster version from a form: open any model-driven form in the
-   target org, open the browser console, and read `window.__tabsterInstance._version`. Note
-   the platform-library Fluent version too (the loaded `platformlibs/fluent/<ver>/` script).
-2. Update `pcfs/fluent-pins.json` (the single source for the pin values), then set each
-   pinned PCF's `@fluentui/react-components` and its `overrides` to match, and
-   `npm install` in each to refresh the lockfiles. The pin check
-   (`npm run check:pcf-pins`, part of `npm run verify`) fails until every PCF agrees with
-   the pins file, so a missed manifest cannot slip through, and a brand-new PCF that
-   skips the pin or the webpack dedupe is caught the same way.
-3. Rebuild Release and redeploy, with the manifest version bump above.
-4. Verify on a live form: open a record and confirm each control renders. A build that
-   succeeds is not evidence, the collision only shows on the shared-window host.
+- **The declared floor** (`platform-library` in each manifest): the version the org
+  must ACCEPT at solution import. Declaring newer than the org supports fails the
+  import; the runtime serves its current copy regardless, so the manifests declare
+  low (React 16.14.0, Fluent 9.46.2) and receive current.
+- **The API floor** (`@fluentui/react-components` in each PCF's devDependencies): the
+  oldest Fluent delivery the kit's code actually works against. Every PCF compiles
+  with exactly this version, so using an API the floor does not export fails the
+  build; there is no hand-kept API list to drift. Raise it deliberately when the kit
+  adopts a newer Fluent API, and state the supported floor in the README.
 
-Which controls carry the pin: the focus-managed ones (date picker, option set, native
-lookup, counterparty grid), because the Fluent controls they use (DatePicker, Dropdown,
-Combobox, DataGrid, the lookup flyout) genuinely engage tabster. The tooltip control does
-not: it renders on a Fluent Tooltip (positioning only, no focus trap), which never touches
-the shared instance, so it carries no pin and needs no re-pin. That was confirmed by
-bundling a deliberately newer tabster than the host and watching it still render.
+The checker also holds the rest of the virtual posture in place: react-dom
+externalization stays switched on (`pcfReactPlatformLibraries` in featureconfig.json),
+React and Fluent stay out of `dependencies`, and shared code stays clear of
+React-18-only APIs (the webresource shell bundles React 18, but the PCF host serves
+React 16/17, and shared code runs on both).
+
+Two packages are not platform libraries and still ride in bundles where used: the icon
+package (each control bundles just the icons it imports, aliased to one copy), and the
+date and time picker compat packages (`KitDatePicker` bundles them, pins their internal
+tabster chain to the host instance via `overrides`, and aliases them in
+webpack.config.js; the checker enforces exactly that combination and rejects tabster
+overrides anywhere else). Overlay surfaces in an embedded host render in place or with
+an in-tree mount point rather than in a document-level portal, where the theme's CSS
+variables do not reach; the lookup flyout, the date picker calendar, the time list, and
+the grid hovercard all follow that pattern.
+
+### Standard controls (historical note, and for consumers who bundle)
+
+A consumer can still build a `control-type="standard"` PCF that bundles its own React
+and Fluent, and everything the kit learned about that shape remains true: webpack must
+dedupe React and Fluent to one copy each (a custom webpack.config.js aliasing them to
+the project's node_modules), the bundled Fluent must pin `@fluentui/react-tabster` and
+`tabster` to what the host's platform library resolves or a focus-managed component
+blanks the control, and the pin must be re-verified every release wave. For scale: the
+kit's own controls as standard builds weighed 350 to 750 KB each (tooltip 350, option
+set 380, date picker 580, native lookup 610, counterparty grid 750), and each bundled
+its own React and Fluent copy per control on the form. The virtual migration retired
+all of that for the kit's controls; reach for standard only when a control needs a
+library version the platform will not serve.
 
 ### The error boundary
 
@@ -153,39 +172,28 @@ tabster collision that slips through between re-pins) shows a neutral "could not
 displayed" message instead of a silently blank container. That message is plain markup with
 no Fluent, on purpose, so it still renders when the failure is in the Fluent stack itself.
 
-### How many kit PCFs one form should carry (the budget)
+### Form budget
 
-Each kit PCF bundles its own React and Fluent copy; the webpack dedupe is within a
-control, never across controls, so two kit PCFs on one form parse two React and two
-Fluent copies. Measured production bundle sizes (minified, this repo's builds):
+Virtual controls collapse the old per-form bundle budget. Measured production bundle
+sizes after the migration (minified, this repo's builds): option set 7 KB, tooltip
+54 KB, native lookup 78 KB, counterparty grid 82 KB, date picker 380 KB (the one
+control that still bundles the date and time picker compat packages, which the
+platform library does not carry). React and Fluent load once, from the platform, no
+matter how many kit controls a form carries, so the old three-or-four-per-form
+guidance no longer applies; the remaining per-control cost is each control's own
+logic, and the date picker's compat payload is the only line worth watching.
 
-| Control | Bundle |
-|---|---|
-| KitTooltip | ~350 KB |
-| KitOptionSet | ~380 KB |
-| KitDatePicker | ~580 KB |
-| KitNativeLookup | ~610 KB |
-| KitCounterpartyGrid | ~750 KB |
-
-The download amortizes (webresources cache hard, as this doc keeps saying), but the
-parse and execute cost repeats on every form load, per control. The working
-recommendation until live numbers say otherwise: **three or four kit field PCFs per
-form, plus at most one kit grid PCF.** If a form wants more kit UI than that, deliver
-that cluster as one webresource app instead (a section-embedded shell page): one
-bundle, one React, and every control in it shares both, which is exactly the
-per-control tax the PCF shape cannot avoid.
-
-A first live datapoint (a small dev org, 2026-07): the sample Contact main form
-carrying four kit PCFs (tooltip, choice, date picker, native lookup) plus the
-timeline opened in 1.03 to 1.17 seconds warm, median about 1.09 s over four full
-reloads, reading the Unified Interface page-load KPI from the `&perf=true`
-overlay. That is an absolute time, not a delta: the kit-free twin form was not
-measured, so the number bounds the cost rather than isolating it. What it does
-establish is that four kit controls coexist with a normal, roughly one-second
-warm form load. The remaining measurement is the A/B delta against a twin form
-without the kit controls; create that twin in the form designer, not through the
-raw API (an API-created form never joins the entity's form order, so the app
-will not offer it), and re-take the numbers alongside the per-wave re-pin above.
+Live datapoints (a small dev org, 2026-07, Unified Interface page-load KPI from the
+`&perf=true` overlay, four warm full reloads each): the sample Contact main form
+carrying four kit PCFs plus the timeline opened in 1.03 to 1.17 seconds (median
+about 1.09 s) with the standard builds, every control bundling its own React and
+Fluent, and in 1.24 to 1.86 seconds (median about 1.4 s) with the virtual builds
+on a later day. The two sessions are not a controlled A/B (different days, org
+load, and cache states; single-org, small samples), so read them as the same
+conclusion twice: a form with four kit controls opens warm in roughly a second
+and a half either way, and the virtual migration's wins are the ones it was made
+for, the retired re-pin runbook, the collapsed bundles, and fidelity tracking the
+host, not a headline load-time delta.
 
 ## ALM: shipping the controls to customers, not just trying the samples
 

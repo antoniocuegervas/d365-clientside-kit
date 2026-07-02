@@ -29,23 +29,23 @@ describe("DataGrid bound to an ObservableArray of rows", () => {
     expect(container.textContent).toContain("Redmond");
   });
 
-  it("re-renders when a row is added through push", () => {
+  it("re-renders when a row is added through push", async () => {
     const rows = new ObservableArray<IGridRow>([
       { key: "1", name: "Contoso", city: "Redmond" },
     ]);
     const { container } = render(<DataGrid columns={columns} rows={rows} />);
-    act(() => {
+    await act(async () => {
       rows.push({ key: "2", name: "Fabrikam", city: "Seattle" });
     });
     expect(container.textContent).toContain("Fabrikam");
   });
 
-  it("re-renders when one row is changed through updateAt", () => {
+  it("re-renders when one row is changed through updateAt", async () => {
     const rows = new ObservableArray<IGridRow>([
       { key: "1", name: "Contoso", city: "Redmond" },
     ]);
     const { container } = render(<DataGrid columns={columns} rows={rows} />);
-    act(() => {
+    await act(async () => {
       rows.updateAt(0, (row) => ({ ...row, name: "Contoso Ltd" }));
     });
     expect(container.textContent).toContain("Contoso Ltd");
@@ -100,12 +100,12 @@ describe("DataGrid behaviour", () => {
     expect(screen.queryByText("Beta")).toBeNull();
   });
 
-  it("survives loading flipping to loaded without a hook-order error", () => {
+  it("survives loading flipping to loaded without a hook-order error", async () => {
     const loading = new Observable<boolean>(true);
     const rows = new Observable<IGridRow[]>([]);
     render(<DataGrid columns={columns} rows={rows} loading={loading} resizableColumns />);
     expect(screen.getByLabelText("Loading rows")).toBeTruthy();
-    act(() => {
+    await act(async () => {
       rows.value = unsorted;
       loading.value = false;
     });

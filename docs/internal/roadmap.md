@@ -327,23 +327,19 @@ piece of that round (the posture is recorded in decisions.md, D-051) and lives
 here so it is not lost with the round's working notes.
 
 - **Move the counterparty "+N more" hovercard off `Popover`.** EVALUATED AND
-  CLOSED (2026-07-02): it stays on `Popover`, for two reasons recorded in the
-  component. The premise ("read-only display") was wrong: every party in the
-  surface is a clickable link, and the hover open/close grace exists precisely so
-  the pointer can travel in and click one; a tooltip surface is display-only and
-  keyboard users could never reach links inside it. And the win was illusory:
-  both consumers are counterparty grids whose `DataGrid` engages tabster
-  regardless, so the pin stays either way. The tabster-free tier remains for
-  genuinely display-only surfaces (the tooltip PCF).
-- **Centralize the PCF Fluent/tabster pin.** DONE (2026-07-02):
-  `pcfs/fluent-pins.json` is the single source for the pin values (including the
-  tabster-free list), and `scripts/check-pcf-pins.mjs` runs first in
-  `npm run verify`: every Fluent PCF must match the pinned version and overrides
-  (or carry none, if tabster-free), have the webpack/featureconfig dedupe files,
-  alias any declared `*-compat` package, and use exact versions throughout. Its
-  first run caught a real drift (KitOptionSet carried vestigial unaliased compat
-  dependencies, now removed). A shared base config the projects extend was not
-  built: npm manifests do not inherit, so enforcement beats inheritance here.
+  CLOSED (2026-07-02): it stays on `Popover`, because every party in the
+  surface is a clickable link (a tooltip surface is display-only and keyboard
+  users could never reach links inside it). The tabster half of the original
+  rationale is gone since the virtual-control migration (no bundled tabster
+  anywhere); the surface now renders in place (`inline`) so it stays inside the
+  themed provider on an embedded host.
+- **Centralize the PCF Fluent/tabster pin.** DONE (2026-07-02) and then
+  SUPERSEDED by the virtual-control migration: the pin file and checker became
+  `pcfs/platform-floor.json` + `scripts/check-pcf-floor.mjs` (still first in
+  `npm run verify`), which enforce the virtual posture instead: same manifest
+  platform-library declarations everywhere, React and Fluent dev-only at the
+  floor versions, tabster pins only where a compat package is genuinely
+  bundled, and no React-18-only APIs in shared/.
 - **Hold the Storybook snippet bar on the non-field stories.** DONE (2026-07-02):
   the audit found the smart and scenario tiers already at the bar; the gap was the
   twelve field-tier presentational stories, which had no component-level contract
@@ -361,6 +357,21 @@ here so it is not lost with the round's working notes.
   publishes (see gotchas.md).
 
 ## Shipped (were roadmap items)
+
+- **Platform-provided libraries for the PCF tier (virtual controls).** SHIPPED
+  (2026-07-02, the decision log's migration entry): all five kit PCFs migrated
+  to `control-type="virtual"` and were verified end to end on the live dev org
+  (render, value commit, save, host-driven update, no console errors). The
+  platform serves React 17 and its current Fluent at runtime; bundles fell from
+  350-750 KB to 7-82 KB (the date picker stays at 380 KB, the compat-picker
+  exception). The tabster pin, the re-pin runbook, and the per-form budget are
+  retired; the reactivity core gained the repaint batching shim (one code path
+  for the React 18 shell and the React 16/17 PCF host), and the pin checker was
+  repurposed as the platform-floor checker (`pcfs/platform-floor.json` +
+  `scripts/check-pcf-floor.mjs`, including the React-18-only API scan of
+  shared/). Form load was re-measured with the virtual builds and both
+  datapoints are published in deployment.md (roughly a second and a half warm
+  either way; the win is the retired maintenance, not a load-time delta).
 
 - **Multi-stage gated data input (the wizard capability).** Built as a reusable
   engine plus a sample app:

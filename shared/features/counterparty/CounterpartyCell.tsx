@@ -144,6 +144,13 @@ const MoreParties: React.FC<{
       withArrow
       positioning="below-start"
       size="small"
+      // Render the surface in place rather than in a portal. A portal mounts
+      // outside the themed FluentProvider, and in an embedded host (a PCF on
+      // a form) the theme's CSS variables are undefined out there, leaving
+      // the surface transparent. In place it inherits them, and Fluent
+      // positions the surface fixed, so an overflow ancestor never clips it
+      // (the native lookup flyout does the same).
+      inline
     >
       <PopoverTrigger disableButtonEnhancement>
         <span

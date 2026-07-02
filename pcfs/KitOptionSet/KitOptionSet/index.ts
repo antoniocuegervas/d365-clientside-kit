@@ -1,6 +1,5 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import * as React from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { FluentProvider } from "@fluentui/react-components";
 import { d365Theme } from "../../../shared/theme/d365Theme";
 import { Observable } from "../../../shared/reactivity/Observable";
@@ -15,9 +14,13 @@ import type { IOptionItem } from "../../../shared/utils/EntityModel";
  * into them on every updateView, and renders the CRM-agnostic
  * OptionSetField. No context provider, no metadata calls, the option list
  * comes straight from the bound column's PCF parameter attributes.
+ *
+ * This is a virtual control: the platform hands it the host's own React
+ * and Fluent at runtime and owns the React root. updateView RETURNS the
+ * element instead of rendering into a container, so there is no
+ * createRoot, no root field, and nothing to unmount in destroy.
  */
-export class KitOptionSet implements ComponentFramework.StandardControl<IInputs, IOutputs> {
-  private root: Root | undefined;
+export class KitOptionSet implements ComponentFramework.ReactControl<IInputs, IOutputs> {
   private notifyOutputChanged: (() => void) | undefined;
 
   // Host-owned observables bridging PCF properties to the control.
@@ -25,21 +28,14 @@ export class KitOptionSet implements ComponentFramework.StandardControl<IInputs,
   private readonly selectedValue = new Observable<number | null>(null);
 
   public init(
-    context: ComponentFramework.Context<IInputs>,
+    _context: ComponentFramework.Context<IInputs>,
     notifyOutputChanged: () => void,
-    _state: ComponentFramework.Dictionary,
-    container: HTMLDivElement
+    _state: ComponentFramework.Dictionary
   ): void {
     this.notifyOutputChanged = notifyOutputChanged;
-    this.root = createRoot(container);
-    this.render(context);
   }
 
-  public updateView(context: ComponentFramework.Context<IInputs>): void {
-    this.render(context);
-  }
-
-  private render(context: ComponentFramework.Context<IInputs>): void {
+  public updateView(context: ComponentFramework.Context<IInputs>): React.ReactElement {
     this.options.value = (context.parameters.value.attributes?.Options ?? []).map((option) => ({
       value: option.Value,
       label: option.Label,
@@ -47,23 +43,21 @@ export class KitOptionSet implements ComponentFramework.StandardControl<IInputs,
     }));
     this.selectedValue.value = context.parameters.value.raw ?? null;
 
-    this.root?.render(
+    return React.createElement(
+      FluentProvider,
+      { theme: d365Theme },
       React.createElement(
-        FluentProvider,
-        { theme: d365Theme },
-        React.createElement(
-          ErrorBoundary,
-          null,
-          React.createElement(OptionSetField, {
-            options: this.options,
-            selectedValue: this.selectedValue,
-            disabled: context.mode.isControlDisabled,
-            onChange: (value: number | null) => {
-              this.selectedValue.value = value;
-              this.notifyOutputChanged?.();
-            },
-          })
-        )
+        ErrorBoundary,
+        null,
+        React.createElement(OptionSetField, {
+          options: this.options,
+          selectedValue: this.selectedValue,
+          disabled: context.mode.isControlDisabled,
+          onChange: (value: number | null) => {
+            this.selectedValue.value = value;
+            this.notifyOutputChanged?.();
+          },
+        })
       )
     );
   }
@@ -73,6 +67,6 @@ export class KitOptionSet implements ComponentFramework.StandardControl<IInputs,
   }
 
   public destroy(): void {
-    this.root?.unmount();
+    // The platform owns the React root for a virtual control.
   }
 }

@@ -186,10 +186,13 @@ script. That portability is also a development tactic, not only a deployment cho
   subgrid, form field, or grid cell, deliver it as a PCF: a thin shell that imports the
   component you already debugged and pipes `PCFContext` in. When no bound slot is needed
   (an app page, a dialog, a search form), the webresource is the delivery shape too.
-  One recurring cost is PCF-specific: a focus-managed PCF pins its bundled Fluent to the
-  host's platform-library floor, and that pin has to be re-established on your fork each
-  release wave as Microsoft advances the platform Fluent. The runbook is in
-  [docs/deployment.md](docs/deployment.md) ("Re-pinning tabster to the host").
+  The kit's PCFs are virtual controls: the platform hands them the host's own React and
+  Fluent at runtime, so they bundle neither and there is no per-wave re-pin to maintain.
+  The one compatibility statement to carry on your fork is the platform-library floor:
+  the target org must serve platform Fluent 9.61 or newer (current waves do), and
+  `pcfs/platform-floor.json` plus the verify gate hold the kit to that floor. Details in
+  [docs/deployment.md](docs/deployment.md) ("Virtual controls and the platform-library
+  floor").
 - **Know the boundary.** The fast loop covers the UI and the data shape, most of the
   work. What still needs the real PCF is the binding feedback loop (the notify and
   update cycle and the platform's update timing), which a simulated binding cannot reproduce.
@@ -306,10 +309,10 @@ Dataverse v9 org using standard entities. It is a foundation built to be extende
 finished product with a long track record.
 
 Native fidelity is a maintained claim, not a static property: Microsoft advances the
-Unified Interface theme and the platform Fluent on its release waves, so "looks native"
-holds only as long as the kit's Fluent version and theme tokens are revisited against
-live UCI on the same cadence, roughly twice a year, alongside the PCF re-pin described
-in [docs/deployment.md](docs/deployment.md).
+Unified Interface theme and the platform Fluent on its release waves. The PCF tier now
+tracks the host automatically (virtual controls render on the platform's own Fluent),
+so the claim to revisit on that cadence is the webresource shell's bundled Fluent and
+theme tokens against live UCI, roughly twice a year.
 
 ## Contributing and reuse
 

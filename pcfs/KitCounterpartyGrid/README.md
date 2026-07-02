@@ -75,17 +75,17 @@ new or custom activity type appears. That is write-time denormalization. This
 control synthesizes the same columns at READ time: no schema, no backfill,
 automatic coverage of new and custom activity types.
 
-## Bundle: React 18 + Fluent v9 are bundled (not platform libraries)
+## Delivery shape: a virtual control on platform-provided React and Fluent
 
-This is a `control-type="standard"` control that BUNDLES React 18 and Fluent v9,
-the same as the kit's other PCFs. The platform-library route was tried first and
-does not work for this kit: the platform exposes Fluent v9 only PINNED at 9.46.2,
-and this kit is on 9.74.1, so a virtual control that relies on the platform's
-Fluent renders to nothing (anything introduced after 9.46.2 is missing at
-runtime). Bundling is the working path. The cost is bundle size (React + Fluent v9
-ride in the control bundle), which is accepted. See the decision-log note for the
-full finding, including the documented "drop the Fluent platform-library line"
-workaround that this control effectively takes by being a standard control.
+This is a `control-type="virtual"` control, the same as the kit's other PCFs: the
+platform hands it the host's own React and Fluent at runtime, so the bundle carries
+neither (about 82 KB, just the control's logic and its icons). The declared
+platform-library versions in the manifest are a compatibility floor for solution
+import, not the delivery; the org serves its current copies. An earlier cut of this
+control shipped as `control-type="standard"` bundling React 18 + Fluent v9, because
+the platform then served only Fluent 9.46.2 at runtime; that finding went stale when
+the platform started serving its current Fluent to virtual controls, and the decision
+log records both the original blocker and the migration.
 
 ## Build
 

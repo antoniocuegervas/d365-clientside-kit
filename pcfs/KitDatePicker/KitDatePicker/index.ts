@@ -1,6 +1,5 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import * as React from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { FluentProvider } from "@fluentui/react-components";
 import { d365Theme } from "../../../shared/theme/d365Theme";
 import { Observable } from "../../../shared/reactivity/Observable";
@@ -12,52 +11,49 @@ import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoun
  * LOCALE-correct formatting and date-vs-datetime behavior from the PCF
  * context, then drives the presentational DateTimeField. The field itself
  * never learns where the format came from.
+ *
+ * This is a virtual control: the platform hands it the host's own React
+ * and Fluent at runtime and owns the React root. updateView RETURNS the
+ * element instead of rendering into a container. The date and time picker
+ * compat packages are the one exception to "nothing bundled": the platform
+ * Fluent library does not carry them, so they ride in the bundle (see
+ * webpack.config.js).
  */
-export class KitDatePicker implements ComponentFramework.StandardControl<IInputs, IOutputs> {
-  private root: Root | undefined;
+export class KitDatePicker implements ComponentFramework.ReactControl<IInputs, IOutputs> {
   private notifyOutputChanged: (() => void) | undefined;
 
   private readonly value = new Observable<Date | null>(null);
 
   public init(
-    context: ComponentFramework.Context<IInputs>,
+    _context: ComponentFramework.Context<IInputs>,
     notifyOutputChanged: () => void,
-    _state: ComponentFramework.Dictionary,
-    container: HTMLDivElement
+    _state: ComponentFramework.Dictionary
   ): void {
     this.notifyOutputChanged = notifyOutputChanged;
-    this.root = createRoot(container);
-    this.render(context);
   }
 
-  public updateView(context: ComponentFramework.Context<IInputs>): void {
-    this.render(context);
-  }
-
-  private render(context: ComponentFramework.Context<IInputs>): void {
+  public updateView(context: ComponentFramework.Context<IInputs>): React.ReactElement {
     this.value.value = context.parameters.value.raw ?? null;
     const format = context.parameters.value.attributes?.Format;
     const includeTime = format === "datetime";
 
-    this.root?.render(
+    return React.createElement(
+      FluentProvider,
+      { theme: d365Theme },
       React.createElement(
-        FluentProvider,
-        { theme: d365Theme },
-        React.createElement(
-          ErrorBoundary,
-          null,
-          React.createElement(DateTimeField, {
-            value: this.value,
-            includeTime,
-            disabled: context.mode.isControlDisabled,
-            // Locale via context: the host's formatter, not a hardcoded format.
-            formatDate: (date: Date) => context.formatting.formatDateShort(date),
-            onChange: (next: Date | null) => {
-              this.value.value = next;
-              this.notifyOutputChanged?.();
-            },
-          })
-        )
+        ErrorBoundary,
+        null,
+        React.createElement(DateTimeField, {
+          value: this.value,
+          includeTime,
+          disabled: context.mode.isControlDisabled,
+          // Locale via context: the host's formatter, not a hardcoded format.
+          formatDate: (date: Date) => context.formatting.formatDateShort(date),
+          onChange: (next: Date | null) => {
+            this.value.value = next;
+            this.notifyOutputChanged?.();
+          },
+        })
       )
     );
   }
@@ -67,6 +63,6 @@ export class KitDatePicker implements ComponentFramework.StandardControl<IInputs
   }
 
   public destroy(): void {
-    this.root?.unmount();
+    // The platform owns the React root for a virtual control.
   }
 }

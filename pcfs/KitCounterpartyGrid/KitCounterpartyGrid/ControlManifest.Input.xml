@@ -8,14 +8,14 @@
     is host placement: a PCF can BE the bound subgrid; a custom page cannot occupy
     that slot.
 
-    control-type="standard" and React + Fluent v9 are BUNDLED, not platform
-    libraries. The platform-library mechanism does expose Fluent v9, but PINNED at
-    9.46.2; this kit is on 9.74.1, so the platform copy cannot satisfy it and a
-    virtual control renders to nothing. Bundling React 18 + Fluent v9 (the same as
-    the kit's other PCFs) is the working path. The cost is bundle size, accepted.
-    See the decision-log note.
+    control-type="virtual": the platform hands the control the host's own React
+    and Fluent at runtime. The declared platform-library versions are a
+    compatibility floor, not the delivery: the org serves its current copies
+    (and rejects imports declaring a version newer than it supports), so declare
+    low and receive current. The icon package is not part of the platform Fluent
+    library, so the icons the grid renders stay in the bundle.
   -->
-  <control namespace="D365Kit" constructor="KitCounterpartyGrid" version="0.0.17" display-name-key="Counterparty Activities" description-key="Cross-type activity grid with synthesized counterparty and role columns." control-type="standard">
+  <control namespace="D365Kit" constructor="KitCounterpartyGrid" version="0.1.2" display-name-key="Counterparty Activities" description-key="Cross-type activity grid with synthesized counterparty and role columns." control-type="virtual">
     <external-service-usage enabled="false">
     </external-service-usage>
     <!-- Bound to the account's Activities subgrid (activitypointer). -->
@@ -23,6 +23,8 @@
     </data-set>
     <resources>
       <code path="index.ts" order="1"/>
+      <platform-library name="React" version="16.14.0" />
+      <platform-library name="Fluent" version="9.46.2" />
     </resources>
     <feature-usage>
       <uses-feature name="WebAPI" required="true" />

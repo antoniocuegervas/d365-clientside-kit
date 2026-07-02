@@ -1244,3 +1244,125 @@ Revisit trigger: a deployment that genuinely needs many apps behind one shell, w
 boot latency that matters. The path then is per-app chunks with stable chunk names,
 one webresource per chunk in the deploy mapping, and a live-form verification of
 chunk URL resolution and caching before anything relies on it.
+
+## D-053, the platform-library path re-tested and found OPEN: virtual controls now receive the platform's current Fluent
+
+D-046 closed the platform-library route because the platform pinned its Fluent v9
+platform library at 9.46.2 while the kit used newer APIs, so a virtual control
+rendered to nothing. That conclusion was correct when measured and is now stale.
+Re-tested live (2026-07-02, the live dev org, the d365KitSamples Contact form) with a
+throwaway probe control (control-type="virtual", platform-library React + Fluent,
+local-only under pcfs/_virtualSpike, excluded from the repo):
+
+- The pac CLI 2.8.1 template itself now declares platform-library Fluent 9.68.0.
+  THIS org (its current wave) rejects an import declaring 9.68.0 ("not supported
+  by the platform") but accepts 9.46.2. The declared version is a compatibility
+  floor, not the delivery.
+- At runtime the control received React 17.0.2 and a Fluent bundle containing
+  every probe export introduced after 9.46.2 (Breadcrumb, MessageBar, Rating,
+  TagPicker, TeachingPopover, SwatchPicker, List, Carousel, ColorPicker), which
+  matches the platformlibs/fluent/9.68.0 script the org serves. Declare low,
+  receive current.
+- The shared window tabster read 8.2.0, and a focus-managed Fluent Menu rendered
+  by the probe opened cleanly against it: with platform-provided Fluent there is
+  exactly one tabster on the page, the host's, and version skew is structurally
+  impossible.
+- The build externalized React and Fluent; the probe bundle is 13 KB. The kit's
+  standard PCFs bundle 350 to 750 KB each.
+
+What this opens: the PCF tier can migrate to virtual controls and drop bundling
+React and Fluent entirely. That retires the tabster pin and its per-wave re-pin
+runbook, collapses the per-form bundle budget, and makes native fidelity track
+the host automatically. The webresource shell is unaffected (own iframe, keeps
+bundling React 18).
+
+What the migration costs, measured this session: shared code contains NO
+React-18-only API usage (verified by grep; createRoot appears only at the six
+entry points). The work is per-PCF index.ts rewrites to the ReactControl shape
+(updateView returns the element, no root management), a notification batching
+shim in the reactivity core to replace React 18 automatic batching on the
+React 17 host (the same work the metadata rework's render-count acceptance
+already wants), dev-time-only React and Fluent in the PCF manifests, and the pin
+checker repurposed as a compatibility-floor checker (kit code must not use
+Fluent APIs newer than the lowest platform library across target orgs, and the
+declared manifest version must be one the target org accepts, which varies by
+wave, as the 9.68.0 rejection shows).
+
+Not decided here: the migration itself. This entry records the evidence and the
+open path; the migration is its own piece of work with its own live-form done
+bar per control. The probe control remains registered in the dev org (the pac
+push temp solution), off all forms, reusable for the migration round.
+
+## D-054, the PCF tier is virtual: platform-provided React and Fluent, and the pin posture retired
+
+The migration D-053 opened is done. All five kit PCFs (KitOptionSet, KitDatePicker,
+KitTooltip, KitNativeLookup, KitCounterpartyGrid) are control-type="virtual"
+ReactControls: updateView returns the element, the platform owns the React root and
+hands the control the host page''s own React (17.0.2 on the dev org) and its current
+Fluent at runtime. Each control was verified end to end on the live dev org, the
+kit''s done bar: renders on the form, commits its value to the bound column and
+saves, repaints on a host-driven value change, no console errors. Bundles fell from
+350-750 KB per control to 7-82 KB, except the date picker (380 KB, the compat
+exception below). This supersedes the pinned tier of D-051: with the platform
+providing Fluent there is exactly one tabster instance on the page, the host''s, so
+the version-skew collision is structurally impossible, the per-wave re-pin runbook
+is retired, and the tabster-free tooltip tier stops being special. D-047 and D-048
+remain true for any control-type="standard" PCF a consumer builds; the standard
+machinery stays documented as the historical note in deployment.md.
+
+Two version floors, deliberately different numbers, both in pcfs/platform-floor.json
+and enforced by scripts/check-pcf-floor.mjs (the repurposed pin checker, still first
+in verify). The DECLARED floor (manifest platform-library lines, React 16.14.0 and
+Fluent 9.46.2) is only what the org must accept at solution import; the runtime
+serves its current copy regardless (declare low, receive current, per D-053). The
+API floor (Fluent 9.61.0) is the oldest delivery the kit''s code actually works
+against, and its enforcement is compilation, not a hand-kept list: every PCF carries
+exactly that version in devDependencies, so an API the floor does not export fails
+the build. The number is 9.61.0 because SearchBox (the grid''s search bar) first
+ships there; the floor check caught that within minutes of existing, which is the
+point. The checker also scans shared/ for React-18-only APIs (the shell bundles
+React 18, the PCF host serves 16/17, shared code runs on both).
+
+What the migration itself surfaced, each found on the live form and none in the
+harness:
+
+- react-dom only externalizes behind the pcfReactPlatformLibraries feature flag in
+  featureconfig.json; without it the bundle silently carries the repo root''s
+  react-dom (the build succeeds, 130 KB heavier, and batched updates would run
+  against the wrong renderer). Verified live that the platform''s ReactDOM global
+  (ReactDOMv16) exists and exposes unstable_batchedUpdates before relying on it.
+- The platform Fluent library carries no DatePicker/TimePicker (checked against the
+  live org''s module: 1199 exports, none of them the pickers; the one serving a
+  DatePicker is the v8 library). The compat packages therefore stay bundled in
+  KitDatePicker, with their tabster chain pinned via overrides and the packages
+  aliased in webpack.config.js, exactly the D-048 discipline scoped down to the one
+  place that still bundles focus management.
+- Overlay surfaces must not portal to the document in an embedded host. The page
+  carries the UCI shell''s own Fluent plus the platform library, and a portal mounts
+  where the theme''s CSS variables do not reach (and the numbered provider classes
+  cannot be trusted across copies), so the surface renders transparent. The date
+  picker calendar renders in place (inlinePopup), the time list keeps its portal but
+  mounts it inside the themed tree (mountNode, because in-place anchoring misplaced
+  a combobox listbox in the form host), and the counterparty hovercard renders in
+  place (inline), joining the native lookup flyout which already did (D-049).
+- The platform mounts a virtual control''s tree inside a flex container, where a
+  plain div shrinks to its content. The grid measures its own width to choose the
+  table or the card layout, so its root now stretches (width 100 percent); the old
+  standard control rendered into a block container and never saw this.
+
+The reactivity core gained the batching shim the migration needed (and the metadata
+rework''s render-count acceptance wanted): observer components hand a stable render
+request to a shared queue that flushes once per pass, wrapped in react-dom''s
+batched-updates call (real merging on React 16/17, a passthrough on 18, one code
+path for both hosts). Only the repaint coalesces; Observable values and subscriber
+callbacks stay synchronous. Inside DOM event delivery the repaint stays synchronous
+too, both because React already merges there and because a delayed render fights
+React''s controlled-input text restore (the caret jumps). Verified live by typing
+through the tooltip control''s input on the React 17 host with no character or caret
+loss.
+
+Revisit triggers: a target org whose wave serves a platform Fluent older than the
+API floor (lower the floor or gate the affected control), a platform wave that
+changes what the React platform library delivers, or a control that genuinely needs
+a library version the platform will not serve (build that one standard, per the
+deployment.md historical note).

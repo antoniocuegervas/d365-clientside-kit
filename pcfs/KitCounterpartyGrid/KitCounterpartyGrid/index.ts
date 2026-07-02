@@ -1,6 +1,5 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import * as React from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { FluentProvider } from "@fluentui/react-components";
 import { d365Theme } from "../../../shared/theme/d365Theme";
 import { PCFContext, type IPcfContextLike } from "../../../shared/context/PCFContext";
@@ -10,56 +9,47 @@ import { normalizeGuid, type IXrmLookupValue } from "../../../shared/utils/Entit
 import { CounterpartyGridApp } from "./App";
 
 /**
- * KitCounterpartyGrid root, a standard control that BUNDLES React 18 + Fluent v9 (a virtual
- * control renders blank against the platform's own Fluent, as the kit's other PCFs
- * found, so bundling is the working path). The bundled Fluent is pinned to the
- * host platform-library version (see package.json) so the single tabster instance
- * the form shares on the window stays compatible: a newer bundled tabster augments
- * that instance with a shape it lacks and crashes the control. One PCFContext is
- * built in init and reused, the same IViewModelContext the webresource and
- * form-script hosts use, so the control's data access is identical to the rest of
- * the kit.
+ * KitCounterpartyGrid root, a virtual dataset control: the platform hands it
+ * the host's own React and Fluent at runtime and owns the React root
+ * (updateView RETURNS the element). With the platform providing Fluent there
+ * is exactly one focus-management instance on the page, the host's, so the
+ * grid's popovers cannot hit the shared-instance version skew a bundled
+ * Fluent risked. One PCFContext is built in init and reused, the same
+ * IViewModelContext the webresource and form-script hosts use, so the
+ * control's data access is identical to the rest of the kit.
  */
 export class KitCounterpartyGrid
-  implements ComponentFramework.StandardControl<IInputs, IOutputs>
+  implements ComponentFramework.ReactControl<IInputs, IOutputs>
 {
-  private root: Root | undefined;
   private kitContext: PCFContext | undefined;
 
   public init(
     context: ComponentFramework.Context<IInputs>,
     _notifyOutputChanged: () => void,
-    _state: ComponentFramework.Dictionary,
-    container: HTMLDivElement
+    _state: ComponentFramework.Dictionary
   ): void {
     this.kitContext = new PCFContext(context as unknown as IPcfContextLike);
-    this.root = createRoot(container);
-    this.render(context);
   }
 
-  public updateView(context: ComponentFramework.Context<IInputs>): void {
-    this.render(context);
-  }
-
-  private render(context: ComponentFramework.Context<IInputs>): void {
-    if (!this.kitContext || !this.root) {
-      return;
-    }
-    this.root.render(
+  public updateView(context: ComponentFramework.Context<IInputs>): React.ReactElement {
+    return React.createElement(
+      FluentProvider,
+      // The platform mounts a virtual control's tree inside a flex container,
+      // where a plain div shrinks to its content. The grid measures its own
+      // width to pick the table or the card layout, so the root must stretch
+      // to the space the subgrid actually has.
+      { theme: d365Theme, style: { width: "100%" } },
       React.createElement(
-        FluentProvider,
-        { theme: d365Theme },
+        ErrorBoundary,
+        null,
         React.createElement(
-          ErrorBoundary,
-          null,
-          React.createElement(
-            ViewModelContextProvider,
-            { context: this.kitContext },
-            React.createElement(CounterpartyGridApp, {
-              dataset: context.parameters.activities,
-              host: hostRecord(context),
-            })
-          )
+          ViewModelContextProvider,
+          // init always runs before the first updateView, so the context exists.
+          { context: this.kitContext as PCFContext },
+          React.createElement(CounterpartyGridApp, {
+            dataset: context.parameters.activities,
+            host: hostRecord(context),
+          })
         )
       )
     );
@@ -70,7 +60,7 @@ export class KitCounterpartyGrid
   }
 
   public destroy(): void {
-    this.root?.unmount();
+    // The platform owns the React root for a virtual control.
   }
 }
 

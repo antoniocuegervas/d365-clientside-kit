@@ -19,7 +19,7 @@ class Probe extends React.Component {
 }
 
 describe("Stepper", () => {
-  it("remounts the step body when the step changes", () => {
+  it("remounts the step body when the step changes", async () => {
     // Smart controls load metadata and bind their value Observable on mount, so
     // the body MUST be a fresh mount per step rather than a reused instance.
     mountCount = 0;
@@ -39,7 +39,7 @@ describe("Stepper", () => {
     );
     expect(mountCount).toBe(1);
 
-    act(() => {
+    await act(async () => {
       currentIndex.value = 1;
     });
     expect(mountCount).toBe(2); // body remounted, not reused

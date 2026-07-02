@@ -258,20 +258,23 @@ matched-to-platform on purpose.
 
 ## A PCF that bundles Fluent v9 pins to the host's shared tabster
 
-When a PCF bundles its own React + Fluent v9 (instead of using the platform-library
-mechanism, which is pinned to an older Fluent), the control shares one tabster
-instance with the model-driven app on `window`. If the bundled tabster is newer
-than the host's, it augments that shared instance with a shape it does not have and
-throws during init, blanking the control. The symptom is a blank container plus the
-platform's unhandled-error dialog, with no data queries fired, so it reads as a
-broken control when it is really a version collision.
+The kit's own PCFs no longer bundle Fluent: they are virtual controls rendering on
+the platform's copy, where this collision cannot exist. The gotcha remains for any
+`control-type="standard"` PCF a consumer builds that bundles its own React + Fluent
+v9: the control shares one tabster (focus management) instance with the model-driven
+app on `window`, and if the bundled tabster is newer than the host's, it augments
+that shared instance with a shape it does not have and throws during init, blanking
+the control. The symptom is a blank container plus the platform's unhandled-error
+dialog, with no data queries fired, so it reads as a broken control when it is
+really a version collision.
 
-Pin the Fluent v9 tabster chain in the PCF's `package.json` to the host's floor,
-currently `@fluentui/react-components` at 9.68.0, which resolves
-`@fluentui/react-tabster` to 9.26.1 and `tabster` to 8.5.5, with an `overrides`
-block forcing the last two. If a Dynamics update moves the host's tabster, re-pin to
-match. Ship the Release (production) build: the debug bundle can exceed the 5 MB
-webresource size ceiling.
+The fix for a bundling control: pin the Fluent v9 tabster chain in the PCF's
+`package.json` to the host's floor (`@fluentui/react-components` at the host's
+platform-library version, with an `overrides` block forcing `@fluentui/react-tabster`
+and `tabster` to what that version resolves), read the host's live version from
+`window.__tabsterInstance._version`, and re-pin when a Dynamics wave moves it. Ship
+the Release (production) build: the debug bundle can exceed the 5 MB webresource
+size ceiling.
 
 Bundling Fluent v9 also trips the Solution Checker: running it on the PCF reports
 `web-avoid-window-top` (High) several times against `bundle.js`. These are false
@@ -283,22 +286,23 @@ positives.
 
 ## A PCF whose shared code uses a Fluent *-compat package must alias that package too
 
-The React/Fluent webpack dedupe above aliases `@fluentui/react-components` to the PCF's
-own node_modules, which is enough for most controls: react-components pulls its
-react-tabster and tabster from the PCF tree, on the pinned versions. But the
-`@fluentui/*-compat` packages (`react-datepicker-compat`, `react-timepicker-compat`) are
-NOT re-exported through react-components, so a control whose shared code uses them (the
-date field, via `DateTimeField`) resolves them from the REPO-ROOT node_modules instead,
-and they drag the root's unpinned tabster (8.8.0, the collision version) into the bundle.
-The control then blanks on a form even though the PCF is pinned, and the build looks
-clean, so this is easy to miss.
+The `@fluentui/*-compat` packages (`react-datepicker-compat`,
+`react-timepicker-compat`) are NOT part of the platform Fluent library and are not
+re-exported through react-components, so even a virtual control bundles them (the
+date picker does). A control whose SHARED code uses them (the date field, via
+`DateTimeField`) resolves them from the REPO-ROOT node_modules instead of the PCF's,
+and they drag the root's unpinned tabster into the bundle, the version that collides
+with the host's shared instance. The control then blanks on a form even though the
+project pins its own tree, and the build looks clean, so this is easy to miss.
 
 Alias every `@fluentui/*-compat` package the shared code touches to the PCF's
-node_modules as well, alongside react / react-dom / react-components / react-icons. Their
-internal react-tabster and tabster then resolve within the PCF tree, on the pinned 8.5.5.
-Do NOT alias `tabster` or `@fluentui/react-tabster` directly: aliasing a package to its
-directory bypasses its package.json `exports`, and react-tabster's own `import "tabster"`
-then fails to resolve. `pcfs/KitDatePicker/webpack.config.js` shows the working set.
+node_modules (`pcfs/KitDatePicker/webpack.config.js` shows the working set), and pin
+their tabster chain via `overrides` (`pcfs/platform-floor.json` holds the values;
+the floor checker enforces both). Their internal react-tabster and tabster then
+resolve within the PCF tree, on the pinned versions. Do NOT alias `tabster` or
+`@fluentui/react-tabster` directly: aliasing a package to its directory bypasses its
+package.json `exports`, and react-tabster's own `import "tabster"` then fails to
+resolve.
 
 ## A PCF redeploy needs a manifest version bump, or the platform serves the old bundle
 

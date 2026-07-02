@@ -18,8 +18,8 @@
     "smoke": "jest tests/smoke",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "check:pcf-pins": "node scripts/check-pcf-pins.mjs",
-    "verify": "npm run check:pcf-pins && npm run lint && npm run typecheck && npm run build && npm run test && npm run smoke && npm run build-storybook"
+    "check:pcf-floor": "node scripts/check-pcf-floor.mjs",
+    "verify": "npm run check:pcf-floor && npm run lint && npm run typecheck && npm run build && npm run test && npm run smoke && npm run build-storybook"
   },
   "dependencies": {
     "@fluentui/react-components": "9.74.1",

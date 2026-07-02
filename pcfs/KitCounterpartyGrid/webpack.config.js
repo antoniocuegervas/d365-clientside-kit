@@ -1,27 +1,21 @@
 const path = require("path");
 
 /**
- * The control imports the kit's shared source from outside this project
- * (../../../shared). Without help, webpack resolves React and Fluent for that
- * shared code to the REPO-ROOT node_modules, while this control's own files (and
- * Fluent) resolve to the PCF's node_modules, so the bundle ends up with two
- * copies of React and Fluent. Two React copies means two hook dispatchers, and
- * Fluent v9's griffel hooks throw "Invalid hook call / more than one copy of
- * React" at runtime, leaving the control blank.
+ * As a virtual control this project bundles almost nothing: react, react-dom,
+ * and @fluentui/react-components are provided by the platform at runtime
+ * (webpack externals, wired up by pcf-scripts from the manifest's
+ * platform-library lines plus the pcfReactPlatformLibraries flag in
+ * featureconfig.json).
  *
- * Force a single copy of each shared singleton by aliasing them to this project's
- * node_modules. pcf-scripts merges this into its webpack config when
- * featureconfig.json sets pcfAllowCustomWebpack to "on".
+ * The icon package is the exception: it is not a platform library, so it
+ * rides in the bundle. The control reaches it from the kit's shared source
+ * OUTSIDE this project (../../../shared), and without help webpack would
+ * resolve that from the REPO-ROOT node_modules, putting two copies of the
+ * icon package in the bundle. Aliasing it to this project keeps it one copy.
  */
 module.exports = {
   resolve: {
     alias: {
-      react: path.resolve(__dirname, "node_modules/react"),
-      "react-dom": path.resolve(__dirname, "node_modules/react-dom"),
-      "@fluentui/react-components": path.resolve(
-        __dirname,
-        "node_modules/@fluentui/react-components"
-      ),
       "@fluentui/react-icons": path.resolve(__dirname, "node_modules/@fluentui/react-icons"),
     },
   },

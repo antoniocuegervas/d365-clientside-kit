@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="D365Kit" constructor="KitDatePicker" version="1.0.1" display-name-key="Kit Example: Date Picker (Pattern 3)" description-key="Reference PCF for authoring Pattern 3 (smart via the PCF root, locale resolved from context). See docs/adding-a-pcf.md." control-type="standard" >
+  <control namespace="D365Kit" constructor="KitDatePicker" version="1.1.2" display-name-key="Kit Example: Date Picker (Pattern 3)" description-key="Reference PCF for authoring Pattern 3 (smart via the PCF root, locale resolved from context). See docs/adding-a-pcf.md." control-type="virtual" >
     <!--external-service-usage node declares whether this 3rd party PCF control is using external service or not, if yes, this control will be considered as premium and please also add the external domain it is using.
     If it is not using any external service, please set the enabled="false" and DO NOT add any domain below. The "enabled" will be false by default.
     Example1:
@@ -32,6 +32,15 @@
     -->
     <resources>
       <code path="index.ts" order="1"/>
+      <!-- The platform hands the control its own React and Fluent at runtime.
+           The declared versions are a compatibility floor, not the delivery:
+           the org serves its current copies (and rejects imports declaring a
+           version newer than it supports), so declare low and receive current.
+           The date and time picker compat packages are NOT part of the platform
+           Fluent library (verified against the live org), so those two stay
+           bundled; see webpack.config.js. -->
+      <platform-library name="React" version="16.14.0" />
+      <platform-library name="Fluent" version="9.46.2" />
       <!-- UNCOMMENT TO ADD MORE RESOURCES
       <css path="css/KitDatePicker.css" order="1" />
       <resx path="strings/KitDatePicker.1033.resx" version="1.0.0" />
