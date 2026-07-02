@@ -1,7 +1,8 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import * as React from "react";
 import { FluentProvider } from "@fluentui/react-components";
-import { resolvePcfTheme } from "../../../shared/theme/d365Theme";
+import { pcfProviderProps } from "../../../shared/theme/d365Theme";
+import { securedReadOnly } from "../../../shared/context/pcfHostReads";
 import { Observable } from "../../../shared/reactivity/Observable";
 import { DateTimeField } from "../../../shared/controls/presentational/DateTimeField";
 import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoundary";
@@ -39,9 +40,9 @@ export class KitDatePicker implements ComponentFramework.ReactControl<IInputs, I
 
     return React.createElement(
       FluentProvider,
-      // The platform theme (fluentDesignLanguage.tokenTheme) wins when the new
-      // look serves one; the kit default covers the rest.
-      { theme: resolvePcfTheme(context) },
+      // Shared root props: the platform theme when the new look serves one,
+      // and the full-width style the platform's flex mount point requires.
+      pcfProviderProps(context),
       React.createElement(
         ErrorBoundary,
         null,
@@ -49,6 +50,10 @@ export class KitDatePicker implements ComponentFramework.ReactControl<IInputs, I
           value: this.value,
           includeTime,
           disabled: context.mode.isControlDisabled,
+          // Per-user column security: a user without write access to a secured
+          // column gets the read-only rendering, not an editable field that
+          // fails at save.
+          readOnly: securedReadOnly(context.parameters.value),
           // Locale via context: the host's formatter, not a hardcoded format.
           formatDate: (date: Date) => context.formatting.formatDateShort(date),
           onChange: (next: Date | null) => {

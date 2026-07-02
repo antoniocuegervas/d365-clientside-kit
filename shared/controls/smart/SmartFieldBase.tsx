@@ -2,7 +2,7 @@ import * as React from "react";
 import { kitStrings } from "../../localization/kitStrings";
 import { SmartComponent } from "../../context/ViewModelContextProvider";
 import type { IAttributeMetadata, IFormattingInfo } from "../../context/IViewModelContext";
-import type { Observable, OrObservable } from "../../reactivity/Observable";
+import { isObservable, type Observable, type OrObservable } from "../../reactivity/Observable";
 import { WaitingMessage } from "../presentational/WaitingMessage";
 import { FieldShell } from "../presentational/FieldShell";
 
@@ -48,6 +48,11 @@ interface ISmartFieldState {
   /** User locale formatting, loaded only when the control opts in. */
   formatting?: IFormattingInfo;
   loadError?: string;
+  /** The observables last rendered, tracked to detect a rebind before render. */
+  boundValue?: unknown;
+  boundError?: unknown;
+  /** Bumped per rebind; part of the child key so a rebind remounts the child. */
+  rebindEpoch?: number;
 }
 
 /**
@@ -69,6 +74,37 @@ export abstract class SmartFieldBase<
     super(props);
     this.state = {};
     this.observe(props.value, props.errorMessage);
+  }
+
+  /**
+   * Runs before every render: when the bound observables change identity (a
+   * rebind on a reused instance), bump the child key epoch IN the same render.
+   * Presentational controls subscribe to their Observable props once, in
+   * their constructor (the documented identity-stable contract), so a rebind
+   * must hand them a fresh instance; reusing one would leave it subscribed to
+   * the previous binding's observables and rendering the new ones. A PLAIN
+   * errorMessage string is exempt: it re-renders like any prop, and keying on
+   * it would remount (and blur) the field per message change.
+   */
+  static getDerivedStateFromProps(
+    // Typed loosely (React's static typing has no access to the class
+    // generics, and narrower parameter types break ComponentType inference
+    // in tooling like Storybook); the cast below restores the real shape.
+    rawProps: unknown,
+    state: ISmartFieldState
+  ): Partial<ISmartFieldState> | null {
+    const props = rawProps as ISmartFieldProps<unknown>;
+    const error = isObservable(props.errorMessage as OrObservable<string | undefined>)
+      ? props.errorMessage
+      : undefined;
+    if (state.boundValue !== props.value || state.boundError !== error) {
+      return {
+        boundValue: props.value,
+        boundError: error,
+        rebindEpoch: (state.rebindEpoch ?? 0) + 1,
+      };
+    }
+    return null;
   }
 
   override componentDidMount(): void {
@@ -190,6 +226,15 @@ export abstract class SmartFieldBase<
     if (!metadata) {
       return <WaitingMessage inline message={this.props.label ?? kitStrings().loading} />;
     }
-    return this.renderField(metadata);
+    // Keyed by the binding: a rebind (new attribute or new observables)
+    // remounts the presentational child so its constructor-time subscriptions
+    // follow the new binding (see getDerivedStateFromProps).
+    return (
+      <React.Fragment
+        key={`${this.props.entity}|${this.props.attribute}|${this.state.rebindEpoch ?? 0}`}
+      >
+        {this.renderField(metadata)}
+      </React.Fragment>
+    );
   }
 }

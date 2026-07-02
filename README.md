@@ -61,8 +61,8 @@ with one split by delivery shape. A webresource has no per-user access signal,
 so there the kit renders column-secured fields read-only and shows read-denied
 values as empty rather than pretending to enforce access. A bound PCF DOES
 receive the user's real access through the documented property surface, and
-the kit's field PCFs consume it: a secured column the user can edit stays
-editable. If you need native-grade column security in webresource UI, that is
+the kit's editable field PCFs consume it: a secured column the user can edit
+stays editable. If you need native-grade column security in webresource UI, that is
 the platform's job: use a native form. See [docs/gotchas.md](docs/gotchas.md).
 
 ## How this relates to canvas apps and custom pages
@@ -176,9 +176,11 @@ One shared library, four places it lands:
 | `clienthooks/` | `CrmClientSide` UMD bundle for form / ribbon / grid events |
 | `pcfs/` | Sample PCF projects importing `shared/` as source |
 
-Runs against modern orgs (v9.2+/UCI) natively, and CRM 8.x servers through a legacy
-context adapter. "Legacy" means old server APIs, not old browsers: modern evergreen
-browsers only.
+Runs against modern orgs (v9.2+/UCI) natively. CRM 8.x support is designed in
+(a legacy context adapter, tested against 8.x-shaped mocks) but has not yet
+been exercised against a live 8.x org; treat it as best-effort until then.
+"Legacy" means old server APIs, not old browsers: modern evergreen browsers
+only.
 
 ## Multiple ways to ship the same component
 
@@ -197,11 +199,18 @@ script. That portability is also a development tactic, not only a deployment cho
   subgrid, form field, or grid cell, deliver it as a PCF: a thin shell that imports the
   component you already debugged and pipes `PCFContext` in. When no bound slot is needed
   (an app page, a dialog, a search form), the webresource is the delivery shape too.
+  The smart-tier PCFs target model-driven FORMS: custom pages and canvas apps do not
+  populate the form-context surfaces they read (host entity, org URL), so there they
+  render a setup message rather than the control.
   The kit's PCFs are virtual controls: the platform hands them the host's own React and
-  Fluent at runtime, so they bundle neither and there is no per-wave re-pin to maintain.
+  Fluent at runtime, so they bundle neither and there is no per-wave re-pin to maintain
+  (one exception: the date picker bundles the date/time compat packages, which carry
+  the one surviving tabster pin, see docs/deployment.md).
   The one compatibility statement to carry on your fork is the platform-library floor:
-  the target org must serve platform Fluent 9.61 or newer (current waves do), and
-  `pcfs/platform-floor.json` plus the verify gate hold the kit to that floor. Details in
+  the target org must serve platform Fluent 9.61 or newer (current commercial waves do;
+  sovereign clouds trail them, and there the grid control states the wave requirement at
+  runtime instead of erroring). `pcfs/platform-floor.json` plus the verify gate hold the
+  kit to that floor. Details in
   [docs/deployment.md](docs/deployment.md) ("Virtual controls and the platform-library
   floor").
 - **Know the boundary.** The fast loop covers the UI and the data shape, most of the
@@ -283,7 +292,11 @@ inside each `pcfs/*` project), none of it ships in any bundle, and the state
 is reviewed each release. If a LOCAL Storybook fights you (port 6006 taken and
 an interactive prompt, or a stale cache after reinstalling), run
 `npm run storybook -- --port 6008 --ci`, and delete
-`node_modules/.cache/storybook` if a fresh install fails to start.
+`node_modules/.cache/storybook` if a fresh install fails to start. One Windows
+trap: stop the Storybook dev server BEFORE reinstalling node_modules; a running
+dev server holds `esbuild.exe`, the install EPERMs halfway, and the half-deleted
+tree then fails in confusing ways (missing jest types, a wrong-version global
+eslint). Recovery is closing Storybook and rerunning `npm install`.
 
 Zero-setup alternative: browse the controls live in the hosted Storybook:
 https://antoniocuegervas.github.io/d365-clientside-kit/

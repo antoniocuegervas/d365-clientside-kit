@@ -151,7 +151,7 @@ export const ViewByName: Story = {
     `// viewName runs a saved view as the search source, so an admin controls the
 // columns and filters behind the inline search. The view is resolved by its
 // display name at runtime (getViewByName), then the typed text is matched
-// inside it: ?savedQuery={id}&$filter=contains(name,'...').
+// inside it: ?savedQuery={id}&$filter=startswith(name,'...').
 const company = new Observable<IEntityReference | null>(null);
 
 <SmartLookup

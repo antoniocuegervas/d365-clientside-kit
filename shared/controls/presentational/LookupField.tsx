@@ -34,6 +34,11 @@ export interface ILookupFieldProps extends ICommonFieldProps {
   /** True while the host is searching, to show the busy hint. */
   searching?: OrObservable<boolean>;
   /**
+   * True when the host's last search FAILED (as opposed to returning nothing).
+   * Renders a distinct message so a broken query never reads as "no matches".
+   */
+  searchFailed?: OrObservable<boolean>;
+  /**
    * "inline" (default) is the search-as-you-type combobox; "dialog" shows the
    * selected value + a Browse button that raises {@link onBrowse} (the smart
    * tier opens the native CRM picker).
@@ -74,7 +79,7 @@ export class LookupField extends ObserverComponent<ILookupFieldProps, ILookupFie
   constructor(props: ILookupFieldProps) {
     super(props);
     this.state = { searchText: null };
-    this.observe(props.selected, props.results, props.errorMessage, props.searching);
+    this.observe(props.selected, props.results, props.errorMessage, props.searching, props.searchFailed);
   }
 
   private readonly handleInput = (event: React.ChangeEvent<HTMLInputElement>): void => {
@@ -129,6 +134,7 @@ const Body: React.FC<
   const { selected, disabled, readOnly, placeholder, state } = props;
   const results = valueOf(props.results);
   const searching = valueOf(props.searching ?? false);
+  const searchFailed = valueOf(props.searchFailed ?? false);
   const current = selected.value;
   const text = state.searchText ?? current?.name ?? "";
   const interactive = !disabled && !readOnly;
@@ -242,6 +248,10 @@ const Body: React.FC<
             {searching ? (
               <Option key="__searching__" value="__searching__" text="" disabled>
                 Searching…
+              </Option>
+            ) : searchFailed ? (
+              <Option key="__failed__" value="__failed__" text="" disabled>
+                {kitStrings().searchFailed}
               </Option>
             ) : results.length === 0 ? (
               <Option key="__none__" value="__none__" text="" disabled>

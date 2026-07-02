@@ -20,13 +20,13 @@ import { createFakeViewModelContext } from "../../mocks/fakeViewModelContext";
 
 /**
  * Wraps a fake context so its `retrieveMultipleRecords` honours the two query
- * clauses the live controls emit: `contains(field,'...')` narrows the rows, and
+ * clauses the live controls emit: `startswith`/`contains(field,'...')` narrows the rows, and
  * `$orderby=field dir` sorts them. The base fake replays the seeded list as-is,
  * so without this the inline lookup would not filter as you type and the grid's
  * server sort would not reorder on a header click. Storybook-only sugar over the
  * shared fake (the unit tests assert the query string instead of the rows).
  */
-function withClientQuerySemantics(context: IViewModelContext): IViewModelContext {
+export function withClientQuerySemantics(context: IViewModelContext): IViewModelContext {
   const original = context.webAPI.retrieveMultipleRecords;
   context.webAPI.retrieveMultipleRecords = async (entity, options, maxPageSize) => {
     const result = await original(entity, options, maxPageSize);
@@ -35,11 +35,16 @@ function withClientQuerySemantics(context: IViewModelContext): IViewModelContext
     // a real server receives them); decode before parsing the clauses out.
     const query = decodeURIComponent(String(options ?? ""));
 
-    const contains = /contains\((\w+),'([^']*)'\)/i.exec(query);
-    if (contains) {
-      const [, field, term] = contains;
+    const match = /(contains|startswith)\((\w+),'([^']*)'\)/i.exec(query);
+    if (match) {
+      const [, operator, field, term] = match;
       const needle = term.toLowerCase();
-      entities = entities.filter((row) => String(row[field] ?? "").toLowerCase().includes(needle));
+      entities = entities.filter((row) => {
+        const value = String(row[field] ?? "").toLowerCase();
+        return operator.toLowerCase() === "startswith"
+          ? value.startsWith(needle)
+          : value.includes(needle);
+      });
     }
 
     const order = /\$orderby=(\w+)\s+(asc|desc)/i.exec(query);

@@ -3,6 +3,24 @@
 Each PCF is its own npm package under `pcfs/` (a pcf-scripts requirement),
 importing `shared/` **as source** via relative paths, no publishing step.
 
+## 0. Prerequisites
+
+Beyond the repo's Node toolchain, the PCF path needs:
+
+- The **Power Platform CLI** (`pac`). Install it from
+  [Microsoft's install page](https://learn.microsoft.com/power-platform/developer/cli/introduction)
+  (MSI, .NET tool, or the VS Code extension); `pac help` confirms it works.
+- An **authenticated profile against your target environment** before any
+  deploy command will run:
+
+  ```powershell
+  pac auth create --environment https://yourorg.crm.dynamics.com
+  ```
+
+  `pac auth list` shows profiles; `pac auth select` switches between them.
+- The **.NET SDK** (any current LTS), only for the solution-wrapper path
+  (`dotnet build` on the deploy wrapper). `pac pcf push` alone does not need it.
+
 ## 1. Scaffold
 
 ```powershell
@@ -60,6 +78,11 @@ The short decision table:
 All three patterns: implement `ComponentFramework.ReactControl`, keep context
 wiring in `init`, RETURN the element from `updateView` (the platform owns the
 React root, so there is no createRoot and nothing to unmount in `destroy`).
+Wrap the tree in a `FluentProvider` built from `pcfProviderProps(context)`
+(`shared/theme/d365Theme.ts`): besides the theme it carries the full-width
+style every virtual root needs, because the platform mounts the control in a
+flex container where a plain div shrinks to its content and the field renders
+narrower than the native ones beside it.
 
 ## 3. Build
 

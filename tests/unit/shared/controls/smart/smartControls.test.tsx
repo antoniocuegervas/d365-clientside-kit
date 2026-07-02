@@ -328,11 +328,11 @@ describe("SmartLookup", () => {
     // the latest retrieveMultipleRecords call.
     await waitFor(() => {
       const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
-      expect(decodeURIComponent(String(query?.args[1]))).toContain("contains(name,'");
+      expect(decodeURIComponent(String(query?.args[1]))).toContain("startswith(name,'");
     });
     const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1)!;
     expect(query.args[0]).toBe("account");
-    expect(decodeURIComponent(String(query.args[1]))).toContain("contains(name,'");
+    expect(decodeURIComponent(String(query.args[1]))).toContain("startswith(name,'");
     expect(String(query.args[1])).toContain("$top=10");
 
     expect(await screen.findByText("Contoso Ltd")).toBeTruthy();
@@ -366,7 +366,7 @@ describe("SmartLookup", () => {
       const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
       expect(query).toBeDefined();
       expect(String(query?.args[1])).toContain("$top=10");
-      expect(String(query?.args[1])).not.toContain("contains(");
+      expect(String(query?.args[1])).not.toContain("startswith(");
     });
   });
 
@@ -437,7 +437,7 @@ describe("SmartLookup", () => {
     await userEvent.type(await screen.findByRole("combobox"), "co");
     await waitFor(() => {
       const last = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
-      expect(decodeURIComponent(String(last?.args[1]))).toContain("contains(name,'co')");
+      expect(decodeURIComponent(String(last?.args[1]))).toContain("startswith(name,'co')");
     });
     const last = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1)!;
     expect(String(last.args[1])).toContain("?savedQuery=99990000-0000-0000-0000-000000000009");
@@ -646,6 +646,33 @@ describe("SmartLookup", () => {
       consoleError.mockRestore();
     }
   });
+
+  it("a failed search logs and shows the failed state, not the empty state", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const { context } = createFakeViewModelContext({
+        attributes: {
+          "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+        },
+        queryResults: {
+          account: [{ failWith: "401 session expired" }],
+        },
+      });
+      const value = new Observable<IEntityReference | null>(null);
+      renderWith(
+        context,
+        <SmartLookup entity="contact" attribute="parentcustomerid" value={value} searchDebounceMs={0} />
+      );
+      await userEvent.type(await screen.findByRole("combobox"), "cont");
+      // The failure must be distinguishable from "no matches": a user reading
+      // "No records found" for a record that exists would create a duplicate.
+      expect(await screen.findByText("The search could not be completed. Try again.")).toBeTruthy();
+      expect(screen.queryByText("No records found")).toBeNull();
+      expect(consoleError).toHaveBeenCalledWith("Lookup search failed", expect.anything());
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
 });
 
 describe("SmartNativeLookup", () => {
@@ -729,8 +756,36 @@ describe("SmartNativeLookup", () => {
     await userEvent.type(await screen.findByRole("combobox"), "nan");
     await waitFor(() => {
       const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
-      expect(decodeURIComponent(String(query?.args[1]))).toContain("contains(fullname,'nan')");
+      expect(decodeURIComponent(String(query?.args[1]))).toContain("startswith(fullname,'nan')");
     });
+  });
+
+  it("a failed flyout search logs and shows the failed state, not 'No records found'", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const { context } = createFakeViewModelContext({
+        ...baseOptions,
+        queryResults: {
+          systemuser: [{ failWith: "429 throttled" }],
+        },
+      });
+      const value = new Observable<IEntityReference | null>(null);
+      renderWith(
+        context,
+        <SmartNativeLookup
+          entity="contact"
+          attribute="preferredsystemuserid"
+          value={value}
+          searchDebounceMs={0}
+        />
+      );
+      await userEvent.click(await screen.findByRole("combobox"));
+      expect(await screen.findByText("The search could not be completed. Try again.")).toBeTruthy();
+      expect(screen.queryByText("No records found")).toBeNull();
+      expect(consoleError).toHaveBeenCalledWith("Lookup search failed", expect.anything());
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("Advanced opens the native picker seeded with the resolved view and commits the pick", async () => {
@@ -1241,6 +1296,67 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(calls.find((c) => c.api === "fetchPage")).toBeUndefined();
   });
 
+  it("rich + overrideFetchXml without a pageCount degrades to a working next/prev", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      ...viewSetup,
+      queryResults: {
+        account: [
+          {
+            entities: [{ accountid: "p1", name: "Contoso Ltd", telephone1: "1" }],
+            moreRecords: true,
+          },
+        ],
+      },
+    });
+    const override = new Observable<string | null>("<fetch><entity name='account'/></fetch>");
+    const pages: number[] = [];
+    renderWith(
+      context,
+      <SmartViewGrid
+        entity="account"
+        pageSize={2}
+        pagination="rich"
+        overrideFetchXml={override}
+        onPageChange={(n) => pages.push(n)}
+      />
+    );
+    await screen.findByText("Contoso Ltd");
+    // No total available → simple next/prev shape, and Next must still be live:
+    // the result said moreRecords, the host is waiting on onPageChange.
+    expect(screen.queryByLabelText("First page")).toBeNull();
+    const next = screen.getByLabelText("Next page") as HTMLButtonElement;
+    expect(next.disabled).toBe(false);
+    await userEvent.click(next);
+    expect(pages).toEqual([2]);
+    // Still host-controlled: the grid never pages the override itself.
+    expect(calls.find((c) => c.api === "fetchPage")).toBeUndefined();
+  });
+
+  it("rich + an override observable holding null falls back to saved-view paging", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      ...viewSetup,
+      queryResults: {
+        account: [
+          {
+            entities: [{ accountid: "p1", name: "Contoso Ltd", telephone1: "1" }],
+            totalRecordCount: 1,
+          },
+        ],
+      },
+    });
+    const override = new Observable<string | null>(null);
+    renderWith(
+      context,
+      <SmartViewGrid entity="account" pageSize={2} pagination="rich" overrideFetchXml={override} />
+    );
+    await screen.findByText("Contoso Ltd");
+    // A null override means "use the saved query", and in rich mode the grid
+    // must drive the FetchXML page/count paging itself.
+    const fetchPage = calls.find((c) => c.api === "fetchPage")!;
+    expect(fetchPage).toBeTruthy();
+    expect(String(fetchPage.args[1])).toContain('page="1" count="2"');
+  });
+
   it("override + simple pagination pages the FetchXML by page/count and morerecords, not nextLink", async () => {
     const { context, calls } = createFakeViewModelContext({
       ...viewSetup,
@@ -1430,7 +1546,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     // default quick-find field is the entity's primary name ("name"); the
     // expression travels URL-encoded, the way a real server receives it
     expect(String(query.args[1])).toContain(
-      `$filter=${encodeURIComponent("contains(name,'cont')")}`
+      `$filter=${encodeURIComponent("startswith(name,'cont')")}`
     );
   });
 
@@ -1444,7 +1560,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     // filter round-trips through decoding to the intended expression.
     const params = new URLSearchParams(query.slice(1));
     expect([...params.keys()].sort()).toEqual(["$filter", "savedQuery"]);
-    expect(params.get("$filter")).toBe("contains(name,'R&D 100% #1 a+b')");
+    expect(params.get("$filter")).toBe("startswith(name,'R&D 100% #1 a+b')");
   });
 
   it("applies declarative filters server-side", async () => {

@@ -1,11 +1,12 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import * as React from "react";
-import { FluentProvider } from "@fluentui/react-components";
-import { resolvePcfTheme } from "../../../shared/theme/d365Theme";
+import { FluentProvider, SearchBox } from "@fluentui/react-components";
+import { kitStrings } from "../../../shared/localization/kitStrings";
+import { pcfProviderProps } from "../../../shared/theme/d365Theme";
 import { PCFContext, type IPcfContextLike } from "../../../shared/context/PCFContext";
+import { hostRecord } from "../../../shared/context/pcfHostReads";
 import { ViewModelContextProvider } from "../../../shared/context/ViewModelContextProvider";
 import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoundary";
-import { normalizeGuid, type IXrmLookupValue } from "../../../shared/utils/EntityModel";
 import { CounterpartyGridApp } from "./App";
 
 /**
@@ -32,15 +33,29 @@ export class KitCounterpartyGrid
   }
 
   public updateView(context: ComponentFramework.Context<IInputs>): React.ReactElement {
+    // Runtime floor probe. The manifest declares Fluent 9.46.2 (the highest
+    // version an import may declare), but the grid's search bar needs the
+    // SearchBox export that first ships in platform Fluent 9.61, which current
+    // waves serve. An org trailing that wave (sovereign clouds trail the
+    // commercial one) would import this solution cleanly and then break at
+    // first render, so state the requirement readably instead. The required
+    // export is named in platform-floor.json; keep the two in step.
+    if (typeof SearchBox === "undefined") {
+      return React.createElement(
+        "div",
+        // Plain element on purpose: the message must render on exactly the
+        // hosts whose Fluent delivery falls short.
+        { role: "alert", style: { padding: "8px", fontFamily: "Segoe UI, sans-serif" } },
+        kitStrings().platformWaveTooOld
+      );
+    }
     return React.createElement(
       FluentProvider,
-      // The platform mounts a virtual control's tree inside a flex container,
-      // where a plain div shrinks to its content. The grid measures its own
-      // width to pick the table or the card layout, so the root must stretch
-      // to the space the subgrid actually has.
-      // The platform theme (fluentDesignLanguage.tokenTheme) wins when the new
-      // look serves one; the kit default covers the rest.
-      { theme: resolvePcfTheme(context), style: { width: "100%" } },
+      // Shared root props (theme + the full-width style the platform's flex
+      // mount point requires). The width matters doubly here: the grid
+      // measures its own width to pick the table or the card layout, so the
+      // root must stretch to the space the subgrid actually has.
+      pcfProviderProps(context),
       React.createElement(
         ErrorBoundary,
         null,
@@ -64,26 +79,4 @@ export class KitCounterpartyGrid
   public destroy(): void {
     // The platform owns the React root for a virtual control.
   }
-}
-
-/**
- * The host form's record (the account the subgrid sits on), so new activities
- * are filed against it. Neither source is documented: `mode.contextInfo` is
- * undocumented but stable (absent from the published Mode interface, hence
- * the cast) and `page` is the older equally-undocumented fallback. Returns
- * undefined off a record form, or if the platform ever removes both.
- */
-function hostRecord(context: ComponentFramework.Context<IInputs>): IXrmLookupValue | undefined {
-  const mode = context.mode as unknown as {
-    contextInfo?: { entityId?: string; entityTypeName?: string; entityRecordName?: string };
-  };
-  const page = (context as unknown as {
-    page?: { entityId?: string; entityTypeName?: string };
-  }).page;
-  const id = mode.contextInfo?.entityId ?? page?.entityId;
-  const entityType = mode.contextInfo?.entityTypeName ?? page?.entityTypeName;
-  if (!id || !entityType) {
-    return undefined;
-  }
-  return { id: normalizeGuid(id), entityType, name: mode.contextInfo?.entityRecordName ?? "" };
 }

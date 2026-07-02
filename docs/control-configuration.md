@@ -79,7 +79,22 @@ from `context.getFormatting()`.
 Auto: target entity (first metadata target), target's primary name/id
 attributes; the entity's lookup view (querytype 64) as the default search
 source, so a plain lookup searches the same records the platform lookup shows;
-search-as-you-type with `contains` on the primary name.
+search-as-you-type with a begins-with match on the primary name (the native
+lookup's default).
+
+Saving the picked value: a lookup does not save as a plain property. In your
+ViewModel's create/update payload, write the navigation property's
+`@odata.bind` form instead of the attribute name:
+
+```ts
+"primarycontactid@odata.bind": LibraryUtils.odataBind(this.primaryContact.value)
+```
+
+Polymorphic lookups (customerid, ownerid) change the property NAME per picked
+target; see gotchas.md ("A polymorphic (Customer/Owner) lookup writes through
+a target-suffixed navigation property") before wiring one. The master-detail
+sample app's save handler shows the full pattern.
+
 Extra props:
 
 | Prop | Purpose |

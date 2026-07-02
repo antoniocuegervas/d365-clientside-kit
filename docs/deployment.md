@@ -21,16 +21,36 @@ name. Never hardcode a customer prefix elsewhere in source.
 
 ## SPKL publish
 
+SPKL is one webresource deployment tool among many; if your team already pushes
+webresources another way (XrmToolBox, pac, a custom script), deploy `dist/` with
+that and skip this section. The pieces the commands below assume:
+
+- `nuget.exe` is the standalone NuGet CLI, not part of Windows or of Visual
+  Studio's PATH by default. Download it from
+  [nuget.org/downloads](https://www.nuget.org/downloads) (one exe, put it on
+  PATH), or restore SPKL with `dotnet tool` alternatives if you prefer.
+- The connection string is an XrmTooling string. A complete, working example
+  for interactive OAuth against a cloud org (the common developer case, using
+  Microsoft's public sample client id, which works for interactive logins):
+
+  ```text
+  AuthType=OAuth;Url=https://yourorg.crm.dynamics.com;Username=you@yourtenant.com;AppId=51f81489-12ee-4a9e-aaae-a2591f45987d;RedirectUri=app://58145B91-0C36-4500-8554-080854F2AC97;LoginPrompt=Auto
+  ```
+
+  Swap `Url` and `Username` for your org and account; the browser prompt
+  handles MFA. Service principals use
+  `AuthType=ClientSecret;Url=...;ClientId=...;ClientSecret=...` instead.
+
 ```powershell
 # one-time: restore spkl
 nuget install spkl -OutputDirectory deployment/packages
 
 # connection via env var (preferred for CI) …
-$env:SPKL_CONNECTION = "AuthType=OAuth;Url=https://org.crm.dynamics.com;..."
+$env:SPKL_CONNECTION = "AuthType=OAuth;Url=https://yourorg.crm.dynamics.com;Username=you@yourtenant.com;AppId=51f81489-12ee-4a9e-aaae-a2591f45987d;RedirectUri=app://58145B91-0C36-4500-8554-080854F2AC97;LoginPrompt=Auto"
 ./deployment/deploy.ps1
 
 # … or via deployment/connection.local.json (gitignored):
-# { "connectionString": "AuthType=OAuth;Url=..." }
+# { "connectionString": "<the same string>" }
 ```
 
 `deploy.ps1` builds and runs `spkl.exe webresources` non-interactively, reading the
@@ -177,6 +197,17 @@ Two version floors matter, and they are deliberately different numbers, both hel
   with exactly this version, so using an API the floor does not export fails the
   build; there is no hand-kept API list to drift. Raise it deliberately when the kit
   adopts a newer Fluent API, and state the supported floor in the README.
+
+The gap between the two floors is the exposure: an org whose platform Fluent falls
+between them (sovereign clouds such as GCC, GCC High, DoD, and China trail the
+commercial wave) accepts the import and only shows the problem at runtime. The
+platform documents no minimum for what it serves, only for what a manifest may
+declare. The one control whose code reaches an above-declaration export today is the
+counterparty grid (SearchBox, the reason `platform-floor.json` gives for the 9.61
+floor), and its root probes for that export at render: on a behind-floor org it
+states the wave requirement in place of the control instead of throwing into the
+error boundary. If the API floor rises to an export another control uses, give that
+control's root the same probe.
 
 The checker also holds the rest of the virtual posture in place: react-dom
 externalization stays switched on (`pcfReactPlatformLibraries` in featureconfig.json),

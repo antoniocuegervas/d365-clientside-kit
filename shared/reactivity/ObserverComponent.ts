@@ -1,5 +1,6 @@
 import * as React from "react";
 import { isObservable, type ISubscribable, type OrObservable, type Unsubscribe } from "./Observable";
+import { beginObserverRender, endObserverRender } from "./renderReadCheck";
 import { scheduleRender } from "./RenderBatch";
 
 /**
@@ -26,6 +27,35 @@ import { scheduleRender } from "./RenderBatch";
 export abstract class ObserverComponent<P = object, S = object> extends React.Component<P, S> {
   private observerSubscriptions: Unsubscribe[] = [];
   private observerDisposed = false;
+  // Dev-only bookkeeping for the observe() contract check: what this instance
+  // observes, and which unobserved reads it already warned about. Both stay
+  // empty in production (nothing writes them there).
+  private readonly observedSourcesDev = new Set<unknown>();
+  private readonly warnedReadsDev = new Set<unknown>();
+
+  constructor(props: P) {
+    super(props);
+    if (process.env.NODE_ENV !== "production") {
+      // Bracket every render with the read check (see renderReadCheck): a
+      // `.value` read during render of an Observable missing from observe()
+      // silently never re-renders, so development makes it a warning. The
+      // subclass render is wrapped per instance because subclasses define
+      // their own render(); React calls the instance property first.
+      const subclassRender = this.render.bind(this);
+      this.render = (): React.ReactNode => {
+        const previous = beginObserverRender({
+          name: this.constructor.name,
+          observed: this.observedSourcesDev,
+          warned: this.warnedReadsDev,
+        });
+        try {
+          return subclassRender();
+        } finally {
+          endObserverRender(previous);
+        }
+      };
+    }
+  }
 
   /**
    * The render request handed to the shared queue. One stable instance per
@@ -74,6 +104,9 @@ export abstract class ObserverComponent<P = object, S = object> extends React.Co
         }
       });
       this.observerSubscriptions.push(unsubscribe);
+      if (process.env.NODE_ENV !== "production") {
+        this.observedSourcesDev.add(source);
+      }
     }
   }
 
@@ -106,6 +139,7 @@ export abstract class ObserverComponent<P = object, S = object> extends React.Co
       }
     }
     this.observerSubscriptions = [];
+    this.observedSourcesDev.clear();
   }
 
   /**

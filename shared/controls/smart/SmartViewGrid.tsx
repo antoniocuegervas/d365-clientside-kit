@@ -42,12 +42,23 @@ export interface ISmartViewGridProps {
   /** Programmatic refresh channel: publish to re-run the view query. */
   refresh?: ObservableEvent<void>;
   /**
-   * Quick-find text. Contains-matched against `quickFindFields` (or the
+   * Quick-find text. Begins-with matched against `quickFindFields` (or the
    * entity's primary name when those are omitted), ANDed over the view query.
+   * Begins-with is the native quick-find default; set `quickFindOperator` to
+   * `"contains"` for substring matching (the native leading-`*` behavior,
+   * which on large tables costs an index scan per keystroke).
    */
   quickFind?: Observable<string>;
-  /** Fields the quick-find text searches. Default: the entity's primary name. */
+  /**
+   * Fields the quick-find text searches. Default: the entity's primary name.
+   * STRING columns only: the match composes `startswith`/`contains`, which the
+   * server rejects on non-string kinds (a picklist here 400s into the banner).
+   * Native quick find also searches the Quick Find view's find columns; the
+   * kit does not read that view, so list the columns you want here.
+   */
   quickFindFields?: string[];
+  /** Quick-find match: "beginsWith" (default, native parity) or "contains". */
+  quickFindOperator?: "beginsWith" | "contains";
   /** Declarative eq/ne filters, re-queried server-side on change. */
   filters?: Observable<ISmartViewGridFilter[]>;
   /**
@@ -260,9 +271,13 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     return this.props.pagination === "rich" && !!this.props.pageSize;
   }
 
-  /** Rich paging the grid drives itself (saved view, no host override). */
+  /**
+   * Rich paging the grid drives itself (saved view, no host override). Checks
+   * the override's VALUE, not just the prop: a null/empty override falls back
+   * to the saved query, and in rich mode that fallback must page itself.
+   */
   private isRichSavedView(): boolean {
-    return this.richMode() && !this.props.overrideFetchXml;
+    return this.richMode() && !this.props.overrideFetchXml?.value;
   }
 
   /**
@@ -457,6 +472,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     return buildSavedQueryOptions(view.id, {
       quickFindText: this.props.quickFind?.value,
       quickFindFields: this.effectiveQuickFindFields(),
+      quickFindOperator: this.props.quickFindOperator,
       filters: this.props.filters?.value,
       orderBy: this.sortTarget().value,
     });
@@ -546,6 +562,11 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         this.pageNextLink.set(1, result.nextLink);
         this.page.value = 1;
         this.hasNextPage.value = !!result.nextLink;
+      } else if (this.richMode() && override) {
+        // Rich + override: the host owns the data and the page number, but
+        // next/prev enablement still has to come from the result, or the Next
+        // button stays dead whenever the host cannot supply a pageCount.
+        this.hasNextPage.value = result.moreRecords ?? !!result.nextLink;
       }
       this.rows.value = rows;
       this.pageRecordCount.value = rows.length;
@@ -577,12 +598,15 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       fetch = addRootFilter(fetch, filters, "and");
     }
     // Quick find → one OR filter of `like` conditions across the search fields.
+    // Begins-with by default (text%), the native quick-find pattern; the
+    // contains opt-in leads with the wildcard.
     const text = this.props.quickFind?.value?.trim();
     if (text) {
+      const pattern = this.props.quickFindOperator === "contains" ? `%${text}%` : `${text}%`;
       const conditions: IFetchCondition[] = this.effectiveQuickFindFields().map((field) => ({
         attribute: field,
         operator: "like",
-        value: `%${text}%`,
+        value: pattern,
       }));
       if (conditions.length > 0) {
         fetch = addRootFilter(fetch, conditions, "or");
@@ -951,6 +975,8 @@ export interface ISortSpec {
 export interface IViewQueryParams {
   quickFindText?: string;
   quickFindFields?: string[];
+  /** "beginsWith" (default, matches native quick find) or "contains". */
+  quickFindOperator?: "beginsWith" | "contains";
   filters?: ISmartViewGridFilter[];
   orderBy?: ISortSpec | null;
   top?: number;
@@ -962,13 +988,16 @@ export function composeFilterExpression(params: IViewQueryParams): string | unde
   const text = params.quickFindText?.trim();
   if (text) {
     const escaped = LibraryUtils.escapeODataString(text);
-    const contains = (params.quickFindFields ?? [])
+    // Begins-with by default: native quick find matches from the start of the
+    // value, and a leading wildcard turns every keystroke into a table scan.
+    const operator = params.quickFindOperator === "contains" ? "contains" : "startswith";
+    const matches = (params.quickFindFields ?? [])
       .filter(isRootAttribute)
-      .map((field) => `contains(${field},'${escaped}')`);
-    if (contains.length === 1) {
-      clauses.push(contains[0]);
-    } else if (contains.length > 1) {
-      clauses.push(`(${contains.join(" or ")})`);
+      .map((field) => `${operator}(${field},'${escaped}')`);
+    if (matches.length === 1) {
+      clauses.push(matches[0]);
+    } else if (matches.length > 1) {
+      clauses.push(`(${matches.join(" or ")})`);
     }
   }
   for (const filter of params.filters ?? []) {

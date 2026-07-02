@@ -64,6 +64,10 @@ export interface IKitStrings {
   fieldUnavailable: string;
   pickerUnavailable: string;
   activityTypeRequired: string;
+  /** Lookup flyout when the search query itself failed (distinct from "no matches"). */
+  searchFailed: string;
+  /** A PCF on an org whose platform Fluent trails the kit's runtime floor. */
+  platformWaveTooOld: string;
 }
 
 export const defaultKitStrings: IKitStrings = {
@@ -99,6 +103,9 @@ export const defaultKitStrings: IKitStrings = {
   fieldUnavailable: "Unavailable in this environment.",
   pickerUnavailable: "The record picker could not be opened in this environment.",
   activityTypeRequired: "Activity Type Code is required on the view to open the records.",
+  searchFailed: "The search could not be completed. Try again.",
+  platformWaveTooOld:
+    "This control needs a newer platform release wave than this environment serves. Ask your administrator to update the environment's release wave.",
 };
 
 let current: IKitStrings = defaultKitStrings;

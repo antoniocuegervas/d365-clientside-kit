@@ -6,6 +6,8 @@
  * re-render, they never own or mirror these values into React state.
  */
 
+import { noteObservableRead } from "./renderReadCheck";
+
 export type Unsubscribe = () => void;
 
 /**
@@ -41,6 +43,11 @@ export class Observable<T> implements ISubscribable {
   }
 
   get value(): T {
+    if (process.env.NODE_ENV !== "production") {
+      // Dev-only observe() contract check: a read during an observer's render
+      // that the observer does not observe warns (see renderReadCheck).
+      noteObservableRead(this);
+    }
     return this._value;
   }
 

@@ -383,6 +383,60 @@ describe("CdsClient", () => {
       );
     });
 
+    it("serializes function parameters by their declared types when the request carries them", async () => {
+      server.respondAlways({ status: 200, responseText: '{"value":1}' });
+      await makeClient().execute({
+        RecordId: "A1A00000-0000-0000-0000-000000000001",
+        Name: "Contoso",
+        FieldType: "ValidForCreate",
+        Target: { entityType: "contact", id: "{B2B00000-0000-0000-0000-000000000002}" },
+        getMetadata: () => ({
+          operationName: "GetSomething",
+          operationType: 1,
+          boundParameter: null,
+          parameterTypes: {
+            RecordId: { structuralProperty: 1, typeName: "Edm.Guid" },
+            Name: { structuralProperty: 1, typeName: "Edm.String" },
+            FieldType: { structuralProperty: 3, typeName: "Microsoft.Dynamics.CRM.TargetFieldType" },
+            Target: { structuralProperty: 5, typeName: "mscrm.crmbaseentity" },
+          },
+        }),
+      });
+      const url = server.lastRequest.url;
+      // Edm.Guid: unquoted, exactly as the modern host emits it. A quoted GUID
+      // is rejected by Dataverse with a type-conversion error.
+      expect(url).toContain("@p1=A1A00000-0000-0000-0000-000000000001");
+      // Edm.String: still a quoted OData literal.
+      expect(url).toContain(`@p2=${encodeURIComponent("'Contoso'")}`);
+      // Enumeration: the qualified Namespace.Type'Member' form.
+      expect(url).toContain(
+        `@p3=${encodeURIComponent("Microsoft.Dynamics.CRM.TargetFieldType'ValidForCreate'")}`
+      );
+      // Entity type: the @odata.id reference form with a normalized id.
+      expect(url).toContain(
+        `@p4=${encodeURIComponent('{"@odata.id":"contacts(b2b00000-0000-0000-0000-000000000002)"}')}`
+      );
+    });
+
+    it("keeps the JavaScript-type heuristic for parameters without a declared type", async () => {
+      server.respondAlways({ status: 200, responseText: '{"value":1}' });
+      await makeClient().execute({
+        Name: "Contoso",
+        Count: 3,
+        getMetadata: () => ({
+          operationName: "GetSomething",
+          operationType: 1,
+          boundParameter: null,
+          parameterTypes: {
+            Count: { structuralProperty: 1, typeName: "Edm.Int32" },
+          },
+        }),
+      });
+      const url = server.lastRequest.url;
+      expect(url).toContain(`@p1=${encodeURIComponent("'Contoso'")}`); // undeclared string stays quoted
+      expect(url).toContain("@p2=3");
+    });
+
     it("escapes single quotes in a function's string parameter (OData literal rules)", async () => {
       server.respondAlways({ status: 200, responseText: '{"value":1}' });
       await makeClient().execute({

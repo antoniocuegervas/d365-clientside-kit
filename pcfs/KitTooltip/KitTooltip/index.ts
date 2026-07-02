@@ -1,9 +1,10 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import * as React from "react";
 import { FluentProvider } from "@fluentui/react-components";
-import { resolvePcfTheme } from "../../../shared/theme/d365Theme";
+import { pcfProviderProps } from "../../../shared/theme/d365Theme";
 import { Observable } from "../../../shared/reactivity/Observable";
 import { PCFContext, type IPcfContextLike } from "../../../shared/context/PCFContext";
+import { hostEntity } from "../../../shared/context/pcfHostReads";
 import { ViewModelContextProvider } from "../../../shared/context/ViewModelContextProvider";
 import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoundary";
 import { TooltipApp } from "./App";
@@ -39,18 +40,16 @@ export class KitTooltip implements ComponentFramework.ReactControl<IInputs, IOut
   public updateView(context: ComponentFramework.Context<IInputs>): React.ReactElement {
     this.value.value = context.parameters.value.raw ?? null;
 
-    // contextInfo carries the hosting table's logical name on field controls.
-    const contextInfo = (
-      context.mode as unknown as { contextInfo?: { entityTypeName?: string } }
-    ).contextInfo;
-    const entityLogicalName = contextInfo?.entityTypeName ?? "";
+    // The hosting table's logical name, via the shared host read (which also
+    // covers the older page fallback the inline read here used to skip).
+    const entityLogicalName = hostEntity(context) ?? "";
     const attributeLogicalName = context.parameters.value.attributes?.LogicalName ?? "";
 
     return React.createElement(
       FluentProvider,
-      // The platform theme (fluentDesignLanguage.tokenTheme) wins when the new
-      // look serves one; the kit default covers the rest.
-      { theme: resolvePcfTheme(context) },
+      // Shared root props: the platform theme when the new look serves one,
+      // and the full-width style the platform's flex mount point requires.
+      pcfProviderProps(context),
       React.createElement(
         ErrorBoundary,
         null,

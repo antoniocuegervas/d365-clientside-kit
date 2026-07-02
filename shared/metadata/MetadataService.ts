@@ -324,11 +324,15 @@ export class MetadataService implements IMetadataApi {
     if (savedQueryId) {
       raw = await this.client.retrieveRecord("savedqueries", savedQueryId, select);
     } else {
-      // Default public grid view for the entity (querytype 0).
+      // Default public grid view for the entity (querytype 0). The filter
+      // expression is percent-encoded whole, quote escaping alone leaves &,
+      // # and % free to break the URL apart.
+      const filter =
+        `returnedtypecode eq '${LibraryUtils.escapeODataString(entityLogicalName)}' and querytype eq 0 ` +
+        `and isdefault eq true and statecode eq 0`;
       const result = await this.client.retrieveMultiple(
         "savedqueries",
-        `${select}&$filter=returnedtypecode eq '${LibraryUtils.escapeODataString(entityLogicalName)}' and querytype eq 0 ` +
-          `and isdefault eq true and statecode eq 0&$top=1`
+        `${select}&$filter=${encodeURIComponent(filter)}&$top=1`
       );
       if (result.entities.length === 0) {
         throw new Error(`No default grid view found for entity '${entityLogicalName}'`);
@@ -341,11 +345,13 @@ export class MetadataService implements IMetadataApi {
   private async loadLookupView(entityLogicalName: string): Promise<IViewDefinition> {
     const select = "?$select=name,fetchxml,layoutxml,layoutjson,returnedtypecode,savedqueryid";
     // Default lookup view for the entity (querytype 64), the one the native
-    // single-record lookup uses.
+    // single-record lookup uses. Filter percent-encoded whole, same as loadView.
+    const filter =
+      `returnedtypecode eq '${LibraryUtils.escapeODataString(entityLogicalName)}' and querytype eq 64 ` +
+      `and isdefault eq true and statecode eq 0`;
     const result = await this.client.retrieveMultiple(
       "savedqueries",
-      `${select}&$filter=returnedtypecode eq '${LibraryUtils.escapeODataString(entityLogicalName)}' and querytype eq 64 ` +
-        `and isdefault eq true and statecode eq 0&$top=1`
+      `${select}&$filter=${encodeURIComponent(filter)}&$top=1`
     );
     if (result.entities.length === 0) {
       // No lookup view (some entities have none), fall back to the grid view.
@@ -357,8 +363,10 @@ export class MetadataService implements IMetadataApi {
   /**
    * Resolves an entity's icon URL. Rules carried from production (the
    * OOTB `svg_<otc>.svg` path is a tested assumption, not documented platform
-   * behavior): custom entities (logical name contains "_") → their vector
-   * webresource; OOTB entities → `/_imgs/svg_<ObjectTypeCode>.svg`.
+   * behavior): a vector webresource when the entity has one, else
+   * `/_imgs/svg_<ObjectTypeCode>.svg`. The fallthrough matters for
+   * underscore-named first-party entities (the msdyn_ family) that ship
+   * without a vector icon; they still have a served type-code icon.
    */
   private async loadEntityIconUrl(entityLogicalName: string): Promise<string | undefined> {
     const raw = await this.client.get(
@@ -366,9 +374,9 @@ export class MetadataService implements IMetadataApi {
         `?$select=LogicalName,ObjectTypeCode,IconVectorName`
     );
     const base = this.client.clientUrl;
-    if (entityLogicalName.includes("_")) {
-      const vector = raw.IconVectorName as string | undefined;
-      return vector ? `${base}/WebResources/${vector}` : undefined;
+    const vector = raw.IconVectorName as string | undefined;
+    if (vector) {
+      return `${base}/WebResources/${vector}`;
     }
     const objectTypeCode = raw.ObjectTypeCode as number | undefined;
     return objectTypeCode !== undefined && objectTypeCode !== null
@@ -422,10 +430,15 @@ export class MetadataService implements IMetadataApi {
     viewName: string
   ): Promise<IViewDefinition> {
     const select = "$select=name,fetchxml,layoutxml,layoutjson,returnedtypecode,savedqueryid";
+    // The expression goes into the URL percent-encoded whole: a display name
+    // like "R&D Accounts" would otherwise split the $filter parameter and 400.
     const filter =
-      `$filter=name eq '${LibraryUtils.escapeODataString(viewName)}' and ` +
+      `name eq '${LibraryUtils.escapeODataString(viewName)}' and ` +
       `returnedtypecode eq '${LibraryUtils.escapeODataString(entityLogicalName)}' and statecode eq 0`;
-    const result = await this.client.retrieveMultiple("savedqueries", `?${select}&${filter}`);
+    const result = await this.client.retrieveMultiple(
+      "savedqueries",
+      `?${select}&$filter=${encodeURIComponent(filter)}`
+    );
     if (result.entities.length === 0) {
       throw new Error(`No active view named '${viewName}' found for entity '${entityLogicalName}'`);
     }

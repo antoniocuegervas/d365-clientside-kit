@@ -14,16 +14,18 @@ current Dataverse instance, and those calls route straight to
 | Method | Modern webresource | PCF | Legacy V8 |
 |--------|--------------------|-----|-----------|
 | `createRecord` / `updateRecord` / `deleteRecord` / `retrieveRecord` / `retrieveMultipleRecords` | native | native | cds-client |
-| `fetchPage`, `retrieveMultipleByUrl` | cds-client | cds-client | cds-client |
+| `fetch`, `fetchPage`, `retrieveMultipleByUrl` | cds-client | cds-client | cds-client |
 | `executeAction`, `executeClassicWorkflow` | cds-client | cds-client | cds-client |
 | `execute` | native | cds-client | cds-client |
 | `executeMultiple` | cds-client | cds-client | cds-client |
 
 Why the non-obvious rows:
 
-- `fetchPage` / `retrieveMultipleByUrl` ride cds-client everywhere because
-  `Xrm.WebApi` drops the FetchXML paging annotations and cannot re-issue an
-  absolute `@odata.nextLink`.
+- `fetch` / `fetchPage` / `retrieveMultipleByUrl` ride cds-client everywhere
+  because `Xrm.WebApi` drops the FetchXML paging annotations (`morerecords`,
+  the paging cookie, total counts) and cannot re-issue an absolute
+  `@odata.nextLink`. `fetch` is the kit's dominant query path (the grid's
+  FetchXML loads), so this row matters when predicting network traffic.
 - `executeAction` / `executeClassicWorkflow` ride cds-client everywhere so app code
   never has to hand-build the `Xrm.WebApi.online.execute` request-object
   contract for the common "run this action" case.
@@ -63,19 +65,32 @@ INSPECTS a caught error is therefore host-coupled; code that only reacts to
 control, and treat the caught error's shape as opaque unless you know your
 host.
 
-## The grid's `?savedQuery=` + `$filter` composition is a tested convention
+## The `?savedQuery=` + `$filter` composition is a tested convention
 
-The saved-view grid runs its data as `?savedQuery={id}` with `$filter`,
-`$orderby`, and `$top` layered on top. This works, is widely used in the
-community, and is live-verified here, but Microsoft's predefined-queries page
-documents only the bare `savedQuery` call, so the composition is platform
-behavior the documentation has not promised. If it ever regresses, the rich
-(FetchXML) grid path covers the same ground.
+The saved-view grid and both lookups run their data as `?savedQuery={id}` with
+`$filter`, `$orderby`, and `$top` layered on top. This works, is widely used in
+the community, and is live-verified here, but Microsoft's predefined-queries
+page documents only the bare `savedQuery` call, so the composition is platform
+behavior the documentation has not promised. The fallback story differs by
+surface: if the composition ever regresses, the GRID has an escape hatch (the
+rich FetchXML path covers the same ground), while lookup search has none and
+would need a view-to-FetchXML translation added. On the PCF host this same
+options string is handed to the native `context.webAPI`, whose documented
+options do not include `savedQuery` at all; that passthrough is live-verified
+on the model-driven host, and rerouting it through the cds-client (the same
+one-line delegation the fetch paths use) is the ready answer if a wave stops
+honoring it.
 
 Related quick-find nuance: in the RICH path the search text goes into a
-FetchXML `like` pattern, where `%` and `_` are wildcards. The kit passes user
-text through literally (a search for `100%` matches more than the literal
-string). Deliberate: the native quick find behaves the same way.
+FetchXML `like` pattern (`text%` by default, `%text%` with the contains
+opt-in), where `%` and `_` are wildcards. The kit passes user text through
+literally (a search for `100%` matches more than the literal string).
+Deliberate: the native quick find behaves the same way. Quick find matches
+begins-with by default, the native default; `quickFindOperator="contains"`
+opts into substring matching, and on large tables that leading wildcard
+defeats index seeks, so leave it off for daily-driver grids. One divergence
+remains: native quick find searches the Quick Find view's find columns, the
+kit searches `quickFindFields` (default: the primary name).
 
 ## `executeAction` vs `execute`: ergonomic vs standard
 
@@ -385,9 +400,10 @@ form runtime), so the kit takes the safe, honest path:
 
 **Bound PCFs** DO receive the user's effective access through the documented
 property surface (`context.parameters.<property>.security`, the SecurityValues
-editable/readable pair), and the kit's field PCFs consume it: a secured column
-the user holds write access to stays editable, one they cannot edit renders
-read-only. The webresource fail-safe applies only where that signal does not
+editable/readable pair), and the kit's editable field PCFs consume it through
+one shared read (`shared/context/pcfHostReads.ts`; the tooltip is
+display-only, nothing to lock): a secured column the user holds write access
+to stays editable, one they cannot edit renders read-only. The webresource fail-safe applies only where that signal does not
 exist.
 
 The kit deliberately does not resolve per-user column permissions itself. If a

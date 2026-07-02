@@ -1,8 +1,9 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import * as React from "react";
 import { FluentProvider } from "@fluentui/react-components";
-import { resolvePcfTheme } from "../../../shared/theme/d365Theme";
+import { pcfProviderProps } from "../../../shared/theme/d365Theme";
 import { PCFContext, type IPcfContextLike } from "../../../shared/context/PCFContext";
+import { hostEntity, securedReadOnly } from "../../../shared/context/pcfHostReads";
 import { ViewModelContextProvider } from "../../../shared/context/ViewModelContextProvider";
 import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoundary";
 import { Observable } from "../../../shared/reactivity/Observable";
@@ -24,7 +25,8 @@ import { NativeLookupApp } from "./App";
  * entity + attribute metadata. The attribute logical name comes from the
  * documented bound-property surface (`parameters.value.attributes.LogicalName`,
  * with a manifest property as a manual override), the host entity from the
- * form context (see `hostEntity` below), and the platform's per-user column
+ * form context (the shared `hostEntity` read, see
+ * `shared/context/pcfHostReads.ts`), and the platform's per-user column
  * security signal (`parameters.value.security`) drives the read-only state.
  */
 export class KitNativeLookup implements ComponentFramework.ReactControl<IInputs, IOutputs> {
@@ -71,9 +73,9 @@ export class KitNativeLookup implements ComponentFramework.ReactControl<IInputs,
   private render(context: ComponentFramework.Context<IInputs>): React.ReactElement {
     return React.createElement(
       FluentProvider,
-      // The platform theme (fluentDesignLanguage.tokenTheme) wins when the new
-      // look serves one; the kit default covers the rest.
-      { theme: resolvePcfTheme(context) },
+      // Shared root props: the platform theme when the new look serves one,
+      // and the full-width style the platform's flex mount point requires.
+      pcfProviderProps(context),
       React.createElement(
         ErrorBoundary,
         null,
@@ -87,7 +89,7 @@ export class KitNativeLookup implements ComponentFramework.ReactControl<IInputs,
             viewName: context.parameters.viewName.raw ?? undefined,
             showIcons: context.parameters.showIcons.raw === true,
             disabled: context.mode.isControlDisabled,
-            readOnly: securedReadOnly(context),
+            readOnly: securedReadOnly(context.parameters.value),
             value: this.value,
             // The control writes the value observable itself; reflect to the host.
             onChange: () => this.notifyOutputChanged?.(),
@@ -112,21 +114,6 @@ export class KitNativeLookup implements ComponentFramework.ReactControl<IInputs,
 }
 
 /**
- * The host record's entity logical name (the form the control sits on), which
- * the smart control needs to resolve the bound lookup's metadata. Neither
- * source is documented: `mode.contextInfo` is undocumented but stable (absent
- * from the published Mode interface, hence the cast) and `page` is the older
- * equally-undocumented fallback. There is no documented in-context source for
- * the host entity; if the platform removes both, this returns undefined and
- * the control renders its setup message.
- */
-function hostEntity(context: ComponentFramework.Context<IInputs>): string | undefined {
-  const mode = context.mode as unknown as { contextInfo?: { entityTypeName?: string } };
-  const page = (context as unknown as { page?: { entityTypeName?: string } }).page;
-  return mode.contextInfo?.entityTypeName ?? page?.entityTypeName;
-}
-
-/**
  * The bound column's logical name from the documented bound-property metadata
  * (`parameters.value.attributes.LogicalName`); the manifest `attribute`
  * property remains as a manual override for hosts that do not populate it.
@@ -140,24 +127,4 @@ function boundAttribute(context: ComponentFramework.Context<IInputs>): string {
     context.parameters.value as unknown as { attributes?: { LogicalName?: string } }
   ).attributes;
   return attributes?.LogicalName ?? "";
-}
-
-/**
- * Per-user column security from the documented bound-property surface
- * (`parameters.value.security`): render read-only when the user cannot edit
- * the column. Undefined when the column is not secured, in which case the
- * shared metadata default applies (a secured column fails safe to read-only;
- * here the host tells us the user's REAL access, so an editable secured
- * column stays editable).
- */
-function securedReadOnly(context: ComponentFramework.Context<IInputs>): boolean | undefined {
-  const security = (
-    context.parameters.value as unknown as {
-      security?: { editable?: boolean; readable?: boolean; secured?: boolean };
-    }
-  ).security;
-  if (!security || security.secured === false) {
-    return undefined;
-  }
-  return security.editable === false ? true : false;
 }

@@ -67,6 +67,7 @@ export class SmartNativeLookup extends SmartFieldBase<
   // Owned by this smart wrapper: it is the data host for the flyout.
   private readonly results = new Observable<INativeLookupResult[]>([]);
   private readonly searching = new Observable<boolean>(false);
+  private readonly searchFailed = new Observable<boolean>(false);
   private readonly activeTarget = new Observable<string | undefined>(undefined);
   private readonly tableLabel = new Observable<string | undefined>(undefined);
   // Icon for the selected value, resolved from its entity so the resting chip
@@ -137,6 +138,7 @@ export class SmartNativeLookup extends SmartFieldBase<
     this.switcherTargets.value = undefined;
     this.results.value = [];
     this.searching.value = false;
+    this.searchFailed.value = false;
     this.tableLabel.value = undefined;
     this.targetContexts.clear();
     if (this.debounceHandle !== undefined) {
@@ -238,9 +240,10 @@ export class SmartNativeLookup extends SmartFieldBase<
         this.tableLabel.value = context.entityMetadata.displayName;
       }
       const nameAttribute = context.entityMetadata.primaryNameAttribute;
+      // Begins-with, matching the native lookup's default match behavior.
       const clauses = [
         searchText
-          ? `contains(${nameAttribute},'${LibraryUtils.escapeODataString(searchText)}')`
+          ? `startswith(${nameAttribute},'${LibraryUtils.escapeODataString(searchText)}')`
           : undefined,
         this.props.filter,
       ].filter(Boolean);
@@ -262,9 +265,15 @@ export class SmartNativeLookup extends SmartFieldBase<
       this.results.value = result.entities.map((record) =>
         this.toResult(record, target, context)
       );
-    } catch {
+      this.searchFailed.value = false;
+    } catch (error) {
+      // A failed query must never read as "no matches": the user would
+      // conclude the record does not exist and create a duplicate. Log for
+      // developers and flag the flyout's failed state for the user.
+      console.error("Lookup search failed", error);
       if (!this.isDisposed && sequence === this.searchSequence) {
         this.results.value = [];
+        this.searchFailed.value = true;
       }
     } finally {
       if (!this.isDisposed && sequence === this.searchSequence) {
@@ -307,6 +316,7 @@ export class SmartNativeLookup extends SmartFieldBase<
     }
     this.activeTarget.value = entity;
     this.results.value = [];
+    this.searchFailed.value = false;
     this.tableLabel.value = undefined;
     // Reload the new target's first page right away (the flyout stays open).
     void this.runSearch("");
@@ -407,6 +417,7 @@ export class SmartNativeLookup extends SmartFieldBase<
         selected={this.props.value}
         results={this.results}
         searching={this.searching}
+        searchFailed={this.searchFailed}
         selectedIconUrl={this.selectedIcon}
         tableLabel={this.tableLabel}
         targets={this.switcherTargets}

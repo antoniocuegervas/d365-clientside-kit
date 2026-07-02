@@ -1,3 +1,4 @@
+import type * as React from "react";
 import { teamsHighContrastTheme, webLightTheme, type Theme } from "@fluentui/react-components";
 
 /**
@@ -44,4 +45,20 @@ export function resolvePcfTheme(source: {
   fluentDesignLanguage?: { tokenTheme?: Theme };
 }): Theme {
   return source.fluentDesignLanguage?.tokenTheme ?? d365Theme;
+}
+
+/**
+ * The FluentProvider props every PCF root must use. Besides the theme, this
+ * carries the one layout rule a virtual control cannot skip: the platform
+ * mounts the control's tree inside a flex container, where a plain div
+ * shrinks to its content, so the provider must claim the full width the form
+ * gives the control or every field renders narrower than the native ones
+ * beside it. Kept here, in one place, because the width style was applied
+ * per-root once before and quietly missed some of them.
+ */
+export function pcfProviderProps(source: { fluentDesignLanguage?: { tokenTheme?: Theme } }): {
+  theme: Theme;
+  style: React.CSSProperties;
+} {
+  return { theme: resolvePcfTheme(source), style: { width: "100%" } };
 }

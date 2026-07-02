@@ -29,7 +29,7 @@ export interface ISmartLookupProps extends ISmartFieldProps<IEntityReference | n
   filterXml?: string;
   /**
    * View-driven inline search: run a saved view as the search source so admins
-   * control columns/filters. `?savedQuery={id}&$filter=contains(name,...)`.
+   * control columns/filters. `?savedQuery={id}&$filter=startswith(name,...)`.
    */
   viewId?: string;
   /** Saved view by name for view-driven search; resolved via getViewByName. */
@@ -48,6 +48,7 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
   /** Owned by this smart wrapper: it is the host for search results. */
   private readonly results = new Observable<IEntityReference[]>([]);
   private readonly searching = new Observable<boolean>(false);
+  private readonly searchFailed = new Observable<boolean>(false);
   private debounceHandle: ReturnType<typeof setTimeout> | undefined;
   private searchSequence = 0;
 
@@ -79,6 +80,7 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
       this.resolvedIcon = undefined;
       this.results.value = [];
       this.searching.value = false;
+      this.searchFailed.value = false;
       if (this.debounceHandle !== undefined) {
         clearTimeout(this.debounceHandle);
         this.debounceHandle = undefined;
@@ -128,14 +130,18 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
           ? this.vmContext.metadata
               .getViewByName(target, this.props.viewName)
               .then((view) => view.id)
-              .catch(() => {
+              .catch((error) => {
+                // The fallback searches WITHOUT the view's filtering, which is
+                // the point of a lookup view, so the degrade must leave a trace.
+                console.warn("Lookup view resolution failed, searching without a view", error);
                 this.resolvedViewId = undefined;
                 return undefined;
               })
           : this.vmContext.metadata
               .getLookupView(target)
               .then((view) => view.id)
-              .catch(() => {
+              .catch((error) => {
+                console.warn("Lookup view resolution failed, searching without a view", error);
                 this.resolvedViewId = undefined;
                 return undefined;
               });
@@ -174,8 +180,11 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
         this.resolveViewId(target),
         this.resolveIcon(target),
       ]);
+      // Begins-with, matching the native lookup's default match behavior.
       const clauses = [
-        searchText ? `contains(${nameAttribute},'${LibraryUtils.escapeODataString(searchText)}')` : undefined,
+        searchText
+          ? `startswith(${nameAttribute},'${LibraryUtils.escapeODataString(searchText)}')`
+          : undefined,
         this.props.filter,
       ].filter(Boolean);
       // URL-encode the expression: search text like "R&D" would otherwise cut
@@ -203,9 +212,15 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
         name: (record[nameAttribute] as string | undefined) ?? undefined,
         iconUrl,
       }));
-    } catch {
+      this.searchFailed.value = false;
+    } catch (error) {
+      // A failed query must never read as "no matches": the user would
+      // conclude the record does not exist and create a duplicate. Log for
+      // developers and flag the flyout's failed state for the user.
+      console.error("Lookup search failed", error);
       if (!this.isDisposed && sequence === this.searchSequence) {
         this.results.value = [];
+        this.searchFailed.value = true;
       }
     } finally {
       if (!this.isDisposed && sequence === this.searchSequence) {
@@ -264,6 +279,7 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
         selected={this.props.value}
         results={this.results}
         searching={this.searching}
+        searchFailed={this.searchFailed}
         mode={this.props.mode}
         onBrowse={() => void this.handleBrowse()}
         onSearchTextChanged={this.handleSearchTextChanged}

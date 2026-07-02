@@ -1382,7 +1382,11 @@ Deliberate non-fixes, each with its reason:
   guards the manifests, dependencies, and the shared import graph statically,
   and CI builds all five in production mode whenever shared/, pcfs/, or the
   root dependency set changes. Revisit if a shared change ever breaks a PCF
-  in a way the floor checker and typecheck both miss.
+  in a way the floor checker and typecheck both miss. (A concrete instance of
+  that trigger: the root typechecks shared code against a newer Fluent than
+  the 9.61 PCF floor, so a shared change using a newer Fluent API passes
+  verify locally and only the CI PCF build catches it. Known, and the reason
+  the CI conditional build exists.)
 - **SmartViewGrid still binds once on mount.** The supported rebind is a React
   key derived from the binding. Full rebind support would re-run initialize
   for a case the key pattern already covers in one line; instead the contract
@@ -1436,3 +1440,68 @@ business error on execute (the native API rejects identically for both), so
 on that host both resolve ok=false while the cds hosts reject on network
 failure. Documented on the contract; there is nothing better available on
 that surface.
+
+## D-056, the fourth adversarial round: the decision items and where each landed
+
+The 2026-07 pass-3 round's defects were fixed outright (the history speaks for
+them: the number field's focus/blur corruption under European separators, the
+rich-override paging degrade, the metadata view-filter encoding, the lookup
+search failure state, the column-security claim, the stale pcfs/README). This
+entry records the items that were decisions rather than defects, so the choice
+and its reasoning are auditable and none is re-litigated from the same finding.
+
+- **The platform Fluent floor gets a runtime probe, at the point of actual
+  exposure only.** The manifests declare Fluent 9.46.2 (the import ceiling)
+  while the kit's code floor is 9.61 (SearchBox), so an org trailing the
+  commercial wave imports cleanly and breaks at first render. The grid's root
+  now feature-detects the floor export and renders the wave requirement as a
+  readable message. The other roots stay unprobed on purpose: their code stays
+  within the declared surface, and blocking a working control on a floor it
+  does not use would manufacture the very failure the probe exists to soften.
+  If the floor ever rises to an export another control uses, that control's
+  root gets the same probe (deployment.md carries the rule).
+- **execute() now serializes function parameters by their declared types** on
+  the cds-backed hosts (Guid and non-string primitives unquoted, enums
+  qualified, entity references as @odata.id), matching what the native execute
+  derives from the same request metadata. Undeclared parameters keep the
+  JavaScript-type heuristic, which matches the native behavior for strings,
+  numbers, and booleans; a GUID passed without a declaration cannot be told
+  apart from a string, so requests with typed parameters should carry
+  parameterTypes. Verified against the Web API docs; unit-pinned per type.
+- **The PCF savedQuery passthrough stays on the native webAPI, as recorded
+  reliance.** The native ComponentFramework options contract does not document
+  `savedQuery`, but the passthrough is live-verified on the model-driven host
+  and rerouting through the cds-client is a one-line delegation held in
+  reserve (gotchas states it). The broader fallback sentence in gotchas was
+  rescoped: the FetchXML escape hatch covers the grid, not the lookups, and
+  building a view-to-FetchXML translation for lookup search now would be
+  insurance against a regression that has never been observed.
+- **Quick find and lookup search default to begins-with**, the native default,
+  with `quickFindOperator="contains"` as the grid's opt-in (the native
+  leading-`*` affordance). Begins-with also keeps the default search an index
+  seek instead of a per-keystroke scan on large tables. Two divergences are
+  documented rather than closed: the kit searches `quickFindFields` (default
+  primary name), not the Quick Find view's find columns (reading that view
+  would add a metadata fetch per grid for a default any deployment can set in
+  one prop), and the fields contract is string-columns-only rather than
+  kind-filtered through metadata (a wrong column fails loudly into the
+  banner, and the prop doc now says so).
+- **The smart-tier PCFs are scoped to model-driven forms, and the undocumented
+  host reads live behind one seam.** README says the scope out loud; the
+  `mode.contextInfo`/`page` reads and the bound-parameter security read are
+  centralized in `shared/context/pcfHostReads.ts` so a platform reshape is a
+  one-file fix. Deferred: a manifest `entity` override property on the
+  host-aware controls (the attribute already has one). Trigger: the first
+  consumer who needs a kit control on a surface where the host reads are
+  absent but a maker could supply the entity by hand.
+- **The observe() contract now has a development-time check.** Observable's
+  value getter reports reads to a render tracker; a read during an observer's
+  render of an Observable missing from its observe() list warns once per
+  component and observable, and production builds strip the whole mechanism.
+  The check's first run caught a real gap: a smart field rebind reused the
+  mounted presentational child, which had subscribed to the PREVIOUS binding's
+  observables in its constructor (masked by the parent's own re-render).
+  Fixed structurally: the smart field keys its presentational child by the
+  binding, so a rebind remounts a fresh child. Presentational controls keep
+  the identity-stable-props contract (observe once, in the constructor)
+  instead of growing per-control reobserve plumbing.

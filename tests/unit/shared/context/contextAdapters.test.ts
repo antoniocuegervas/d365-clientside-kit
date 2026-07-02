@@ -1022,11 +1022,20 @@ describe("PCFContext", () => {
     });
   });
 
-  it("falls back to same-origin relative URLs without a clientUrl", () => {
-    const { source } = makeSource();
-    delete source.page;
-    const context = new PCFContext(source);
-    expect(context.clientUrl).toBe("");
+  it("falls back to same-origin relative URLs without a clientUrl, and says so", () => {
+    // The missing client URL is the point of this test, so capture the
+    // console.warn the adapter emits for it; otherwise a passing run prints
+    // what looks like a failure.
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const { source } = makeSource();
+      delete source.page;
+      const context = new PCFContext(source);
+      expect(context.clientUrl).toBe("");
+      expect(consoleWarn).toHaveBeenCalledWith(expect.stringContaining("no client URL"));
+    } finally {
+      consoleWarn.mockRestore();
+    }
   });
 
   it("delegates webAPI and normalizes created ids", async () => {

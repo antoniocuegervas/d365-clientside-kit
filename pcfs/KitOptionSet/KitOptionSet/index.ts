@@ -1,7 +1,8 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import * as React from "react";
 import { FluentProvider } from "@fluentui/react-components";
-import { resolvePcfTheme } from "../../../shared/theme/d365Theme";
+import { pcfProviderProps } from "../../../shared/theme/d365Theme";
+import { securedReadOnly } from "../../../shared/context/pcfHostReads";
 import { Observable } from "../../../shared/reactivity/Observable";
 import { OptionSetField } from "../../../shared/controls/presentational/OptionSetField";
 import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoundary";
@@ -45,9 +46,9 @@ export class KitOptionSet implements ComponentFramework.ReactControl<IInputs, IO
 
     return React.createElement(
       FluentProvider,
-      // The platform theme (fluentDesignLanguage.tokenTheme) wins when the new
-      // look serves one; the kit default covers the rest.
-      { theme: resolvePcfTheme(context) },
+      // Shared root props: the platform theme when the new look serves one,
+      // and the full-width style the platform's flex mount point requires.
+      pcfProviderProps(context),
       React.createElement(
         ErrorBoundary,
         null,
@@ -55,6 +56,10 @@ export class KitOptionSet implements ComponentFramework.ReactControl<IInputs, IO
           options: this.options,
           selectedValue: this.selectedValue,
           disabled: context.mode.isControlDisabled,
+          // Per-user column security: a user without write access to a secured
+          // column gets the read-only rendering, not an editable field that
+          // fails at save.
+          readOnly: securedReadOnly(context.parameters.value),
           onChange: (value: number | null) => {
             this.selectedValue.value = value;
             this.notifyOutputChanged?.();

@@ -15,9 +15,19 @@ import {
 
 describe("savedQuery composition", () => {
   describe("composeFilterExpression", () => {
-    it("single-field quick find", () => {
+    it("single-field quick find is begins-with by default (native parity)", () => {
       expect(
         composeFilterExpression({ quickFindText: "cont", quickFindFields: ["name"] })
+      ).toBe("startswith(name,'cont')");
+    });
+
+    it("contains matching is an explicit opt-in", () => {
+      expect(
+        composeFilterExpression({
+          quickFindText: "cont",
+          quickFindFields: ["name"],
+          quickFindOperator: "contains",
+        })
       ).toBe("contains(name,'cont')");
     });
 
@@ -27,13 +37,13 @@ describe("savedQuery composition", () => {
           quickFindText: "cont",
           quickFindFields: ["name", "telephone1"],
         })
-      ).toBe("(contains(name,'cont') or contains(telephone1,'cont'))");
+      ).toBe("(startswith(name,'cont') or startswith(telephone1,'cont'))");
     });
 
     it("escapes quotes in the quick-find text", () => {
       expect(
         composeFilterExpression({ quickFindText: "O'Brien", quickFindFields: ["name"] })
-      ).toBe("contains(name,'O''Brien')");
+      ).toBe("startswith(name,'O''Brien')");
     });
 
     it("ANDs quick find with eq/ne filters and formats values by type", () => {
@@ -48,7 +58,7 @@ describe("savedQuery composition", () => {
           ],
         })
       ).toBe(
-        "contains(name,'x') and statecode eq 0 and name ne 'Test' and donotemail eq true"
+        "startswith(name,'x') and statecode eq 0 and name ne 'Test' and donotemail eq true"
       );
     });
 
@@ -91,7 +101,7 @@ describe("savedQuery composition", () => {
           top: 50,
         })
       ).toBe(
-        `?savedQuery=v1&$filter=${encodeURIComponent("contains(name,'cont')")}` +
+        `?savedQuery=v1&$filter=${encodeURIComponent("startswith(name,'cont')")}` +
           `&$orderby=${encodeURIComponent("name asc")}&$top=50`
       );
     });
@@ -114,7 +124,7 @@ describe("savedQuery composition", () => {
         expect([...params.keys()].sort()).toEqual(["$filter", "savedQuery"]);
         expect(params.get("savedQuery")).toBe("v1");
         expect(params.get("$filter")).toBe(
-          `contains(name,'${text.replace(/'/g, "''")}')`
+          `startswith(name,'${text.replace(/'/g, "''")}')`
         );
       }
     });

@@ -25,6 +25,86 @@ describe("ObserverComponent", () => {
     expect(container.textContent).toBe("b");
   });
 
+  it("warns once, in development, when a render reads an Observable it does not observe", () => {
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const observed = new Observable<string>("seen");
+      const unobserved = new Observable<string>("missed");
+      class Probe extends ObserverComponent {
+        constructor(props: object) {
+          super(props);
+          this.observe(observed);
+        }
+        override render(): React.ReactNode {
+          return (
+            <span>
+              {observed.value}
+              {unobserved.value}
+            </span>
+          );
+        }
+      }
+      const { rerender } = render(<Probe />);
+      // The unobserved render read warns, naming the component and the fix.
+      expect(consoleWarn).toHaveBeenCalledTimes(1);
+      expect(String(consoleWarn.mock.calls[0][0])).toContain("Probe");
+      expect(String(consoleWarn.mock.calls[0][0])).toContain("observe(");
+      // Once per component + observable pair, not once per render.
+      rerender(<Probe />);
+      expect(consoleWarn).toHaveBeenCalledTimes(1);
+    } finally {
+      consoleWarn.mockRestore();
+    }
+  });
+
+  it("does not warn for reads outside a render (ViewModels, handlers, async code)", () => {
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const observed = new Observable<string>("seen");
+      const outside = new Observable<string>("fine");
+      class Probe extends ObserverComponent {
+        constructor(props: object) {
+          super(props);
+          this.observe(observed);
+        }
+        override render(): React.ReactNode {
+          return <span>{observed.value}</span>;
+        }
+      }
+      render(<Probe />);
+      // A plain read with no render in flight is the ViewModel pattern; silent.
+      expect(outside.value).toBe("fine");
+      expect(consoleWarn).not.toHaveBeenCalled();
+    } finally {
+      consoleWarn.mockRestore();
+    }
+  });
+
+  it("does not warn when a child function component reads a parent-observed value", () => {
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      // The documented Body pattern: the observer observes, a plain function
+      // component it renders does the reading. The function body runs outside
+      // the observer's render() call, so the check must stay quiet.
+      const observed = new Observable<string>("shared");
+      const Body: React.FC = () => <span>{observed.value}</span>;
+      class Probe extends ObserverComponent {
+        constructor(props: object) {
+          super(props);
+          this.observe(observed);
+        }
+        override render(): React.ReactNode {
+          return <Body />;
+        }
+      }
+      const { container } = render(<Probe />);
+      expect(container.textContent).toBe("shared");
+      expect(consoleWarn).not.toHaveBeenCalled();
+    } finally {
+      consoleWarn.mockRestore();
+    }
+  });
+
   it("paints once for a burst of writes to several observed values", async () => {
     const first = new Observable<number>(0);
     const second = new Observable<number>(0);

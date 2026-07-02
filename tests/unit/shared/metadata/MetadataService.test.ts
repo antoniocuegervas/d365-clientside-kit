@@ -390,7 +390,7 @@ describe("MetadataService", () => {
       );
       const view = await service.getView("account");
       expect(view.id).toBe("22220000-0000-0000-0000-000000000002");
-      const url = server.lastRequest.url;
+      const url = decodeURIComponent(server.lastRequest.url);
       expect(url).toContain("querytype eq 0");
       expect(url).toContain("isdefault eq true");
     });
@@ -399,7 +399,8 @@ describe("MetadataService", () => {
   describe("getLookupView", () => {
     it("resolves the default lookup view (querytype 64)", async () => {
       server.respondWith((request) =>
-        request.url.includes("savedqueries?") && request.url.includes("querytype eq 64")
+        request.url.includes("savedqueries?") &&
+        decodeURIComponent(request.url).includes("querytype eq 64")
           ? {
               status: 200,
               responseText: JSON.stringify({
@@ -418,17 +419,18 @@ describe("MetadataService", () => {
       );
       const view = await service.getLookupView("systemuser");
       expect(view.id).toBe("33330000-0000-0000-0000-000000000003");
-      const url = server.lastRequest.url;
+      const url = decodeURIComponent(server.lastRequest.url);
       expect(url).toContain("querytype eq 64");
       expect(url).toContain("isdefault eq true");
     });
 
     it("falls back to the default grid view when the entity has no lookup view", async () => {
       server.respondWith((request) => {
-        if (request.url.includes("querytype eq 64")) {
+        const url = decodeURIComponent(request.url);
+        if (url.includes("querytype eq 64")) {
           return { status: 200, responseText: JSON.stringify({ value: [] }) };
         }
-        if (request.url.includes("querytype eq 0")) {
+        if (url.includes("querytype eq 0")) {
           return {
             status: 200,
             responseText: JSON.stringify({
@@ -498,6 +500,22 @@ describe("MetadataService", () => {
         "https://org.crm.dynamics.com/WebResources/new_widgeticon"
       );
     });
+
+    it("underscore-named entity without a vector icon falls through to the type-code svg", async () => {
+      // First-party families (msdyn_ etc.) can ship without a vector icon;
+      // they still have a served type-code icon, so no icon is wrong.
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({
+          LogicalName: "msdyn_booking",
+          ObjectTypeCode: 10231,
+          IconVectorName: null,
+        }),
+      });
+      await expect(service.getEntityIconUrl("msdyn_booking")).resolves.toBe(
+        "https://org.crm.dynamics.com/_imgs/svg_10231.svg"
+      );
+    });
   });
 
   describe("getViewByName", () => {
@@ -530,6 +548,36 @@ describe("MetadataService", () => {
       expect(url).toContain("name eq 'Hot Accounts'");
       expect(url).toContain("returnedtypecode eq 'account'");
       expect(url).toContain("statecode eq 0");
+    });
+
+    it("percent-encodes a URL-hostile view name instead of letting it split the query", async () => {
+      server.respondWith((request) =>
+        request.url.includes("savedqueries?")
+          ? {
+              status: 200,
+              responseText: JSON.stringify({
+                value: [
+                  {
+                    savedqueryid: "33330000-0000-0000-0000-000000000003",
+                    name: "R&D 100% #1",
+                    returnedtypecode: "account",
+                    fetchxml: "<fetch/>",
+                    layoutxml: layoutXml,
+                  },
+                ],
+              }),
+            }
+          : undefined
+      );
+      const view = await service.getViewByName("account", "R&D 100% #1");
+      expect(view.name).toBe("R&D 100% #1");
+      const rawUrl = server.lastRequest.url;
+      // The hostile characters must never appear raw in the URL: & would split
+      // the $filter parameter, # would truncate it, % would garble decoding.
+      const query = rawUrl.slice(rawUrl.indexOf("$filter="));
+      expect(query).not.toContain("&");
+      expect(query).not.toContain("#");
+      expect(query).toContain(encodeURIComponent("name eq 'R&D 100% #1'"));
     });
 
     it("throws when no active view matches the name", async () => {

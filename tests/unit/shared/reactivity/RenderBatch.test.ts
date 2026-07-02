@@ -44,6 +44,29 @@ describe("scheduleRender", () => {
     expect(second).toHaveBeenCalledTimes(1);
   });
 
+  it("a throwing render does not starve the rest of the pass", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const boom = jest.fn(() => {
+        throw new Error("render blew up");
+      });
+      const second = jest.fn();
+      scheduleRender(boom);
+      scheduleRender(second);
+      await nextPass();
+      // Both were already off the queue; the second must still repaint, and
+      // the failure must leave a trace instead of a silently stale view.
+      expect(boom).toHaveBeenCalledTimes(1);
+      expect(second).toHaveBeenCalledTimes(1);
+      expect(consoleError).toHaveBeenCalledWith(
+        "RenderBatch: a queued render threw",
+        expect.any(Error)
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("runs synchronously while a DOM event is being delivered", () => {
     // Typing and clicking must repaint before the handler returns: React puts
     // a controlled input's shown text back to the last rendered value when

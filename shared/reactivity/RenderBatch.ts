@@ -39,7 +39,15 @@ function flush(): void {
   // it just calls through, because that React merges on its own.
   unstable_batchedUpdates(() => {
     for (const render of batch) {
-      render();
+      // Isolate each render, the same discipline Observable.setValue applies
+      // to its subscribers: the components were already removed from the
+      // queue, so one throwing render must not starve the rest of a repaint
+      // they are owed (their views would silently show stale state).
+      try {
+        render();
+      } catch (error) {
+        console.error("RenderBatch: a queued render threw", error);
+      }
     }
   });
 }

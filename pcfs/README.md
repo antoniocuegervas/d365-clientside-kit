@@ -1,7 +1,15 @@
 # Sample PCFs
 
-Two are production-grade controls that deploy to and run on a real form (so they
-bundle React + Fluent v9 and carry the dedupe webpack and tabster pin):
+Every control here is a **virtual control**: the platform supplies its own React
+and Fluent v9 at runtime, so the bundles carry neither and there is no per-wave
+Fluent re-pin to maintain. The manifests declare the platform libraries at the
+supported ceiling and the org serves its current copies (`platform-floor.json`
+is the single source for those numbers, and `npm run verify` enforces it). The
+one exception is `KitDatePicker`: the date/time picker compat packages are not
+part of the platform Fluent library, so that control alone bundles them with
+the pinned tabster chain the floor checker demands.
+
+Two are production-grade controls that deploy to and run on a real form:
 
 - **`KitCounterpartyGrid`**, the flagship: a cross-type activity dataset control
   bound to the Account form's Activities subgrid (synthesized Counterparty and
@@ -35,7 +43,9 @@ The full list is in [../docs/gotchas.md](../docs/gotchas.md); these bite PCF
 authors specifically, read them before deploying a control:
 
 - [Bundled Fluent v9 vs the host's shared tabster](../docs/gotchas.md#a-pcf-that-bundles-fluent-v9-pins-to-the-hosts-shared-tabster):
-  pin the tabster chain, or a version newer than the host's blanks the control.
+  only relevant if a control bundles Fluent or the compat packages (here, just
+  `KitDatePicker`): pin the tabster chain, or a version newer than the host's
+  blanks the control.
 - [Bump the manifest version on every redeploy](../docs/gotchas.md#a-pcf-redeploy-needs-a-manifest-version-bump-or-the-platform-serves-the-old-bundle):
   reimporting with the same `<control version>` succeeds but the form keeps the
   cached old bundle.

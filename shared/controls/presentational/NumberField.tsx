@@ -72,8 +72,21 @@ export class NumberField extends ObserverComponent<INumberFieldProps, INumberFie
 
   private readonly handleFocus = (): void => {
     const current = this.props.value.value;
-    this.setState({ editingText: current === null ? "" : String(current) });
+    this.setState({ editingText: current === null ? "" : this.toEditText(current) });
   };
+
+  /**
+   * Renders a value as edit text in the same separators normalizeInput expects
+   * back: the user's decimal symbol, no group separators. Seeding the raw
+   * JavaScript rendering instead would put a "." into the box, and when "."
+   * is the user's GROUP separator a commit with no keystrokes would strip it
+   * and multiply the value.
+   */
+  private toEditText(value: number): string {
+    const { precision, decimalSymbol } = this.props;
+    const fixed = precision !== undefined ? value.toFixed(precision) : String(value);
+    return decimalSymbol && decimalSymbol !== "." ? fixed.replace(".", decimalSymbol) : fixed;
+  }
 
   private readonly handleBlur = (): void => {
     this.commit();

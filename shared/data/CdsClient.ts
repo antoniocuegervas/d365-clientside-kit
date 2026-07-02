@@ -2,6 +2,7 @@ import type {
   IChangeSetRequest,
   IChangeSetResponse,
   IExecuteResponse,
+  IWebApiParameterType,
   IWebApiRequest,
 } from "../context/IViewModelContext";
 import { LibraryUtils } from "../utils/LibraryUtils";
@@ -476,11 +477,13 @@ export class CdsClient {
     }
 
     if (operationType === 1) {
-      // Function: GET with the OData parameter-alias syntax.
+      // Function: GET with the OData parameter-alias syntax, serialized by the
+      // declared parameter types when the request carries them (the same
+      // contract native execute reads).
       const qualified = boundPrefix ? qualifyAction(operationName) : operationName;
       return {
         method: "GET",
-        url: `${this.apiUrl}${boundPrefix}${qualified}${buildFunctionParameters(parameters)}`,
+        url: `${this.apiUrl}${boundPrefix}${qualified}${buildFunctionParameters(parameters, metadata.parameterTypes)}`,
       };
     }
 
@@ -607,8 +610,43 @@ function collectExecuteParameters(request: IWebApiRequest): Record<string, unkno
   return parameters;
 }
 
-/** Serializes a function parameter value for the OData alias query syntax. */
-function formatFunctionParameterValue(value: unknown): string {
+/**
+ * Serializes a function parameter value for the OData alias query syntax.
+ * When the request declares the parameter's type (`parameterTypes`, the same
+ * metadata native execute serializes by), that declaration wins:
+ *
+ *   - Edm.String stays a quoted literal; every other primitive emits unquoted
+ *     (an Edm.Guid can only travel as a JavaScript string, and quoting it
+ *     makes Dataverse reject the call with a type-conversion error).
+ *   - Enumeration types emit the qualified form `Namespace.Type'Member'`.
+ *   - Entity types emit the `@odata.id` reference form.
+ *
+ * Without a declaration the JavaScript type decides, which matches the
+ * modern host for strings/numbers/booleans but cannot know a string is
+ * really a GUID; declare parameterTypes for those.
+ */
+function formatFunctionParameterValue(value: unknown, type?: IWebApiParameterType): string {
+  if (type) {
+    // structuralProperty: 1 PrimitiveType, 3 EnumerationType, 5 EntityType.
+    if (type.structuralProperty === 3) {
+      return `${type.typeName}'${LibraryUtils.escapeODataString(String(value))}'`;
+    }
+    if (type.structuralProperty === 5) {
+      const reference = value as { entityType?: string; id?: string } | undefined;
+      if (reference?.entityType && reference?.id) {
+        return JSON.stringify({
+          "@odata.id": `${LibraryUtils.entitySetName(reference.entityType)}(${normalizeGuid(reference.id)})`,
+        });
+      }
+    }
+    if (
+      type.structuralProperty === 1 &&
+      typeof value === "string" &&
+      type.typeName !== "Edm.String"
+    ) {
+      return value;
+    }
+  }
   if (typeof value === "string") {
     // Single quotes are doubled per OData string-literal rules so a value
     // containing one cannot break out of (or inject into) the query.
@@ -624,7 +662,10 @@ function formatFunctionParameterValue(value: unknown): string {
  * Builds the OData function-call suffix: a parameter signature plus alias
  * values, for example "(Name=@p1)?@p1='Contoso'". Empty params yield "()".
  */
-function buildFunctionParameters(parameters: Record<string, unknown>): string {
+function buildFunctionParameters(
+  parameters: Record<string, unknown>,
+  parameterTypes?: Record<string, IWebApiParameterType>
+): string {
   const names = Object.keys(parameters);
   if (names.length === 0) {
     return "()";
@@ -633,7 +674,9 @@ function buildFunctionParameters(parameters: Record<string, unknown>): string {
   const query = names
     .map(
       (name, index) =>
-        `@p${index + 1}=${encodeURIComponent(formatFunctionParameterValue(parameters[name]))}`
+        `@p${index + 1}=${encodeURIComponent(
+          formatFunctionParameterValue(parameters[name], parameterTypes?.[name])
+        )}`
     )
     .join("&");
   return `(${signature})?${query}`;

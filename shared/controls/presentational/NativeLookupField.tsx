@@ -75,6 +75,11 @@ export interface INativeLookupFieldProps extends ICommonFieldProps {
   /** True while the host is querying, drives the "Loading" line. */
   searching?: OrObservable<boolean>;
   /**
+   * True when the host's last search FAILED (as opposed to returning nothing).
+   * Renders a distinct message so a broken query never reads as "no matches".
+   */
+  searchFailed?: OrObservable<boolean>;
+  /**
    * Raised as the user types, and once with "" when the flyout opens, so the
    * host loads the lookup view's first page on open (the native "all records"
    * state) and filters as the user types.
@@ -328,6 +333,7 @@ export class NativeLookupField extends ObserverComponent<
       props.results,
       props.errorMessage,
       props.searching,
+      props.searchFailed,
       props.tableLabel,
       props.targets,
       props.activeTarget,
@@ -523,6 +529,7 @@ const Body: React.FC<BodyProps> = (props) => {
   const current = props.selected.value;
   const results = valueOf(props.results);
   const searching = valueOf(props.searching ?? false);
+  const searchFailed = valueOf(props.searchFailed ?? false);
   const tableLabel = valueOf(props.tableLabel ?? undefined);
   const targets = valueOf(props.targets ?? undefined);
   const activeTarget = valueOf(props.activeTarget ?? undefined);
@@ -641,7 +648,9 @@ const Body: React.FC<BodyProps> = (props) => {
           ) : null}
           <div id="native-lookup-results" role="tree" aria-label={kitStrings().lookupResults} className={styles.tree}>
             {results.length === 0 && !searching ? (
-              <div className={styles.message}>{kitStrings().noRecordsFound}</div>
+              <div className={styles.message}>
+                {searchFailed ? kitStrings().searchFailed : kitStrings().noRecordsFound}
+              </div>
             ) : (
               results.map((result) => (
                 <ResultRow
