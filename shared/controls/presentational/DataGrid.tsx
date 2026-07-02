@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import {
   DataGrid as FluentDataGrid,
   DataGridBody,
@@ -175,6 +176,29 @@ export class DataGrid extends ObserverComponent<IDataGridProps, IDataGridState> 
     );
   }
 
+  override componentDidUpdate(prevProps: IDataGridProps): void {
+    // A host that swaps an Observable prop's identity on a reused instance
+    // (rebuilding its ViewModel without changing the grid's key) must not
+    // leave the grid listening to the old instances.
+    if (
+      prevProps.columns !== this.props.columns ||
+      prevProps.rows !== this.props.rows ||
+      prevProps.loading !== this.props.loading ||
+      prevProps.selectedKey !== this.props.selectedKey ||
+      prevProps.selectedKeys !== this.props.selectedKeys ||
+      prevProps.sortState !== this.props.sortState
+    ) {
+      this.reobserve(
+        this.props.columns,
+        this.props.rows,
+        this.props.loading,
+        this.props.selectedKey,
+        this.props.selectedKeys,
+        this.props.sortState
+      );
+    }
+  }
+
   private readonly handleSelectionChange = (keys: string[]): void => {
     if (this.props.selectedKeys) {
       this.props.selectedKeys.value = keys;
@@ -316,7 +340,7 @@ const Body: React.FC<
 
   if (loading) {
     return (
-      <Skeleton aria-label="Loading rows" className={styles.loadingSkeleton}>
+      <Skeleton aria-label={kitStrings().loadingRows} className={styles.loadingSkeleton}>
         {Array.from({ length: props.skeletonRows ?? 5 }, (_, index) => (
           <div key={index} style={{ padding: "6px 0" }}>
             <SkeletonItem size={24} />

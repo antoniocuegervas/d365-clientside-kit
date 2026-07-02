@@ -15,6 +15,11 @@
  *   not carry) must pin the tabster chain via overrides and alias the compat
  *   packages in webpack.config.js; without compat dependencies the project
  *   must carry no tabster overrides at all.
+ * - The control's import graph (its own sources plus every shared/ module it
+ *   reaches) must not import a compat package the PCF does not declare:
+ *   webpack would silently resolve it from the repo root and bundle an
+ *   UNPINNED tabster chain, the exact collision the pins exist to prevent,
+ *   while the build and the checks above stay green.
  * - shared/ must stay clear of React-18-only APIs: the webresource shell
  *   bundles React 18, but the PCF host serves React 16/17, and shared code
  *   runs on both.
@@ -79,6 +84,16 @@ for (const name of readdirSync(pcfsDir)) {
         fail(
           `manifest platform-library ${lib} is "${declared[lib] ?? "missing"}", ` +
             `the shared declaration is "${version}" (pcfs/platform-floor.json)`
+        );
+      }
+    }
+    // The solution import validates *-key attributes against noAposStringType:
+    // an apostrophe passes every local build and then fails the org import.
+    for (const m of xml.matchAll(/(display-name-key|description-key)="([^"]*)"/g)) {
+      if (m[2].includes("'")) {
+        fail(
+          `manifest ${m[1]} contains an apostrophe ("${m[2].slice(0, 40)}..."); the solution ` +
+            `import XSD (noAposStringType) rejects it even though local builds pass`
         );
       }
     }
@@ -150,6 +165,24 @@ for (const name of readdirSync(pcfsDir)) {
     }
   }
 
+  // Undeclared compat imports: walk the control's import graph (its own
+  // sources plus the shared/ modules it reaches) and fail on any
+  // @fluentui/*-compat import the PCF does not declare. Declared ones are
+  // covered by the pin checks above; an undeclared one resolves from the repo
+  // root and bundles an unpinned tabster while everything else stays green.
+  const entry = path.join(dir, name, "index.ts");
+  if (existsSync(entry)) {
+    for (const [pkg, importer] of collectCompatImports(entry)) {
+      if (!deps[pkg]) {
+        fail(
+          `the import graph reaches ${pkg} (via ${path.relative(root, importer).replaceAll("\\", "/")}) ` +
+            `but package.json does not declare it; declare it (with the tabster pins and webpack alias) ` +
+            `or keep the compat-using shared module out of this control`
+        );
+      }
+    }
+  }
+
   // Reproducible installs: exact versions only.
   for (const [section, entries] of [
     ["dependencies", deps],
@@ -161,6 +194,63 @@ for (const name of readdirSync(pcfsDir)) {
       }
     }
   }
+}
+
+/** Resolves a relative import specifier to a source file, TypeScript style. */
+function resolveModule(fromFile, spec) {
+  const base = path.resolve(path.dirname(fromFile), spec);
+  for (const candidate of [
+    `${base}.ts`,
+    `${base}.tsx`,
+    path.join(base, "index.ts"),
+    path.join(base, "index.tsx"),
+    base,
+  ]) {
+    if (existsSync(candidate) && statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Walks the import graph from an entry file, following relative imports (which
+ * is what reaches shared/), and returns every @fluentui/*-compat package the
+ * graph imports, mapped to the first file that imports it. Type-only imports
+ * are skipped: they do not bundle code.
+ */
+function collectCompatImports(entryFile) {
+  const visited = new Set();
+  const hits = new Map();
+  const queue = [entryFile];
+  const importSpec = /(?:^|\n)\s*(import|export)\s+([^;]*?from\s+)?["']([^"']+)["']/g;
+  while (queue.length > 0) {
+    const file = queue.pop();
+    if (visited.has(file)) {
+      continue;
+    }
+    visited.add(file);
+    const source = readFileSync(file, "utf8");
+    for (const match of source.matchAll(importSpec)) {
+      const clause = match[2] ?? "";
+      const spec = match[3];
+      if (clause.trimStart().startsWith("type ")) {
+        continue;
+      }
+      if (/^@fluentui\/[^/]*-compat/.test(spec)) {
+        const pkg = spec.split("/").slice(0, 2).join("/");
+        if (!hits.has(pkg)) {
+          hits.set(pkg, file);
+        }
+      } else if (spec.startsWith(".")) {
+        const resolved = resolveModule(file, spec);
+        if (resolved) {
+          queue.push(resolved);
+        }
+      }
+    }
+  }
+  return hits;
 }
 
 //#endregion

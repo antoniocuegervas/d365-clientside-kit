@@ -121,17 +121,26 @@ export class CounterpartyGridApp extends SmartComponent<
       this.setState({ counterparties: new Map() });
       return;
     }
-    void this.loadCounterparties(ids);
+    void this.loadCounterparties(ids, signature);
   }
 
-  private async loadCounterparties(ids: string[]): Promise<void> {
+  private async loadCounterparties(ids: string[], signature: string): Promise<void> {
     try {
       const counterparties = await resolveCounterparties(this.vmContext, ids);
-      if (!this.isDisposed) {
+      // Only the page still on screen may write: paging quickly back and forth
+      // overlaps these loads, and a slow page's map must not land under the
+      // current one.
+      if (!this.isDisposed && signature === this.resolvedSignature) {
         this.setState({ counterparties });
       }
-    } catch {
-      // Leave the counterparty cells blank rather than break the grid.
+    } catch (error) {
+      // Leave the counterparty cells blank rather than break the grid, but log
+      // the reason, and forget the signature so the next updateView for this
+      // page retries instead of showing blank columns forever.
+      console.error("Counterparty resolution failed", error);
+      if (!this.isDisposed && signature === this.resolvedSignature) {
+        this.resolvedSignature = "";
+      }
     }
   }
 

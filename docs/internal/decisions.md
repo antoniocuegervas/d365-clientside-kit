@@ -1366,3 +1366,73 @@ API floor (lower the floor or gate the affected control), a platform wave that
 changes what the React platform library delivers, or a control that genuinely needs
 a library version the platform will not serve (build that one standard, per the
 deployment.md historical note).
+
+## D-055, the third adversarial round: what was deliberately not fixed, and the claims that did not survive verification
+
+The 2026-07 adversarial round (six reviews, two models by three roles) was
+consolidated and remediated on the block-b branch; the fixes speak for
+themselves in the history. This entry records the other half, the decisions
+NOT to act, so none of them is re-litigated from the same findings later.
+
+Deliberate non-fixes, each with its reason:
+
+- **`npm run verify` still does not compile the PCFs.** Five npm ci runs plus
+  five production webpack builds would multiply the gate's runtime past the
+  "cheap question" bar that makes verify get run at all. The floor checker
+  guards the manifests, dependencies, and the shared import graph statically,
+  and CI builds all five in production mode whenever shared/, pcfs/, or the
+  root dependency set changes. Revisit if a shared change ever breaks a PCF
+  in a way the floor checker and typecheck both miss.
+- **SmartViewGrid still binds once on mount.** The supported rebind is a React
+  key derived from the binding. Full rebind support would re-run initialize
+  for a case the key pattern already covers in one line; instead the contract
+  is documented on the class and a development-build warning fires when a
+  binding prop changes identity. (The field controls rebind because a wizard
+  step legitimately swaps attributes under one mounted control; a grid swap
+  is a different screen.)
+- **Rejected-promise shapes stay host-specific.** Normalizing every adapter
+  method's rejection into one kit error type would be a breaking contract
+  change across three hosts, out of proportion to the gap. The claim in
+  gotchas was rescoped instead: parity is promised for success shapes and
+  flow control, and the rejection shapes are documented as host-coupled.
+- **The 9.2 API-version constants stay** (PCFContext.orgVersion, the CdsClient
+  default), per D-051's acceptance. The V8 adapter now derives its endpoint
+  version from the org's real version string, which was the half with a
+  concrete failure mode (8.0/8.1 orgs).
+- **No committed solution project or managed-zip pipeline stage yet.** The ALM
+  chapter's prose is right but the repo cannot execute it; making it
+  executable (a committed wrapper for the five PCFs plus webresources, a
+  pipeline stage emitting a managed zip, an import verification) is a
+  coherent block of its own and was cut from this round rather than shipped
+  untested. The spkl solution name is at least parameterized now. Trigger:
+  the next time a release is cut, or the first consumer who asks for a
+  managed artifact of their fork.
+- **The change-set parser keeps its live-org regression protocol** (D-045)
+  instead of a CI-gated integration test: a public portfolio repo does not
+  get a dev-org secret in CI. The protocol is recorded where the code is.
+- **Metadata fan-out is deferred INTO the native-first metadata rework** (see
+  the roadmap direction, which now records the deferred scope). Its two cheap
+  sub-findings (XHR timeout, 429 Retry-After) were pulled forward and
+  shipped.
+
+Reviewer claims checked and found wrong, recorded so the next round does not
+re-raise them:
+
+- "loadFormatting needs a rebind sequence guard": the mechanism is real (no
+  guard), but getFormatting() is user-settings-level and binding-independent,
+  so a stale write sets identical data. No defect.
+- "the SmartNativeLookup target switcher shows the previous target's rows":
+  switching targets immediately starts the new target's first-page search,
+  which bumps the search sequence synchronously, so the old response is
+  already discarded. The REBIND path did have the gap and was fixed.
+- "PCFContext should fail fast on an empty client URL": relative same-origin
+  URLs are correct in the embedded host and the empty URL is a deliberate,
+  commented fallback; it now warns for diagnosability instead of throwing.
+- "production strips the dev freeze so in-place mutation fails silently":
+  that is D-038's recorded trade, not a regression.
+
+One posture note: the modern host cannot distinguish a network failure from a
+business error on execute (the native API rejects identically for both), so
+on that host both resolve ok=false while the cds hosts reject on network
+failure. Documented on the contract; there is nothing better available on
+that surface.

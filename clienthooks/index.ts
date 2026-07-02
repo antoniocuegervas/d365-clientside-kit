@@ -12,6 +12,7 @@
 import { AccountForm } from "./form/AccountForm";
 import { AccountRibbon } from "./ribbon/AccountRibbon";
 import { LockedGrid as LockedGridHook } from "./grid/LockedGrid";
+import { KitShellForm } from "./form/KitShell";
 
 export const Account = {
   Form: new AccountForm(),
@@ -19,3 +20,9 @@ export const Account = {
 };
 
 export const LockedGrid = new LockedGridHook();
+
+/**
+ * Not a template: the supported boot path for form-hosted shell webresources
+ * (CrmClientSide.KitShell.connect on the form's OnLoad).
+ */
+export const KitShell = new KitShellForm();

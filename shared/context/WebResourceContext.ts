@@ -235,21 +235,30 @@ class ModernWebApi implements IWebApi {
   }
 
   async execute(request: IWebApiRequest): Promise<IExecuteResponse> {
-    // The modern host has the native execute (full action/function/CRUD). Read
-    // the native Response body once and rewrap, so the returned object matches
-    // the cds-client hosts exactly (same shape, re-callable json/text, ok=false
-    // on an HTTP error). Native already resolves ok=false rather than throwing.
-    const response = await this.api.online.execute(request);
-    return makeExecuteResponse(response.status, response.statusText, await response.text());
+    // The modern host has the native execute (full action/function/CRUD). Per
+    // the Client API reference the fetch-like response (ok/status/json) is the
+    // SUCCESS shape only: on an HTTP failure the native promise REJECTS and
+    // hands the error callback { errorCode, message }, no response object. The
+    // kit contract resolves ok=false on an HTTP error on every host, so the
+    // rejection is folded back into a response here. This host cannot tell a
+    // business error from a network failure, so both resolve ok=false (noted
+    // on IWebApi.execute).
+    try {
+      const response = await this.api.online.execute(request);
+      // Defensive: should a host build ever resolve a non-2xx response, rewrap
+      // it the same way instead of trusting `ok` to exist on that shape.
+      return makeExecuteResponse(response.status, response.statusText, await response.text());
+    } catch (error) {
+      return executeRejectionToResponse(error);
+    }
   }
 
-  async executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]> {
-    const responses = await this.api.online.executeMultiple(requests);
-    return Promise.all(
-      responses.map(async (response) =>
-        makeExecuteResponse(response.status, response.statusText, await response.text())
-      )
-    );
+  executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]> {
+    // Rides cds-client even on the modern host: native executeMultiple rejects
+    // wholesale when any operation fails, which cannot honor the flat-array
+    // contract (one response per request, each with its own ok/status). The
+    // cds $batch returns exactly that, in the same single round-trip.
+    return this.client.executeMultiple(requests);
   }
 
   executeChangeSet(requests: IChangeSetRequest[]): Promise<IChangeSetResponse[]> {
@@ -257,6 +266,23 @@ class ModernWebApi implements IWebApi {
     // cannot express content-id references inside a transactional change set.
     return this.client.executeChangeSet(requests);
   }
+}
+
+/**
+ * Maps a native execute rejection into the kit's fetch-like response. The
+ * documented rejection members are `errorCode` (a CRM code such as 2147746611,
+ * not an HTTP status) and `message`; when the host happens to expose an HTTP
+ * status it is kept, otherwise the response reports 500. The body mirrors the
+ * OData error envelope so callers read one shape on every host.
+ */
+function executeRejectionToResponse(error: unknown): IExecuteResponse {
+  const raw = (error ?? {}) as { errorCode?: number; message?: string; status?: number };
+  const status =
+    typeof raw.status === "number" && raw.status >= 400 && raw.status <= 599 ? raw.status : 500;
+  const message =
+    raw.message ?? (error instanceof Error ? error.message : "The request failed.");
+  const body = JSON.stringify({ error: { code: raw.errorCode, message } });
+  return makeExecuteResponse(status, "Execute failed", body);
 }
 
 class ModernNavigation implements INavigation {

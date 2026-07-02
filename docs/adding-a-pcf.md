@@ -48,6 +48,15 @@ for Pattern 3 only when you want customization niche enough that the smart
 control's default behavior gets in your way, or that goes beyond what a reasonable
 extension prop would cover. Uncommon, but a real case.
 
+The short decision table:
+
+| You are binding… | Pattern | Copy from |
+|---|---|---|
+| A standard column where the kit smart control already does what you want | 2 (smart + provider), the default | `pcfs/KitTooltip`, `pcfs/KitNativeLookup` |
+| A column whose options/values the PCF host itself supplies (no metadata reads needed) | 1 (presentational via root) | `pcfs/KitOptionSet` |
+| A standard column, but you need host facts the smart control's props do not cover | 3 (smart via root) | `pcfs/KitDatePicker` |
+| A dataset (subgrid) | 2 with the dataset as input | `pcfs/KitCounterpartyGrid` |
+
 All three patterns: implement `ComponentFramework.ReactControl`, keep context
 wiring in `init`, RETURN the element from `updateView` (the platform owns the
 React root, so there is no createRoot and nothing to unmount in `destroy`).
@@ -66,22 +75,53 @@ change that breaks a PCF fails fast.
 
 A small control pushes straight to a dev org with
 `pac pcf push --publisher-prefix <prefix without trailing underscore, e.g. new>` (the `kit.config.json` `publisherPrefix`
-without the trailing underscore, see the prefix section below) as a debug build. A control that bundles
-heavy Fluent v9 (`Popover`, `Avatar`, the native lookup, the grid) cannot: its
-debug bundle exceeds the 5 MB webresource ceiling and `pac pcf push` has no
-production switch. Deploy those through a solution wrapper, `pac solution init`
-plus `pac solution add-reference` once, then:
+without the trailing underscore, see the prefix section below) as a debug build. A control whose
+debug bundle exceeds the 5 MB webresource ceiling cannot (`pac pcf push` has
+no production switch); deploy those through a solution wrapper. The wrapper is
+a one-time setup per control set. Worked example, start to finish, run from a
+NEW folder outside the PCF projects (for example `pcfs/_myDeploy/`, the
+underscore keeps the floor checker and CI out of it; the kit's own local
+wrappers follow that convention and stay untracked):
 
 ```powershell
+mkdir pcfs/_myDeploy; cd pcfs/_myDeploy
+pac solution init --publisher-name YourPublisher --publisher-prefix new
+pac solution add-reference --path ../KitNativeLookup
 dotnet build -c Release -p:SolutionPackageType=Unmanaged
-pac solution import --force-overwrite --publish-changes
+pac solution import --path bin/Release/_myDeploy.zip --force-overwrite --publish-changes
 ```
 
-Either path, **bump the manifest `<control version>` on every redeploy** or the
+`--publisher-name` is the publisher's unique name in your org (Settings →
+Solutions shows it), `--publisher-prefix` is the same prefix everything else
+uses, WITHOUT the trailing underscore. One wrapper can `add-reference`
+several controls; `dotnet build` compiles each referenced control in Release
+and packs the zip.
+
+### Bind it in the form designer
+
+After the import, the control still has to be placed on a form. In the maker
+portal (make.powerapps.com):
+
+1. Open the table → Forms → your form.
+2. Select the column on the form (or add it first), then in the right pane
+   choose **Components → + Component** and pick the control. It appears under
+   the display name from its manifest; the underlying registered name is
+   `<prefix>_<namespace>.<constructor>` (for example `new_D365Kit.KitNativeLookup`).
+3. Fill the control's input properties in the same pane. For the kit controls
+   the defaults are enough (KitNativeLookup reads the bound column's logical
+   name from the platform; its `attribute` property is only a manual override).
+4. Set which form factors show the control (web, tablet, phone), **Save**, and
+   **Publish**.
+5. Hard-refresh the app (Ctrl+Shift+R). If the form still shows the old state,
+   the client cached the form definition: see the IndexedDB note in
+   [gotchas.md](gotchas.md).
+
+Either deploy path, **bump the manifest `<control version>` on every redeploy** or the
 platform keeps serving the cached old bundle (the import succeeds and publishes,
 but the form runs the previous build). The bar for a form control is "renders on a
-deployed form", not "compiles", see [gotchas.md](gotchas.md) and
-internal/decisions.md.
+deployed form", not "compiles": a PCF change that only compiled is not done,
+because most of this list (cache, binding, platform libraries) only bites on
+the real form. See [gotchas.md](gotchas.md).
 
 ## Deployed name and the publisher prefix
 
@@ -94,3 +134,12 @@ changes. The publisher prefix is applied at push/import time, not in the manifes
 trailing underscore to `--publisher-prefix`) so one value names everything. The
 manifest itself stays untouched, which matters if you bring your own PCFs: nothing in
 their manifests changes.
+
+The whole naming chain from one value, worked:
+
+```text
+kit.config.json  publisherPrefix: "new_"
+  → webresources        new_clientui.html / new_clientui.js   (deploy.ps1 renders the underscore form)
+  → pac pcf push        --publisher-prefix new                (NO trailing underscore)
+  → registered control  new_D365Kit.KitOptionSet              (prefix_namespace.constructor)
+```

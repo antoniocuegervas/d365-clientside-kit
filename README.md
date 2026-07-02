@@ -9,6 +9,14 @@ and modern UCI coverage.
 
 ![The kit's activity grid embedded in a native Dynamics 365 account form, sitting alongside the standard form sections and timeline. A synthesized Counterparty column shows the related party per row, hovering a "(+N more)" chip opens a popover listing every party with its role, and "Load more" pages in the rest.](docs/media/counterparty-grid-demo.gif)
 
+**Try it in five minutes** (Node 24 + npm 11): `npm install`, then
+`npm run storybook` for every control and whole sample screens on fixture
+data, no org needed; or skip the clone entirely with the
+[hosted Storybook](https://antoniocuegervas.github.io/d365-clientside-kit/)
+and the ready-to-import
+[sample solution](https://github.com/antoniocuegervas/d365-clientside-kit/releases).
+Details in [Getting started](#getting-started).
+
 ## Why it exists
 
 In normal D365 work, when configuration cannot express exactly what the user needs, you
@@ -48,12 +56,14 @@ signal it is outside the kit's scope, not a reason to grow the kit. Routing, glo
 managers, and composition patterns aimed at full-time frontend teams are deliberately
 out of scope.
 
-It also leaves **field-level (column) security** to the platform. Native forms
-resolve each user's column access from the form runtime, which a webresource control
-does not have, so the kit renders column-secured fields read-only and shows
-read-denied values as empty rather than pretending to enforce per-user access. If you
-need native-grade column security in custom UI, that is the platform's job:
-use a native form. See [docs/gotchas.md](docs/gotchas.md).
+It also leaves **field-level (column) security** enforcement to the platform,
+with one split by delivery shape. A webresource has no per-user access signal,
+so there the kit renders column-secured fields read-only and shows read-denied
+values as empty rather than pretending to enforce access. A bound PCF DOES
+receive the user's real access through the documented property surface, and
+the kit's field PCFs consume it: a secured column the user can edit stays
+editable. If you need native-grade column security in webresource UI, that is
+the platform's job: use a native form. See [docs/gotchas.md](docs/gotchas.md).
 
 ## How this relates to canvas apps and custom pages
 
@@ -176,10 +186,11 @@ Because every control reaches the platform through one `IViewModelContext`, the 
 presentational component and ViewModel run unchanged as a webresource, a PCF, or a form
 script. That portability is also a development tactic, not only a deployment choice:
 
-- **Develop as a webresource first.** A webresource iterates in Storybook and a local
-  harness and refreshes without a deploy (a Fiddler autoresponder can serve your local
-  bundle straight to the live site, the single biggest speed-up there is for webresource
-  work). A PCF pays a build, push, and import on every change and fights the model-driven
+- **Develop as a webresource first.** A webresource iterates in Storybook against
+  fixture data, and refreshes on the live site without a deploy: a Fiddler
+  autoresponder can serve your local bundle straight to the org, the single biggest
+  speed-up there is for webresource work (the walkthrough is in
+  [docs/deployment.md](docs/deployment.md)). A PCF pays a build, push, and import on every change and fights the model-driven
   app's aggressive caching. So build and debug the hard part, the UI and the data shape,
   as a webresource, where the loop is markedly faster.
 - **Ship as webresource or PCF, whichever the requirement needs.** When the control must be a bound
@@ -255,13 +266,26 @@ ViewModel, Observable, observe) are defined once in the [glossary](docs/glossary
 
 ## Getting started
 
+Requires **Node 24 and npm 11** (the exact pins live in `.nvmrc` and the
+`engines` field; on Windows, nvm-windows or fnm gets you there). Then:
+
 ```bash
-npm install           # first-time setup, reconciles the lockfile to your npm version
+npm install           # deterministic install from package-lock.json; nothing to commit afterwards
 npm run storybook     # browse the controls with fixture data, the quick payoff
-npm run verify        # the full gate: lint + typecheck + build + tests + smoke + storybook (slow)
+npm run verify        # the full gate: lint + typecheck + build + tests + smoke + storybook
 ```
 
-Browse the controls live in the hosted Storybook:
+Day 1 is `install` + `storybook`; run `verify` before you send changes
+anywhere. Two install notes so the output does not read as trouble: the
+handful of npm deprecation warnings and audit findings come from dev-time
+tooling (jest/storybook transitives at the root, the pcf-scripts toolchain
+inside each `pcfs/*` project), none of it ships in any bundle, and the state
+is reviewed each release. If a LOCAL Storybook fights you (port 6006 taken and
+an interactive prompt, or a stale cache after reinstalling), run
+`npm run storybook -- --port 6008 --ci`, and delete
+`node_modules/.cache/storybook` if a fresh install fails to start.
+
+Zero-setup alternative: browse the controls live in the hosted Storybook:
 https://antoniocuegervas.github.io/d365-clientside-kit/
 
 To see the kit running in a real org without building anything, install the managed
@@ -284,16 +308,18 @@ lists every sample from one webresource.
 
 ## Where to go deeper
 
-The public guides in `docs/`, in a sensible reading order:
+The public guides in `docs/`, ordered hands-on-first (theory when you want
+the why, not before your first app):
 
-1. [docs/architecture.md](docs/architecture.md): the three-layer contract and boot flow
-2. [docs/architectural-stance.md](docs/architectural-stance.md): why MVVM + Observables
-3. [docs/adding-a-webresource-app.md](docs/adding-a-webresource-app.md): ship your first app
-4. [docs/component-catalog.md](docs/component-catalog.md) and [docs/control-configuration.md](docs/control-configuration.md): controls and their config
-5. [docs/adding-a-pcf.md](docs/adding-a-pcf.md) and [docs/adding-a-client-hook.md](docs/adding-a-client-hook.md): the other delivery targets
-6. [docs/prompt-friendly-development.md](docs/prompt-friendly-development.md): generating apps with coding agents
-7. [docs/testing.md](docs/testing.md) and [docs/deployment.md](docs/deployment.md): verify and publish
-8. [docs/gotchas.md](docs/gotchas.md): sharp edges that are not obvious from the type signatures
+1. [docs/adding-a-webresource-app.md](docs/adding-a-webresource-app.md): ship your first app
+2. [docs/component-catalog.md](docs/component-catalog.md) and [docs/control-configuration.md](docs/control-configuration.md): controls, their config, and the value types to wire
+3. [docs/glossary.md](docs/glossary.md): the five kit terms, one page
+4. [docs/architecture.md](docs/architecture.md): the three-layer contract and boot flow
+5. [docs/architectural-stance.md](docs/architectural-stance.md): why MVVM + Observables
+6. [docs/adding-a-pcf.md](docs/adding-a-pcf.md) and [docs/adding-a-client-hook.md](docs/adding-a-client-hook.md): the other delivery targets
+7. [docs/prompt-friendly-development.md](docs/prompt-friendly-development.md): generating apps with coding agents
+8. [docs/testing.md](docs/testing.md) and [docs/deployment.md](docs/deployment.md): verify and publish
+9. [docs/gotchas.md](docs/gotchas.md): sharp edges that are not obvious from the type signatures
 
 The full design document and decision log live in
 [docs/internal/](docs/internal/) for anyone curious about the reasoning behind the

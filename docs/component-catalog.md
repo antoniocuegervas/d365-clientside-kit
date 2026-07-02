@@ -20,7 +20,7 @@ data shape doesn't fit one native control. See the when-to-use table in the
 | Whole / decimal / float | `NumberField` | `SmartNumberField` |
 | Currency | `CurrencyField` | `SmartNumberField` (money kind) |
 | Boolean (two options) | `BooleanField` | `SmartBooleanField` |
-| Rich text | deferred (see internal/decisions.md) | n/a |
+| Rich text | deferred: a native-parity rich text editor is a project of its own, use the native control (full reasoning in internal/decisions.md) | n/a |
 
 Two single-record lookups, by intent: `SmartLookup` is the simpler combobox
 (often the better data-entry experience), `SmartNativeLookup` replicates the

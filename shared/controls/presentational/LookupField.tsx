@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import { Button, Combobox, Input, Link, Option, makeStyles, mergeClasses, tokens } from "@fluentui/react-components";
 import { DismissRegular, SearchRegular } from "@fluentui/react-icons";
 import { ObserverComponent } from "../../reactivity/ObserverComponent";
@@ -172,7 +173,7 @@ const Body: React.FC<
               appearance="subtle"
               size="small"
               icon={<SearchRegular />}
-              aria-label="Browse records"
+              aria-label={kitStrings().browseRecords}
               onClick={props.onBrowse}
             />
           ) : null}
@@ -181,7 +182,7 @@ const Body: React.FC<
               appearance="subtle"
               size="small"
               icon={<DismissRegular />}
-              aria-label="Clear value"
+              aria-label={kitStrings().clearValue}
               onClick={props.onClear}
             />
           ) : null}
@@ -214,7 +215,7 @@ const Body: React.FC<
             appearance="subtle"
             size="small"
             icon={<DismissRegular />}
-            aria-label="Clear value"
+            aria-label={kitStrings().clearValue}
             onClick={props.onClear}
           />
         </div>
@@ -234,7 +235,7 @@ const Body: React.FC<
             onOptionSelect={props.onSelect}
             onOpenChange={props.onOpenChange}
             disabled={disabled || readOnly}
-            placeholder={readOnly ? undefined : placeholder ?? "Look for records"}
+            placeholder={readOnly ? undefined : placeholder ?? kitStrings().lookForRecords}
             freeform
             clearable={false}
           >
@@ -244,7 +245,7 @@ const Body: React.FC<
               </Option>
             ) : results.length === 0 ? (
               <Option key="__none__" value="__none__" text="" disabled>
-                {state.searchText ? "No records found" : "Type to search"}
+                {state.searchText ? kitStrings().noRecordsFound : kitStrings().typeToSearch}
               </Option>
             ) : (
               results.map((result) => (
@@ -271,7 +272,7 @@ const Body: React.FC<
             appearance="subtle"
             size="small"
             icon={<DismissRegular />}
-            aria-label="Clear value"
+            aria-label={kitStrings().clearValue}
             onClick={props.onClear}
           />
         ) : null}

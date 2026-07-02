@@ -27,8 +27,12 @@ export async function getConfigurationParameter(
   options: IConfigurationParameterOptions
 ): Promise<unknown> {
   const { entity, nameField, valueField, key } = options;
+  // The key is caller-supplied text: quote escaping protects the OData string
+  // literal, URL-encoding protects the URL itself (a key like "rate%cap" or
+  // "a&b" would otherwise break the query string).
   const query =
-    `?$select=${valueField}&$filter=${nameField} eq '${LibraryUtils.escapeODataString(key)}'`;
+    `?$select=${valueField}&$filter=` +
+    encodeURIComponent(`${nameField} eq '${LibraryUtils.escapeODataString(key)}'`);
   const result = await context.webAPI.retrieveMultipleRecords(entity, query);
   if (result.entities.length === 0) {
     throw new Error(`Configuration parameter '${key}' not found`);

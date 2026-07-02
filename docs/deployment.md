@@ -63,6 +63,50 @@ injects `Xrm`. Host the shell one of three ways:
   minimal one first), and the webresource need not be in that app's sitemap for
   `pagetype=webresource` to resolve.
 
+### The Fiddler inner loop (edit webresource code without deploying)
+
+The fastest webresource loop serves your LOCAL bundle to the LIVE org, so an
+edit is a rebuild plus a browser refresh, no publish at all. Any HTTPS debug
+proxy with response replacement works; with Fiddler Classic:
+
+1. **Tools → Options → HTTPS**: enable "Capture HTTPS CONNECTs" and "Decrypt
+   HTTPS traffic", and accept the root certificate prompt (the org runs over
+   HTTPS, so Fiddler must be able to open it).
+2. **AutoResponder tab**: check "Enable rules" AND "Unmatched requests
+   passthrough" (without passthrough the rest of the org goes dark).
+3. Add a rule matching the bundle by NAME, not full URL:
+   `regex:(?insx).*new_clientui\.js` → the local file
+   `<repo>\dist\clientui\new_clientui.js`. The artifact name is stable across
+   builds on purpose (webpack.config.mjs keeps it deterministic) precisely so
+   this one rule keeps matching.
+4. `npm run build` (or `build:dev` for faster rebuilds), refresh the browser
+   tab. The shell HTML requests the script with a `?v=<hash>` cache-buster,
+   which the rule ignores (it matches the name), so the browser always asks
+   and Fiddler always answers with your local file.
+5. When you are done, disable the rule before judging real deployed behavior,
+   and remember the HTML entry itself still comes from the org: changes to
+   `clientui.html` (rare) do need a deploy.
+
+If the replaced bundle does not seem to load, check the browser did not cache
+it (DevTools → Network → Disable cache while DevTools is open) before
+suspecting the rule.
+
+### How the shell reaches Xrm (and the deprecation exposure)
+
+By default the shell finds `Xrm` by walking ancestor frames (`parent.Xrm`),
+which works everywhere today but sits on Microsoft's deprecation list with an
+unannounced removal date. For a FORM-hosted shell there is a supported path:
+register the clienthooks handler `CrmClientSide.KitShell.connect` on the
+form's OnLoad (pass execution context; optionally the webresource control's
+name as the string parameter). It pushes the form's `Xrm` and form context
+into the shell through the web resource control's `getContentWindow`, the
+mechanism the deprecation guidance points to, and the shell prefers that over
+the walk. Sitemap-hosted and quick-test-URL shells have no form to register
+the hook on, so they continue to boot over the walk; that residual exposure
+is the platform's to resolve (there is no supported alternative for a
+standalone webresource today), and if `parent.Xrm` is ever removed, those
+hosting shapes stop booting until one exists.
+
 The shell reads the app key from `?app=` or from the `data` JSON payload, so the
 subarea and the navigateTo paths both select the right app.
 
@@ -138,7 +182,12 @@ The checker also holds the rest of the virtual posture in place: react-dom
 externalization stays switched on (`pcfReactPlatformLibraries` in featureconfig.json),
 React and Fluent stay out of `dependencies`, and shared code stays clear of
 React-18-only APIs (the webresource shell bundles React 18, but the PCF host serves
-React 16/17, and shared code runs on both).
+React 16/17, and shared code runs on both). It also walks each control's import
+graph, its own sources plus every shared module it reaches, and fails on any
+`@fluentui/*-compat` import the control does not declare: an undeclared one
+resolves from the repo root and bundles an unpinned tabster chain while the
+build stays green, which is exactly how a new control that renders a shared
+date or time field would reproduce the collision the pins exist to prevent.
 
 Two packages are not platform libraries and still ride in bundles where used: the icon
 package (each control bundles just the icons it imports, aliased to one copy), and the
@@ -224,6 +273,13 @@ customer, own the ALM like any other Dataverse code component:
   PCF block the uninstall as dependencies. Remove the bindings (or uninstall
   the dependent app solution) first, then the controls solution. Try the order
   once in test before you rely on it in prod.
+- **Metadata is cached per session.** The kit caches metadata reads (labels,
+  option sets, view layouts) for the life of the page, so a user with an open
+  session keeps seeing pre-promotion metadata until they reload. That is not a
+  failed deployment. Where an app needs to pick changes up in place, call
+  `context.metadata.clearCache()` and re-run its loads; and remember the form
+  definition itself has its own client-side cache (the IndexedDB note in
+  gotchas).
 
 The repo's own pipeline (below) covers the build-and-verify half of this; the
 export/import promotion half lives with your fork, since it is bound to your

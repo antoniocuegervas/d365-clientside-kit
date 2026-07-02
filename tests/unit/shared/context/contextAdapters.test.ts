@@ -56,6 +56,23 @@ describe("createWebResourceContext factory", () => {
     expect(findXrm(self)).toBe(modern);
   });
 
+  it("prefers a form-script-injected Xrm over the deprecated frame walk", () => {
+    // The clienthooks KitShell.connect hook pushes Xrm in through the web
+    // resource control's getContentWindow (the supported path); the walk is
+    // only the fallback.
+    const walked = createModernXrmMock().xrm;
+    const injected = createModernXrmMock().xrm;
+    const top = { Xrm: walked } as unknown as Window;
+    (top as unknown as { parent: Window }).parent = top;
+    const self = {
+      Xrm: undefined,
+      parent: top,
+      __kitInjectedXrm: injected,
+    } as unknown as Window;
+    expect(findXrm(self)).toBe(injected);
+    expect(createWebResourceContext(self)).toBeInstanceOf(WebResourceContext);
+  });
+
   it("binds formAccess to the deepest ancestor form", () => {
     // The hosting form is two frames up; the standalone Xrm in between has none.
     const formHost = createModernXrmMock({
@@ -244,28 +261,69 @@ describe("WebResourceContext (modern)", () => {
   });
 
   it("execute resolves ok=false on an HTTP error (same flow control as cds-client)", async () => {
+    // The platform REJECTS on an HTTP failure with { errorCode, message } (the
+    // mock is written from the Client API reference, not from the adapter);
+    // the adapter folds the rejection back into the kit's fetch-like response.
     const { xrm } = createModernXrmMock({
       executeResponseStatus: 400,
-      executeResponseBody: { error: "bad" },
+      executeErrorMessage: "The argument is invalid.",
     });
     const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
     const response = await context.webAPI.execute({
       getMetadata: () => ({ operationName: "new_Do", operationType: 0 as const }),
     });
     expect(response.ok).toBe(false);
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "bad" });
+    // The rejection carries a CRM errorCode, not an HTTP status; the response
+    // reports 500 and the OData-shaped envelope carries code + message.
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: { code: 2147746611, message: "The argument is invalid." },
+    });
+    expect(await response.text()).toContain("The argument is invalid.");
   });
 
-  it("executeMultiple delegates to the native online.executeMultiple", async () => {
-    const { xrm, calls } = createModernXrmMock({ executeResponseBody: {} });
-    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
-    const responses = await context.webAPI.executeMultiple([
-      { getMetadata: () => ({ operationName: "A", operationType: 0 as const }) },
-      { getMetadata: () => ({ operationName: "B", operationType: 0 as const }) },
-    ]);
-    expect(responses).toHaveLength(2);
-    expect(calls.find((c) => c.api === "WebApi.online.executeMultiple")).toBeDefined();
+  it("executeMultiple rides cds-client on the modern host for per-request results", async () => {
+    // Native executeMultiple rejects wholesale when any operation fails, so it
+    // cannot honor the flat-array contract; the adapter sends the cds $batch.
+    const server = new FakeXhrServer();
+    server.install();
+    try {
+      server.respondAlways({
+        status: 200,
+        responseText: [
+          "--batchresponse_mm",
+          "Content-Type: application/http",
+          "",
+          "HTTP/1.1 200 OK",
+          "Content-Type: application/json",
+          "",
+          '{"value":"A-ok"}',
+          "--batchresponse_mm",
+          "Content-Type: application/http",
+          "",
+          "HTTP/1.1 400 Bad Request",
+          "Content-Type: application/json",
+          "",
+          '{"error":{"message":"B failed"}}',
+          "--batchresponse_mm--",
+        ].join("\r\n"),
+      });
+      const { xrm, calls } = createModernXrmMock({ clientUrl: "https://org.crm.dynamics.com" });
+      const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+      const responses = await context.webAPI.executeMultiple([
+        { getMetadata: () => ({ operationName: "A", operationType: 0 as const }) },
+        { getMetadata: () => ({ operationName: "B", operationType: 0 as const }) },
+      ]);
+      expect(server.lastRequest.url).toContain("/$batch");
+      expect(calls.find((c) => c.api === "WebApi.online.executeMultiple")).toBeUndefined();
+      expect(responses).toHaveLength(2);
+      expect(responses[0].ok).toBe(true);
+      expect(responses[1].ok).toBe(false);
+      expect(responses[1].status).toBe(400);
+      expect(await responses[1].json()).toEqual({ error: { message: "B failed" } });
+    } finally {
+      server.uninstall();
+    }
   });
 
   it("lookupObjects calls Xrm.Utility.lookupObjects and maps results to entity references", async () => {

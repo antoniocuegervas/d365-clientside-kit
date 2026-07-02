@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import type { IAttributeMetadata, ILookupOptions } from "../../context/IViewModelContext";
 import { Observable } from "../../reactivity/Observable";
 import { normalizeGuid, type IEntityReference } from "../../utils/EntityModel";
@@ -70,6 +71,10 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
       prevProps.attribute !== this.props.attribute ||
       prevProps.targetEntity !== this.props.targetEntity
     ) {
+      // Invalidate any search still in flight: it departed against the OLD
+      // target, and without the bump its late response would pass the
+      // stale-response guard and fill the flyout with cross-target rows.
+      this.searchSequence++;
       this.resolvedViewId = undefined;
       this.resolvedIcon = undefined;
       this.results.value = [];
@@ -114,22 +119,31 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
    */
   private resolveViewId(target: string): Promise<string | undefined> {
     if (!this.resolvedViewId) {
+      // A failed resolution clears the cache slot before degrading, so one
+      // transient failure does not lock every later search out of the lookup
+      // view (the view is what filters non-interactive users out).
       this.resolvedViewId = this.props.viewId
         ? Promise.resolve(this.props.viewId)
         : this.props.viewName
           ? this.vmContext.metadata
               .getViewByName(target, this.props.viewName)
               .then((view) => view.id)
-              .catch(() => undefined)
+              .catch(() => {
+                this.resolvedViewId = undefined;
+                return undefined;
+              })
           : this.vmContext.metadata
               .getLookupView(target)
               .then((view) => view.id)
-              .catch(() => undefined);
+              .catch(() => {
+                this.resolvedViewId = undefined;
+                return undefined;
+              });
     }
     return this.resolvedViewId;
   }
 
-  /** Target entity icon URL, resolved once and cached. */
+  /** Target entity icon URL, resolved once and cached; a failure retries next search. */
   private resolveIcon(target: string): Promise<string | undefined> {
     if (!this.props.showIcons) {
       return Promise.resolve(undefined);
@@ -137,7 +151,10 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
     if (!this.resolvedIcon) {
       this.resolvedIcon = this.vmContext.metadata
         .getEntityIconUrl(target)
-        .catch(() => undefined);
+        .catch(() => {
+          this.resolvedIcon = undefined;
+          return undefined;
+        });
     }
     return this.resolvedIcon;
   }
@@ -161,7 +178,11 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
         searchText ? `contains(${nameAttribute},'${LibraryUtils.escapeODataString(searchText)}')` : undefined,
         this.props.filter,
       ].filter(Boolean);
-      const filter = clauses.length > 0 ? `&$filter=${clauses.join(" and ")}` : "";
+      // URL-encode the expression: search text like "R&D" would otherwise cut
+      // the filter off at the ampersand, the server would reject it, and the
+      // catch below would read as "no matches" for a record that exists.
+      const filter =
+        clauses.length > 0 ? `&$filter=${encodeURIComponent(clauses.join(" and "))}` : "";
       const top = this.props.top ?? 10;
       // $top is deliberate here, unlike the paged grid path: the lookup flyout
       // wants a small capped suggestion list, not server-side paging, so capping
@@ -217,8 +238,15 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
       if (!this.isDisposed && result.length > 0) {
         this.commitChange(result[0]);
       }
-    } catch {
-      // Dialog unavailable on this host, so leave the value unchanged.
+    } catch (error) {
+      // Dialog unavailable on this host (PCF has no lookupObjects surface): a
+      // dead Browse button reads as a broken control, so say what happened.
+      console.error("Lookup dialog unavailable", error);
+      if (!this.isDisposed) {
+        void this.vmContext.navigation.openErrorDialog({
+          message: kitStrings().pickerUnavailable,
+        });
+      }
     }
   };
 

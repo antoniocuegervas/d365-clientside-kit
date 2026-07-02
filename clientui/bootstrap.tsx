@@ -1,8 +1,7 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { FluentProvider } from "@fluentui/react-components";
-import { createContextFromXrm } from "../shared/context/createWebResourceContext";
-import { findXrm } from "../shared/context/createWebResourceContext";
+import { createContextFromXrm, findInjectedHost, findXrm } from "../shared/context/createWebResourceContext";
 import { ViewModelContextProvider } from "../shared/context/ViewModelContextProvider";
 import { ErrorBoundary } from "../shared/controls/presentational/ErrorBoundary";
 import { resolveKitTheme } from "../shared/theme/d365Theme";
@@ -44,11 +43,15 @@ export async function bootstrap(options: IBootstrapOptions = {}): Promise<Root |
     // 2. Parse app selection: ?app= and/or CRM data payload.
     const params = LibraryUtils.parseWebResourceParams(options.search ?? win.location.search);
 
-    // 3. Wait for Xrm in this window or the parent, with a visible failure.
+    // 3. Wait for Xrm, with a visible failure. A form-hosted shell whose form
+    //    registered the clienthooks KitShell.connect hook receives Xrm and the
+    //    form context injected through getContentWindow (the supported path);
+    //    findXrm prefers that and falls back to the ancestor-frame walk.
     const xrm = await waitForXrm(win, options.xrmTimeoutMs ?? 10_000);
 
-    // 4. Create the host context (modern vs legacy auto-detected).
-    const context = createContextFromXrm(xrm);
+    // 4. Create the host context (modern vs legacy auto-detected). The
+    //    injected form context, when present, is the form-access source.
+    const context = createContextFromXrm(xrm, findInjectedHost(win)?.formPage);
 
     // 5. Look the app up in the registry.
     if (!params.app) {
@@ -74,8 +77,10 @@ export async function bootstrap(options: IBootstrapOptions = {}): Promise<Root |
       </FluentProvider>
     );
 
-    // 7. Unmount cleanly when the webresource page goes away.
-    win.addEventListener("beforeunload", () => root.unmount());
+    // 7. Unmount cleanly when the webresource page goes away. pagehide, not
+    //    beforeunload: browsers deprioritize beforeunload and it blocks the
+    //    back/forward cache; pagehide fires reliably in both cases.
+    win.addEventListener("pagehide", () => root.unmount());
     return root;
   } catch (error) {
     renderBootError(

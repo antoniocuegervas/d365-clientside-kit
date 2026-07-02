@@ -25,6 +25,17 @@ import type { IEntityReference } from "../../shared/utils/EntityModel";
  * In-memory IViewModelContext stub for smart-control and ViewModel tests , 
  * no Xrm, no XHR. Script attribute metadata and query results per test.
  */
+/**
+ * A scripted query failure: put one in a query queue and the matching
+ * retrieveMultipleRecords/fetch/fetchPage call rejects with this message.
+ */
+export interface IFakeQueryFailure {
+  failWith: string;
+}
+
+/** One scripted query outcome: a result to resolve or a failure to reject. */
+export type FakeQueryOutcome = IRetrieveMultipleResult | IFakeQueryFailure;
+
 export interface IFakeContextOptions {
   attributes?: Record<string, Partial<IAttributeMetadata>>; // key: "entity.attribute"
   entities?: Record<string, Partial<IEntityMetadata>>;
@@ -32,7 +43,7 @@ export interface IFakeContextOptions {
   /** Activity types returned by getActivityTypes. Default empty. */
   activityTypes?: IActivityTypeInfo[];
   /** Scripted results returned by retrieveMultipleRecords/fetch, FIFO per entity. */
-  queryResults?: Record<string, Array<IRetrieveMultipleResult>>;
+  queryResults?: Record<string, Array<FakeQueryOutcome>>;
   /** Scripted pages returned by retrieveMultipleByUrl (nextLink paging), FIFO. */
   pageResults?: Array<IRetrieveMultipleResult>;
   /** Scripted responses returned by executeAction, keyed by action name. */
@@ -97,6 +108,14 @@ export interface IFakeContextOptions {
   };
   /** Artificial async delay (ms) to exercise loading states. */
   delayMs?: number;
+  /**
+   * Awaited before each retrieveMultipleRecords/fetch/fetchPage/
+   * retrieveMultipleByUrl call returns. Lets a test hold individual responses
+   * open (hand each call a deferred keyed by `index`, the 0-based call order)
+   * so two requests overlap and resolve in a chosen order, the shape every
+   * stale-response race test needs.
+   */
+  queryGate?: (call: { api: string; entity: string; index: number }) => Promise<void> | void;
 }
 
 /** Builds a minimal host form the real buildFormContext can wrap, for the fake. */
@@ -152,7 +171,11 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
       await new Promise((resolve) => setTimeout(resolve, options.delayMs));
     }
   };
-  const queryQueues = new Map<string, Array<IRetrieveMultipleResult>>(
+  let queryIndex = 0;
+  const maybeGate = async (api: string, entity: string) => {
+    await options.queryGate?.({ api, entity, index: queryIndex++ });
+  };
+  const queryQueues = new Map<string, Array<FakeQueryOutcome>>(
     Object.entries(options.queryResults ?? {})
   );
   const pageQueue = [...(options.pageResults ?? [])];
@@ -172,12 +195,23 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
     text: async () => (body === undefined ? "" : JSON.stringify(body)),
   });
 
-  const nextQueryResult = (entity: string): IRetrieveMultipleResult => {
+  // The outcome is taken from the queue when the call DEPARTS (not when it
+  // resolves), so a gated test that releases responses out of order still gets
+  // each call's own scripted outcome, which is the whole point of overlapping.
+  const takeQueryOutcome = (entity: string): FakeQueryOutcome => {
     const queue = queryQueues.get(entity);
-    if (queue && queue.length > 0) {
-      return queue.length === 1 ? queue[0] : queue.shift()!;
+    return queue && queue.length > 0
+      ? queue.length === 1
+        ? queue[0]
+        : queue.shift()!
+      : { entities: [] };
+  };
+
+  const settleQueryOutcome = (outcome: FakeQueryOutcome): IRetrieveMultipleResult => {
+    if ("failWith" in outcome) {
+      throw new Error(outcome.failWith);
     }
-    return { entities: [] };
+    return outcome;
   };
 
   const context: IViewModelContext = {
@@ -221,22 +255,29 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
       },
       retrieveMultipleRecords: async (entity, opts, maxPageSize) => {
         record("retrieveMultipleRecords", entity, opts, maxPageSize);
+        const outcome = takeQueryOutcome(entity);
         await maybeDelay();
-        return nextQueryResult(entity);
+        await maybeGate("retrieveMultipleRecords", entity);
+        return settleQueryOutcome(outcome);
       },
       fetch: async (entity, fetchXml) => {
         record("fetch", entity, fetchXml);
+        const outcome = takeQueryOutcome(entity);
         await maybeDelay();
-        return nextQueryResult(entity);
+        await maybeGate("fetch", entity);
+        return settleQueryOutcome(outcome);
       },
       fetchPage: async (entity, fetchXml) => {
         record("fetchPage", entity, fetchXml);
+        const outcome = takeQueryOutcome(entity);
         await maybeDelay();
-        return nextQueryResult(entity);
+        await maybeGate("fetchPage", entity);
+        return settleQueryOutcome(outcome);
       },
       retrieveMultipleByUrl: async (url, maxPageSize) => {
         record("retrieveMultipleByUrl", url, maxPageSize);
         await maybeDelay();
+        await maybeGate("retrieveMultipleByUrl", "");
         return pageQueue.shift() ?? { entities: [] };
       },
       executeAction: async (actionName, parameters, boundTo) => {
@@ -364,6 +405,9 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
         record("getEntityIconUrl", entity);
         await maybeDelay();
         return options.entityIcons?.[entity];
+      },
+      clearCache: () => {
+        record("metadata.clearCache");
       },
     },
     navigation: {

@@ -125,6 +125,14 @@ export class PCFContext implements IViewModelContext {
   constructor(source: IPcfContextLike, options?: { clientUrl?: string }) {
     // Same-origin relative URLs work when no client url is resolvable.
     this.clientUrl = options?.clientUrl ?? source.page?.getClientUrl?.() ?? "";
+    if (!this.clientUrl) {
+      // Not fatal (relative same-origin URLs are correct in the embedded
+      // host), but say so: in a harness or a host without page.getClientUrl,
+      // "every smart field shows Unavailable" starts here.
+      console.warn(
+        "PCFContext: no client URL is resolvable; metadata and cds-client calls use relative same-origin URLs."
+      );
+    }
     this.user = {
       id: normalizeGuid(source.userSettings.userId),
       name: source.userSettings.userName,

@@ -30,3 +30,18 @@ export const d365Theme: Theme = {
 export function resolveKitTheme(isHighContrastEnabled?: boolean): Theme {
   return isHighContrastEnabled ? teamsHighContrastTheme : d365Theme;
 }
+
+/**
+ * Picks the theme for a PCF root. When the model-driven "new look" is on, the
+ * platform hands virtual controls its OWN current theme through the documented
+ * `context.fluentDesignLanguage.tokenTheme`, which is the exact fidelity
+ * source (it tracks the host page, high contrast and future refreshes
+ * included), so it wins. Hosts that do not populate it get the kit default.
+ * Classic org theming (the Theme entity) reaches no PCF surface and is
+ * deliberately not emulated.
+ */
+export function resolvePcfTheme(source: {
+  fluentDesignLanguage?: { tokenTheme?: Theme };
+}): Theme {
+  return source.fluentDesignLanguage?.tokenTheme ?? d365Theme;
+}

@@ -1,7 +1,7 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import * as React from "react";
 import { FluentProvider } from "@fluentui/react-components";
-import { d365Theme } from "../../../shared/theme/d365Theme";
+import { resolvePcfTheme } from "../../../shared/theme/d365Theme";
 import { Observable } from "../../../shared/reactivity/Observable";
 import { DateTimeField } from "../../../shared/controls/presentational/DateTimeField";
 import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoundary";
@@ -39,7 +39,9 @@ export class KitDatePicker implements ComponentFramework.ReactControl<IInputs, I
 
     return React.createElement(
       FluentProvider,
-      { theme: d365Theme },
+      // The platform theme (fluentDesignLanguage.tokenTheme) wins when the new
+      // look serves one; the kit default covers the rest.
+      { theme: resolvePcfTheme(context) },
       React.createElement(
         ErrorBoundary,
         null,

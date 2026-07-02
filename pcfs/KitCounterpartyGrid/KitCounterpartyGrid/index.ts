@@ -1,7 +1,7 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import * as React from "react";
 import { FluentProvider } from "@fluentui/react-components";
-import { d365Theme } from "../../../shared/theme/d365Theme";
+import { resolvePcfTheme } from "../../../shared/theme/d365Theme";
 import { PCFContext, type IPcfContextLike } from "../../../shared/context/PCFContext";
 import { ViewModelContextProvider } from "../../../shared/context/ViewModelContextProvider";
 import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoundary";
@@ -38,7 +38,9 @@ export class KitCounterpartyGrid
       // where a plain div shrinks to its content. The grid measures its own
       // width to pick the table or the card layout, so the root must stretch
       // to the space the subgrid actually has.
-      { theme: d365Theme, style: { width: "100%" } },
+      // The platform theme (fluentDesignLanguage.tokenTheme) wins when the new
+      // look serves one; the kit default covers the rest.
+      { theme: resolvePcfTheme(context), style: { width: "100%" } },
       React.createElement(
         ErrorBoundary,
         null,
@@ -65,9 +67,11 @@ export class KitCounterpartyGrid
 }
 
 /**
- * The host form's record (the account the subgrid sits on), so new activities are
- * filed against it. `contextInfo` is the documented source; `page` is the older
- * fallback. Returns undefined off a record form.
+ * The host form's record (the account the subgrid sits on), so new activities
+ * are filed against it. Neither source is documented: `mode.contextInfo` is
+ * undocumented but stable (absent from the published Mode interface, hence
+ * the cast) and `page` is the older equally-undocumented fallback. Returns
+ * undefined off a record form, or if the platform ever removes both.
  */
 function hostRecord(context: ComponentFramework.Context<IInputs>): IXrmLookupValue | undefined {
   const mode = context.mode as unknown as {

@@ -164,3 +164,60 @@ describe("SubscriptionTracker", () => {
     expect(target.value).toBe("loaded");
   });
 });
+
+describe("subscriber exception isolation", () => {
+  it("a throwing subscriber does not starve later subscribers of the change", () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const obs = new Observable<number>(0);
+      const seen: number[] = [];
+      obs.subscribe(() => {
+        throw new Error("subscriber burst");
+      });
+      obs.subscribe((value) => seen.push(value));
+      // The value is already committed when subscribers run, so everyone
+      // after the throwing one is still owed the notification.
+      obs.value = 1;
+      expect(obs.value).toBe(1);
+      expect(seen).toEqual([1]);
+      expect(consoleError).toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("the setter itself never throws because of a subscriber", () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const obs = new Observable<number>(0);
+      obs.subscribe(() => {
+        throw new Error("subscriber burst");
+      });
+      expect(() => {
+        obs.value = 1;
+      }).not.toThrow();
+      expect(() => obs.notify()).not.toThrow();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("a throwing unsubscribe does not leak the tracker's remaining subscriptions", () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const tracker = new SubscriptionTracker();
+      const obs = new Observable<number>(0);
+      const healthy = obs.subscribe(() => undefined);
+      tracker.add(() => {
+        throw new Error("teardown burst");
+      });
+      tracker.add(healthy);
+      expect(obs.subscriberCount).toBe(1);
+      tracker.dispose();
+      expect(obs.subscriberCount).toBe(0);
+      expect(consoleError).toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+});

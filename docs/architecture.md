@@ -98,9 +98,14 @@ intended way to keep the bundle proportional to your deployment.
 
 ## Host parity
 
-`IViewModelContext` mirrors the native Xrm APIs at full parity, so a
-consumer never has to break out of the contract to reach a platform capability.
-Each adapted area threads every native parameter through to the host call:
+`IViewModelContext` mirrors the commonly-used native Xrm surface, so a
+consumer rarely has to break out of the contract to reach a platform
+capability. The bar is deliberately "commonly used", not exhaustive: the
+obscure tail of the Xrm API is out of scope, and some hosts lack whole
+capabilities (the PCF host has no native lookup dialog; the CRM 8.x adapter
+rejects modern-only calls with readable errors). The host gaps are documented
+where they bite, in [gotchas](gotchas.md). Within the mirrored surface, each
+adapted area threads every native parameter through to the host call:
 
 - **navigation**: `openForm` (convenience `(entity, id?)` plus the full
   `entityFormOptions` + `formParameters`), `openAlertDialog`/`openConfirmDialog`

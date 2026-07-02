@@ -1,7 +1,7 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import * as React from "react";
 import { FluentProvider } from "@fluentui/react-components";
-import { d365Theme } from "../../../shared/theme/d365Theme";
+import { resolvePcfTheme } from "../../../shared/theme/d365Theme";
 import { Observable } from "../../../shared/reactivity/Observable";
 import { PCFContext, type IPcfContextLike } from "../../../shared/context/PCFContext";
 import { ViewModelContextProvider } from "../../../shared/context/ViewModelContextProvider";
@@ -48,7 +48,9 @@ export class KitTooltip implements ComponentFramework.ReactControl<IInputs, IOut
 
     return React.createElement(
       FluentProvider,
-      { theme: d365Theme },
+      // The platform theme (fluentDesignLanguage.tokenTheme) wins when the new
+      // look serves one; the kit default covers the rest.
+      { theme: resolvePcfTheme(context) },
       React.createElement(
         ErrorBoundary,
         null,

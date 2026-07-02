@@ -37,8 +37,14 @@ export class SubscriptionTracker {
       return;
     }
     this.disposed = true;
+    // Isolate each unsubscribe: one throwing must not leak the rest. An
+    // all-or-nothing teardown is the worst failure mode for a leak guard.
     for (const unsubscribe of this.subscriptions) {
-      unsubscribe();
+      try {
+        unsubscribe();
+      } catch (error) {
+        console.error("SubscriptionTracker unsubscribe threw", error);
+      }
     }
     this.subscriptions = [];
   }

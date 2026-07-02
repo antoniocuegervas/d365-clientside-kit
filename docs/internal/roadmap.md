@@ -84,6 +84,16 @@ their offline-capable path is native `Xrm.WebApi`, not cds-client.
   as the platform's own controls. Also flagged once: "control initialized more
   than once during form load" on that PCF; likely the platform's own
   measure-pass re-init, worth one targeted DevTools look next org session.
+- Metadata fan-out (deferred here from the 2026-07 adversarial round, D-055):
+  the OData path costs two sequential requests per attribute and each context
+  (each PCF on a form) holds its own disjoint cache, so a metadata-heavy form
+  re-downloads what the native store already holds. The native-first source
+  dissolves most of this (native metadata is client-cached and one call per
+  attribute); whatever remains on the cds path should fold the kind-specific
+  cast into one round trip (or a $batch), consider one shared service per
+  page, and publish the per-form request math in deployment.md next to the
+  bundle budget. The cheap sub-findings (XHR timeout, 429 Retry-After
+  handling) were pulled forward and already shipped in that round.
 
 ## Direction: in-app "what's new" for a release
 

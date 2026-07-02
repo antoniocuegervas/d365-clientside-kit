@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import {
   Button,
   Input,
@@ -571,7 +572,7 @@ const Body: React.FC<BodyProps> = (props) => {
         onChange={props.onInput}
         onKeyDown={props.onKeyDown}
         disabled={disabled}
-        placeholder={props.placeholder ?? "Look for records"}
+        placeholder={props.placeholder ?? kitStrings().lookForRecords}
         contentAfter={<SearchRegular className={styles.fieldIcon} aria-hidden />}
         role="combobox"
         aria-expanded={state.open}
@@ -592,7 +593,7 @@ const Body: React.FC<BodyProps> = (props) => {
             appearance="subtle"
             size="small"
             icon={<DismissRegular />}
-            aria-label="Clear value"
+            aria-label={kitStrings().clearValue}
             onClick={props.onClear}
           />
         ) : null}
@@ -602,7 +603,7 @@ const Body: React.FC<BodyProps> = (props) => {
           appearance="subtle"
           size="small"
           icon={<SearchRegular className={styles.fieldIcon} />}
-          aria-label="Search records"
+          aria-label={kitStrings().searchRecords}
         />
       ) : null}
     </div>
@@ -635,12 +636,12 @@ const Body: React.FC<BodyProps> = (props) => {
           />
           {searching ? (
             <div className={styles.loading}>
-              <Spinner size="tiny" /> Loading...
+              <Spinner size="tiny" /> {kitStrings().loading}
             </div>
           ) : null}
-          <div id="native-lookup-results" role="tree" aria-label="Lookup results" className={styles.tree}>
+          <div id="native-lookup-results" role="tree" aria-label={kitStrings().lookupResults} className={styles.tree}>
             {results.length === 0 && !searching ? (
-              <div className={styles.message}>No records found</div>
+              <div className={styles.message}>{kitStrings().noRecordsFound}</div>
             ) : (
               results.map((result) => (
                 <ResultRow
@@ -682,7 +683,7 @@ const FlyoutHeader: React.FC<{
         <Menu>
           <MenuTrigger disableButtonEnhancement>
             <Button appearance="subtle" size="small">
-              {activeLabel ?? "Change table"}
+              {activeLabel ?? kitStrings().changeTable}
             </Button>
           </MenuTrigger>
           <MenuPopover>
@@ -745,7 +746,7 @@ const ResultRow: React.FC<{
           size="small"
           className={styles.chevron}
           icon={expanded ? <ChevronUpRegular /> : <ChevronDownRegular />}
-          aria-label={`More details for record: ${result.name}`}
+          aria-label={kitStrings().moreDetailsForRecord(result.name)}
           aria-expanded={expanded}
           onClick={(event) => {
             event.stopPropagation();
@@ -769,7 +770,7 @@ const FlyoutFooter: React.FC<{
     <div className={styles.footer}>
       {onNew ? (
         <Button appearance="subtle" size="small" icon={<AddRegular />} onClick={onNew}>
-          New
+          {kitStrings().newLabel}
         </Button>
       ) : (
         <span className={styles.footerSpacer} />
@@ -782,7 +783,7 @@ const FlyoutFooter: React.FC<{
             onAdvanced();
           }}
         >
-          Advanced
+          {kitStrings().advanced}
         </Link>
       ) : null}
     </div>

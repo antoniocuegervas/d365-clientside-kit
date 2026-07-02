@@ -4,7 +4,7 @@ import { FakeXhrServer } from "../../../mocks/FakeXhr";
 describe("CdsClient", () => {
   let server: FakeXhrServer;
 
-  const makeClient = (overrides?: { apiVersion?: string; maxUrlLength?: number }) =>
+  const makeClient = (overrides?: { apiVersion?: string; maxUrlLength?: number; timeoutMs?: number }) =>
     new CdsClient({ clientUrl: "https://org.crm.dynamics.com/", ...overrides });
 
   beforeEach(() => {
@@ -24,6 +24,94 @@ describe("CdsClient", () => {
     it("honors an explicit legacy version (no hardcoded versions)", () => {
       expect(makeClient({ apiVersion: "8.2" }).apiUrl).toBe(
         "https://org.crm.dynamics.com/api/data/v8.2/"
+      );
+    });
+  });
+
+  describe("resilience", () => {
+    it("a hung connection rejects at the timeout instead of pending forever", async () => {
+      server.respondAlways({ status: 0, timedOut: true });
+      const promise = makeClient({ timeoutMs: 50 }).retrieveRecord(
+        "accounts",
+        "abc00000-0000-0000-0000-000000000009"
+      );
+      await expect(promise).rejects.toThrow(/Timed out after 50 ms/);
+      await expect(promise).rejects.toBeInstanceOf(CdsClientError);
+    });
+
+    it("retries once on 429, honoring Retry-After, then returns the retry's result", async () => {
+      let attempts = 0;
+      server.respondWith(() => {
+        attempts++;
+        return attempts === 1
+          ? { status: 429, headers: { "Retry-After": "0.01" }, responseText: "" }
+          : { status: 200, responseText: '{"value":[{"name":"After throttle"}]}' };
+      });
+      const result = await makeClient().retrieveMultiple("accounts", "?$select=name");
+      expect(attempts).toBe(2);
+      expect(result.entities).toEqual([{ name: "After throttle" }]);
+    });
+
+    it("a second 429 is not retried again and surfaces like any other error", async () => {
+      server.respondAlways({ status: 429, headers: { "Retry-After": "0.01" }, responseText: "" });
+      await expect(
+        makeClient().retrieveMultiple("accounts", "?$select=name")
+      ).rejects.toMatchObject({ status: 429 });
+      expect(server.requests).toHaveLength(2);
+    });
+
+    it("retrieveMultiple falls back to $batch past the URL limit, keeping the page size", async () => {
+      server.respondAlways({
+        status: 200,
+        responseText: [
+          "--batchresponse_rm",
+          "Content-Type: application/http",
+          "",
+          "HTTP/1.1 200 OK",
+          "Content-Type: application/json",
+          "",
+          '{"value":[{"name":"Batched query"}]}',
+          "--batchresponse_rm--",
+        ].join("\r\n"),
+      });
+      const longFilter = `?savedQuery=v1&$filter=${"x".repeat(600)}`;
+      const result = await makeClient({ maxUrlLength: 500 }).retrieveMultiple(
+        "accounts",
+        longFilter,
+        25
+      );
+      expect(result.entities).toEqual([{ name: "Batched query" }]);
+      const request = server.lastRequest;
+      expect(request.url).toBe("https://org.crm.dynamics.com/api/data/v9.2/$batch");
+      expect(request.body).toContain("GET https://org.crm.dynamics.com/api/data/v9.2/accounts?savedQuery=v1");
+      // The page-size preference must ride inside the batched part.
+      expect(request.body).toContain("odata.maxpagesize=25");
+    });
+
+    it("executeChangeSet honors an explicit entitySet over the pluralizer", async () => {
+      server.respondAlways({
+        status: 200,
+        responseText: [
+          "--batchresponse_x",
+          "Content-Type: multipart/mixed; boundary=changesetresponse_y",
+          "",
+          "--changesetresponse_y",
+          "Content-Type: application/http",
+          "Content-ID: 1",
+          "",
+          "HTTP/1.1 204 No Content",
+          "",
+          "",
+          "--changesetresponse_y--",
+          "--batchresponse_x--",
+        ].join("\r\n"),
+      });
+      await makeClient().executeChangeSet([
+        // "metadata" pluralizes wrong by convention; the explicit set name wins.
+        { method: "POST", entityLogicalName: "kit_metadata", entitySet: "kit_metadata_set", data: {} },
+      ]);
+      expect(server.lastRequest.body).toContain(
+        "POST https://org.crm.dynamics.com/api/data/v9.2/kit_metadata_set HTTP/1.1"
       );
     });
   });

@@ -87,20 +87,50 @@ export function findDeepestFormPage(candidates: unknown[]): IXrmPageLike | undef
 }
 
 /**
- * Finds the Xrm root for a webresource by walking all ancestor frames and
- * choosing the best candidate (modern-preferred).
+ * The globals a form script pushes into a form-hosted shell's content window
+ * (the clienthooks `KitShell.connect` hook, over the web resource control's
+ * `getContentWindow`, the deprecation table's preferred path). When present,
+ * the shell boots from these and never touches the deprecated `parent.Xrm`
+ * walk; when absent (no hook registered, or a sitemap-hosted shell with no
+ * form to register it on), the walk remains the fallback.
+ */
+export interface IKitInjectedHost {
+  __kitInjectedXrm?: unknown;
+  __kitInjectedFormPage?: IXrmPageLike;
+}
+
+/** The injected Xrm + form context, when a form script has pushed them in. */
+export function findInjectedHost(
+  win: Window
+): { xrm: unknown; formPage?: IXrmPageLike } | undefined {
+  const host = win as Window & IKitInjectedHost;
+  return host.__kitInjectedXrm
+    ? { xrm: host.__kitInjectedXrm, formPage: host.__kitInjectedFormPage }
+    : undefined;
+}
+
+/**
+ * Finds the Xrm root for a webresource: the injected host wins (see
+ * {@link IKitInjectedHost}), else the ancestor-frame walk picks the best
+ * candidate (modern-preferred).
  */
 export function findXrm(win: Window = window): unknown {
-  return chooseXrm(collectAncestorXrms(win));
+  return findInjectedHost(win)?.xrm ?? chooseXrm(collectAncestorXrms(win));
 }
 
 /**
  * Auto-detecting factory: returns WebResourceContext on modern hosts
  * (native Xrm.WebApi present) and WebResourceContextV8 on CRM 8.x. Used by
- * the clientui bootstrap and the clienthooks bundle alike. Form access binds
- * to the deepest ancestor form, independent of which Xrm hosts the Web API.
+ * the clientui bootstrap and the clienthooks bundle alike. An injected host
+ * (form-script `getContentWindow` path) is preferred; otherwise form access
+ * binds to the deepest ancestor form, independent of which Xrm hosts the
+ * Web API.
  */
 export function createWebResourceContext(win: Window = window): IViewModelContext {
+  const injected = findInjectedHost(win);
+  if (injected) {
+    return createContextFromXrm(injected.xrm, injected.formPage);
+  }
   const candidates = collectAncestorXrms(win);
   const xrm = chooseXrm(candidates);
   if (!xrm) {

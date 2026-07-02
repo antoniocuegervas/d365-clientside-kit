@@ -131,7 +131,11 @@ export class WebResourceContextV8 implements IViewModelContext {
       "CRM 8.x webresource"
     );
 
-    const client = new CdsClient({ clientUrl: this.clientUrl, apiVersion: "8.2" });
+    // Derive the endpoint version from the org's real version (its first two
+    // segments); a hardcoded 8.2 would 404 every call on an 8.0/8.1 org whose
+    // version string sits one line above.
+    const apiVersion = /^\d+\.\d+/.exec(this.orgVersion)?.[0] ?? "8.2";
+    const client = new CdsClient({ clientUrl: this.clientUrl, apiVersion });
     this.cdsClient = client;
     this.webAPI = new CdsWebApi(client);
     this.metadata = new MetadataService(client);

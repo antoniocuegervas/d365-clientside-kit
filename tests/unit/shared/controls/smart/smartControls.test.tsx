@@ -328,11 +328,11 @@ describe("SmartLookup", () => {
     // the latest retrieveMultipleRecords call.
     await waitFor(() => {
       const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
-      expect(String(query?.args[1])).toContain("contains(name,'");
+      expect(decodeURIComponent(String(query?.args[1]))).toContain("contains(name,'");
     });
     const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1)!;
     expect(query.args[0]).toBe("account");
-    expect(String(query.args[1])).toContain("contains(name,'");
+    expect(decodeURIComponent(String(query.args[1]))).toContain("contains(name,'");
     expect(String(query.args[1])).toContain("$top=10");
 
     expect(await screen.findByText("Contoso Ltd")).toBeTruthy();
@@ -437,7 +437,7 @@ describe("SmartLookup", () => {
     await userEvent.type(await screen.findByRole("combobox"), "co");
     await waitFor(() => {
       const last = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
-      expect(String(last?.args[1])).toContain("contains(name,'co')");
+      expect(decodeURIComponent(String(last?.args[1]))).toContain("contains(name,'co')");
     });
     const last = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1)!;
     expect(String(last.args[1])).toContain("?savedQuery=99990000-0000-0000-0000-000000000009");
@@ -518,7 +518,7 @@ describe("SmartLookup", () => {
     await userEvent.type(combo, "a");
     await waitFor(() => {
       const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
-      expect(String(query?.args[1])).toContain("and statecode eq 0");
+      expect(decodeURIComponent(String(query?.args[1]))).toContain("and statecode eq 0");
     });
   });
 
@@ -560,6 +560,91 @@ describe("SmartLookup", () => {
       expect(last.args[0]).toBe("contact");
       expect(String(last.args[1])).toContain("?savedQuery=bbbb0000-0000-0000-0000-00000000000b");
     });
+  });
+
+  it("a search in flight across a rebind is discarded, never shown against the new target", async () => {
+    // The user searched contacts; the query is airborne when the control is
+    // rebound to accounts. Without the rebind bumping the sequence, the
+    // contact rows would land in an account-bound flyout (and a click would
+    // commit a cross-typed reference).
+    const gates: Array<() => void> = [];
+    const { context } = createFakeViewModelContext({
+      attributes: {
+        "account.primarycontactid": { displayName: "Primary Contact", kind: "lookup", targets: ["contact"] },
+      },
+      entities: {
+        contact: { primaryIdAttribute: "contactid", primaryNameAttribute: "fullname" },
+      },
+      views: { "lookup:contact": { id: "bbbb0000-0000-0000-0000-00000000000b" } },
+      queryResults: {
+        contact: [
+          {
+            entities: [
+              { contactid: "c1c00000-0000-0000-0000-000000000001", fullname: "Old Contact" },
+            ],
+          },
+        ],
+      },
+      queryGate: () => new Promise<void>((resolve) => gates.push(resolve)),
+    });
+    const value = new Observable<IEntityReference | null>(null);
+    const { rerender } = render(
+      <ViewModelContextProvider context={context}>
+        <SmartLookup
+          entity="account"
+          attribute="primarycontactid"
+          targetEntity="contact"
+          value={value}
+          searchDebounceMs={0}
+        />
+      </ViewModelContextProvider>
+    );
+    await userEvent.click(await screen.findByRole("combobox"));
+    await waitFor(() => expect(gates.length).toBe(1));
+
+    // Rebind to a different target while the contact search is in flight.
+    rerender(
+      <ViewModelContextProvider context={context}>
+        <SmartLookup
+          entity="account"
+          attribute="primarycontactid"
+          targetEntity="account"
+          value={value}
+          searchDebounceMs={0}
+        />
+      </ViewModelContextProvider>
+    );
+
+    // The stale contact response lands after the rebind and must not render.
+    await act(async () => gates[0]());
+    expect(screen.queryByText("Old Contact")).toBeNull();
+  });
+
+  it("a failed dialog open surfaces the native error dialog instead of a dead button", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const { context, calls } = createFakeViewModelContext({
+        attributes: {
+          "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+        },
+      });
+      // A host without the native picker (the PCF shape): lookupObjects throws.
+      context.navigation.lookupObjects = async () => {
+        throw new Error("The native lookup dialog (lookupObjects) is not available in the PCF host.");
+      };
+      const value = new Observable<IEntityReference | null>(null);
+      renderWith(
+        context,
+        <SmartLookup entity="contact" attribute="parentcustomerid" value={value} mode="dialog" />
+      );
+      await userEvent.click(await screen.findByLabelText("Browse records"));
+      await waitFor(() => {
+        expect(calls.find((c) => c.api === "openErrorDialog")).toBeDefined();
+      });
+      expect(value.value).toBeNull();
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
 
@@ -644,7 +729,7 @@ describe("SmartNativeLookup", () => {
     await userEvent.type(await screen.findByRole("combobox"), "nan");
     await waitFor(() => {
       const query = calls.filter((c) => c.api === "retrieveMultipleRecords").at(-1);
-      expect(String(query?.args[1])).toContain("contains(fullname,'nan')");
+      expect(decodeURIComponent(String(query?.args[1]))).toContain("contains(fullname,'nan')");
     });
   });
 
@@ -872,6 +957,45 @@ describe("SmartNumberField locale + currency", () => {
       expect(calls.find((c) => c.api === "getCurrencySymbol")).toBeDefined();
     });
     expect(await screen.findByText("€")).toBeTruthy();
+  });
+
+  it("re-resolves the currency when transactionCurrencyId changes on a reused instance", async () => {
+    const { context } = createFakeViewModelContext({
+      attributes: {
+        "opportunity.estimatedvalue": { displayName: "Est. Value", kind: "money", precision: 2 },
+      },
+      currencies: {
+        "55550000-0000-0000-0000-000000000005": { symbol: "€", precision: 2 },
+        "66660000-0000-0000-0000-000000000006": { symbol: "£", precision: 2 },
+      },
+    });
+    const value = new Observable<number | null>(1000);
+    const { rerender } = render(
+      <ViewModelContextProvider context={context}>
+        <SmartNumberField
+          entity="opportunity"
+          attribute="estimatedvalue"
+          value={value}
+          transactionCurrencyId="55550000-0000-0000-0000-000000000005"
+        />
+      </ViewModelContextProvider>
+    );
+    expect(await screen.findByText("€")).toBeTruthy();
+
+    // A master/detail record change swaps the currency; the reused field must
+    // not keep showing the previous record's symbol.
+    rerender(
+      <ViewModelContextProvider context={context}>
+        <SmartNumberField
+          entity="opportunity"
+          attribute="estimatedvalue"
+          value={value}
+          transactionCurrencyId="66660000-0000-0000-0000-000000000006"
+        />
+      </ViewModelContextProvider>
+    );
+    expect(await screen.findByText("£")).toBeTruthy();
+    expect(screen.queryByText("€")).toBeNull();
   });
 
   it("uses the currency precision over the attribute precision when PrecisionSource is currency", async () => {
@@ -1303,8 +1427,24 @@ describe("SmartViewGrid (read-only view grid)", () => {
     renderWith(context, <SmartViewGrid entity="account" quickFind={quickFind} />);
     await screen.findByText("Contoso Ltd");
     const query = calls.find((c) => c.api === "retrieveMultipleRecords")!;
-    // default quick-find field is the entity's primary name ("name")
-    expect(String(query.args[1])).toContain("$filter=contains(name,'cont')");
+    // default quick-find field is the entity's primary name ("name"); the
+    // expression travels URL-encoded, the way a real server receives it
+    expect(String(query.args[1])).toContain(
+      `$filter=${encodeURIComponent("contains(name,'cont')")}`
+    );
+  });
+
+  it("quick find survives URL-hostile characters (&, #, %, +)", async () => {
+    const { context, calls } = createFakeViewModelContext(viewSetup);
+    const quickFind = new Observable("R&D 100% #1 a+b");
+    renderWith(context, <SmartViewGrid entity="account" quickFind={quickFind} />);
+    await screen.findByText("Contoso Ltd");
+    const query = String(calls.find((c) => c.api === "retrieveMultipleRecords")!.args[1]);
+    // The URL layer stays intact: exactly the composed parameters, and the
+    // filter round-trips through decoding to the intended expression.
+    const params = new URLSearchParams(query.slice(1));
+    expect([...params.keys()].sort()).toEqual(["$filter", "savedQuery"]);
+    expect(params.get("$filter")).toBe("contains(name,'R&D 100% #1 a+b')");
   });
 
   it("applies declarative filters server-side", async () => {
@@ -1315,7 +1455,102 @@ describe("SmartViewGrid (read-only view grid)", () => {
     renderWith(context, <SmartViewGrid entity="account" filters={filters} />);
     await screen.findByText("Contoso Ltd");
     const query = calls.find((c) => c.api === "retrieveMultipleRecords")!;
-    expect(String(query.args[1])).toContain("$filter=statecode eq 0");
+    expect(String(query.args[1])).toContain(`$filter=${encodeURIComponent("statecode eq 0")}`);
+  });
+
+  it("discards a stale response that lands after a newer query", async () => {
+    // Two reloads overlap; the EARLIER query's response arrives LAST and must
+    // not overwrite the newer rows (nor clear the newer query's spinner early).
+    const gates = new Map<number, () => void>();
+    const { context } = createFakeViewModelContext({
+      ...viewSetup,
+      queryResults: {
+        account: [
+          {
+            entities: [
+              { accountid: "a1a00000-0000-0000-0000-000000000001", name: "Contoso Ltd", telephone1: "1" },
+            ],
+          },
+          {
+            entities: [
+              { accountid: "a1a00000-0000-0000-0000-000000000003", name: "Stale Corp", telephone1: "3" },
+            ],
+          },
+          {
+            entities: [
+              { accountid: "a1a00000-0000-0000-0000-000000000004", name: "Newer Corp", telephone1: "4" },
+            ],
+          },
+        ],
+      },
+      queryGate: ({ index }) => {
+        if (index === 0) {
+          return; // the initial load flows through
+        }
+        return new Promise<void>((resolve) => gates.set(index, resolve));
+      },
+    });
+    const filters = new Observable<ISmartViewGridFilter[]>([]);
+    renderWith(context, <SmartViewGrid entity="account" filters={filters} />);
+    await screen.findByText("Contoso Ltd");
+
+    // Reload A (will return "Stale Corp") departs first, reload B second.
+    act(() => {
+      filters.value = [{ attribute: "statecode", value: 0 }];
+    });
+    act(() => {
+      filters.value = [{ attribute: "statecode", value: 1 }];
+    });
+    await waitFor(() => expect(gates.size).toBe(2));
+
+    // The newer query answers first and wins.
+    await act(async () => gates.get(2)!());
+    expect(await screen.findByText("Newer Corp")).toBeTruthy();
+
+    // The stale response lands afterwards and must be discarded.
+    await act(async () => gates.get(1)!());
+    expect(screen.queryByText("Stale Corp")).toBeNull();
+    expect(screen.getByText("Newer Corp")).toBeTruthy();
+  });
+
+  it("a failed re-query surfaces the degraded banner, and the next success clears it", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const { context } = createFakeViewModelContext({
+        ...viewSetup,
+        queryResults: {
+          account: [
+            {
+              entities: [
+                { accountid: "a1a00000-0000-0000-0000-000000000001", name: "Contoso Ltd", telephone1: "1" },
+              ],
+            },
+            { failWith: "session expired" },
+            {
+              entities: [
+                { accountid: "a1a00000-0000-0000-0000-000000000005", name: "Recovered Corp", telephone1: "5" },
+              ],
+            },
+          ],
+        },
+      });
+      const refresh = new ObservableEvent<void>();
+      renderWith(context, <SmartViewGrid entity="account" refresh={refresh} />);
+      await screen.findByText("Contoso Ltd");
+
+      // The re-query fails: no silent stale rows, a readable banner instead.
+      await act(async () => refresh.publish(undefined));
+      expect(
+        await screen.findByText("This view's records could not be loaded in this environment.")
+      ).toBeTruthy();
+      expect(screen.queryByText("Contoso Ltd")).toBeNull();
+
+      // The next successful query recovers the grid.
+      await act(async () => refresh.publish(undefined));
+      expect(await screen.findByText("Recovered Corp")).toBeTruthy();
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("server sort: a header click updates orderBy and re-queries with $orderby", async () => {
@@ -1327,7 +1562,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     expect(orderBy.value).toEqual({ attribute: "name", descending: false });
     await waitFor(() => {
       const queries = calls.filter((c) => c.api === "retrieveMultipleRecords");
-      expect(String(queries.at(-1)!.args[1])).toContain("$orderby=name asc");
+      expect(String(queries.at(-1)!.args[1])).toContain(`$orderby=${encodeURIComponent("name asc")}`);
     });
   });
 
@@ -1349,7 +1584,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
     await userEvent.click(screen.getByText("Account Name"));
     await waitFor(() => {
       const queries = calls.filter((c) => c.api === "retrieveMultipleRecords");
-      expect(String(queries.at(-1)!.args[1])).toContain("$orderby=name asc");
+      expect(String(queries.at(-1)!.args[1])).toContain(`$orderby=${encodeURIComponent("name asc")}`);
     });
   });
 

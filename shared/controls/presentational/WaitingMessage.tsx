@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import { Spinner, makeStyles, tokens } from "@fluentui/react-components";
 
 /**
@@ -36,7 +37,7 @@ const Body: React.FC<IWaitingMessageProps> = (props) => {
   const styles = useStyles();
   return (
     <div className={props.inline ? styles.inline : styles.block}>
-      <Spinner size={props.inline ? "tiny" : "small"} label={props.message ?? "Loading…"} />
+      <Spinner size={props.inline ? "tiny" : "small"} label={props.message ?? kitStrings().loading} />
     </div>
   );
 };

@@ -15,8 +15,14 @@ export class ObservableEvent<TPayload = void> implements ISubscribable {
   }
 
   publish(payload: TPayload): void {
+    // Each call is isolated: one throwing subscriber must not starve the rest
+    // of an event they are owed, nor blow up the publisher.
     for (const listener of [...this.listeners]) {
-      listener(payload);
+      try {
+        listener(payload);
+      } catch (error) {
+        console.error("ObservableEvent subscriber threw", error);
+      }
     }
   }
 

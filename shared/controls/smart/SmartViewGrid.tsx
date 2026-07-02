@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import { Link } from "@fluentui/react-components";
 import { SmartComponent } from "../../context/ViewModelContextProvider";
 import type {
@@ -23,6 +24,13 @@ import { Pagination } from "../presentational/Pagination";
  * so it can never collide with a real view column name.
  */
 const rawActivityTypeKey = "__rawActivityType";
+
+/**
+ * Marks a row whose result carried no id attribute (aggregate fetches, views
+ * missing the id column): its key is the array index, not a record id, so the
+ * default open would call openForm with a number.
+ */
+const missingRecordIdKey = "__missingRecordId";
 
 export interface ISmartViewGridProps {
   /** Entity logical name, e.g. "account". */
@@ -124,6 +132,12 @@ interface ISmartViewGridState {
  * resolves headers from metadata, and feeds a presentational DataGrid. An
  * `overrideFetchXml` observable swaps the data source while keeping the view's
  * layout.
+ *
+ * The grid BINDS ONCE, on mount: `entity`, `viewId`/`viewName`, and the
+ * observable props are read then and never re-read. To swap the binding on a
+ * reused tree position, remount the grid with a React `key` derived from the
+ * binding (`key={viewId}`); development builds warn when a binding prop
+ * changes identity without a remount.
  */
 export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartViewGridState> {
   /** This wrapper is the host for grid data. */
@@ -147,6 +161,38 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   private quickFindTimer: ReturnType<typeof setTimeout> | undefined;
   private view: IViewDefinition | undefined;
   private entityMeta: IEntityMetadata | undefined;
+  /**
+   * Bumped at the start of every data load. Each load only writes its results
+   * (rows, paging state, the loading flag) while it is still the latest, so a
+   * slow earlier response cannot overwrite a newer one, and a load that was
+   * superseded mid-flight leaves the spinner to its successor.
+   */
+  private querySequence = 0;
+
+  /** True while the given load is still the one the grid is waiting for. */
+  private isCurrentQuery(sequence: number): boolean {
+    return !this.isDisposed && sequence === this.querySequence;
+  }
+
+  /**
+   * Shared failure path for every data load after the first: log the raw error
+   * for developers, drop the rows (stale rows under a new query read as the
+   * answer to that query), and show the neutral banner the initial load uses.
+   * A later successful load clears it.
+   */
+  private failQuery(error: unknown): void {
+    console.error("SmartViewGrid query failed", error);
+    this.rows.value = [];
+    this.pageRecordCount.value = 0;
+    this.setState({ loadError: kitStrings().recordsLoadError });
+  }
+
+  /** A successful load clears a previous failure's banner. */
+  private clearQueryError(): void {
+    if (this.state.loadError) {
+      this.setState({ loadError: undefined });
+    }
+  }
 
   constructor(props: ISmartViewGridProps) {
     super(props);
@@ -161,6 +207,28 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       props.orderBy,
       this.internalSort
     );
+  }
+
+  override componentDidUpdate(prevProps: ISmartViewGridProps): void {
+    if (process.env.NODE_ENV !== "production") {
+      // The grid binds once on mount (see the class doc). A binding prop
+      // changing identity on a reused instance is silently ignored, so make
+      // the trap loud in development instead of "the grid is just wrong".
+      const changed =
+        prevProps.entity !== this.props.entity ||
+        prevProps.viewId !== this.props.viewId ||
+        prevProps.viewName !== this.props.viewName ||
+        prevProps.refresh !== this.props.refresh ||
+        prevProps.quickFind !== this.props.quickFind ||
+        prevProps.filters !== this.props.filters ||
+        prevProps.orderBy !== this.props.orderBy ||
+        prevProps.overrideFetchXml !== this.props.overrideFetchXml;
+      if (changed) {
+        console.warn(
+          "SmartViewGrid binds once on mount and ignores this prop change; remount it with a React key derived from the binding (for example key={viewId})."
+        );
+      }
+    }
   }
 
   override componentDidMount(): void {
@@ -253,9 +321,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         // Never surface raw SDK text; log for developers, show a friendly banner.
         console.error("SmartViewGrid view load failed", error);
         this.loading.value = false;
-        this.setState({
-          loadError: "This view could not be loaded in this environment.",
-        });
+        this.setState({ loadError: kitStrings().viewLoadError });
       }
     }
   }
@@ -400,7 +466,11 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     const idAttribute = this.entityMeta?.primaryIdAttribute ?? `${view.entityLogicalName}id`;
     const overrides = this.props.columnOverrides ?? {};
     return records.map((record, index) => {
-      const row: IGridRow = { key: String(record[idAttribute] ?? index) };
+      const rawId = record[idAttribute];
+      const row: IGridRow = { key: String(rawId ?? index) };
+      if (rawId === null || rawId === undefined) {
+        row[missingRecordIdKey] = true;
+      }
       for (const column of view.columns) {
         if (overrides[column.name]) {
           continue; // resolved below as a dynamic cell
@@ -449,6 +519,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       await this.loadOverridePage(overrideSimple, 1);
       return;
     }
+    const sequence = ++this.querySequence;
     this.loading.value = true;
     try {
       const override = this.props.overrideFetchXml?.value;
@@ -459,7 +530,10 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
             this.buildQueryOptions(view),
             this.props.pageSize
           );
-      if (this.isDisposed) {
+      // Stale-response guard: only the latest query may write. A slow response
+      // landing after a newer query (quick-find debounce vs filter change,
+      // double refresh) would otherwise overwrite the newer rows.
+      if (!this.isCurrentQuery(sequence)) {
         return;
       }
       const rows = this.mapRows(view, result.entities);
@@ -475,8 +549,14 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       }
       this.rows.value = rows;
       this.pageRecordCount.value = rows.length;
+      this.clearQueryError();
+    } catch (error) {
+      if (this.isCurrentQuery(sequence)) {
+        this.failQuery(error);
+      }
     } finally {
-      if (!this.isDisposed) {
+      // The spinner belongs to the latest query; a superseded load leaves it on.
+      if (this.isCurrentQuery(sequence)) {
         this.loading.value = false;
       }
     }
@@ -522,6 +602,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     if (!view || target < 1) {
       return;
     }
+    const sequence = ++this.querySequence;
     this.loading.value = true;
     try {
       const paged = setFetchPaging(this.buildRichFetchXml(view), {
@@ -530,7 +611,8 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         returnTotalRecordCount: requestTotal,
       });
       const result = await this.vmContext.webAPI.fetchPage(view.entityLogicalName, paged);
-      if (this.isDisposed) {
+      // Stale-response guard: only the latest query may write.
+      if (!this.isCurrentQuery(sequence)) {
         return;
       }
       const mapped = this.mapRows(view, result.entities);
@@ -554,8 +636,13 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       this.hasNextPage.value =
         result.moreRecords ??
         (typeof this.pageCountObs.value === "number" ? target < this.pageCountObs.value : false);
+      this.clearQueryError();
+    } catch (error) {
+      if (this.isCurrentQuery(sequence)) {
+        this.failQuery(error);
+      }
     } finally {
-      if (!this.isDisposed) {
+      if (this.isCurrentQuery(sequence)) {
         this.loading.value = false;
       }
     }
@@ -572,11 +659,13 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     if (!view || target < 1) {
       return;
     }
+    const sequence = ++this.querySequence;
     this.loading.value = true;
     try {
       const paged = setFetchPaging(overrideXml, { page: target, count: this.props.pageSize! });
       const result = await this.vmContext.webAPI.fetchPage(view.entityLogicalName, paged);
-      if (this.isDisposed) {
+      // Stale-response guard: only the latest query may write.
+      if (!this.isCurrentQuery(sequence)) {
         return;
       }
       const rows = this.mapRows(view, result.entities);
@@ -584,8 +673,13 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
       this.pageRecordCount.value = rows.length;
       this.page.value = target;
       this.hasNextPage.value = result.moreRecords ?? false;
+      this.clearQueryError();
+    } catch (error) {
+      if (this.isCurrentQuery(sequence)) {
+        this.failQuery(error);
+      }
     } finally {
-      if (!this.isDisposed) {
+      if (this.isCurrentQuery(sequence)) {
         this.loading.value = false;
       }
     }
@@ -645,6 +739,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     if (!nextLink) {
       return;
     }
+    const sequence = ++this.querySequence;
     this.loading.value = true;
     try {
       // Re-send the page size: the nextLink cookie does not carry it, and without
@@ -653,14 +748,22 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         nextLink,
         this.props.pageSize
       );
-      if (this.isDisposed) {
+      // Stale-response guard: a slow page landing after a query change would
+      // otherwise repopulate the paging cache with rows from a query that no
+      // longer exists.
+      if (!this.isCurrentQuery(sequence)) {
         return;
       }
       this.pageRows.set(target, this.mapRows(view, result.entities));
       this.pageNextLink.set(target, result.nextLink);
       this.applyPage(target);
+      this.clearQueryError();
+    } catch (error) {
+      if (this.isCurrentQuery(sequence)) {
+        this.failQuery(error);
+      }
     } finally {
-      if (!this.isDisposed) {
+      if (this.isCurrentQuery(sequence)) {
         this.loading.value = false;
       }
     }
@@ -707,6 +810,15 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     if (!view) {
       return;
     }
+    // A row without the id attribute (an aggregate fetch, a view missing the
+    // id column) fell back to its array index as the key; openForm("0") is a
+    // guaranteed platform error, so the default invoke requires a real id.
+    if (row[missingRecordIdKey]) {
+      console.warn(
+        "SmartViewGrid: the invoked row carries no record id (the view result has no id attribute), so the default open is skipped. Pass onItemInvoked to handle these rows."
+      );
+      return;
+    }
     if (view.entityLogicalName === "activitypointer") {
       void this.openActivityRow(row);
       return;
@@ -717,10 +829,11 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   /**
    * Opens an activity row's real form. The raw activitytypecode is the entity
    * logical name (the Web API returns EntityName values that way in every
-   * language), so it routes directly. Two fallbacks cover other row shapes: a
-   * numeric type code resolves through the activity-type metadata, and a row
-   * without the raw value falls back to the visible cell text, which only
-   * matches the logical name in English orgs.
+   * language), so it routes directly; a numeric type code resolves through the
+   * activity-type metadata. There is deliberately NO fallback to the visible
+   * cell text: it is the localized label, which matches the logical name only
+   * in English orgs, and a wrong-entity openForm is worse than the readable
+   * error below.
    */
   private async openActivityRow(row: IGridRow): Promise<void> {
     const raw = row[rawActivityTypeKey];
@@ -730,18 +843,15 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         const types = await this.vmContext.metadata.getActivityTypes();
         realType = types.find((type) => type.objectTypeCode === raw)?.logicalName ?? "";
       } catch {
-        // Metadata unavailable: fall through to the cell text below.
+        // Metadata unavailable: fall through to the error dialog below.
       }
       if (this.isDisposed) {
         return;
       }
     }
-    if (!realType && typeof row.activitytypecode === "string") {
-      realType = row.activitytypecode.trim().toLowerCase();
-    }
     if (!realType) {
       void this.vmContext.navigation.openErrorDialog({
-        message: "Activity Type Code is required on the view to open the records.",
+        message: kitStrings().activityTypeRequired,
       });
       return;
     }
@@ -886,11 +996,17 @@ export function buildSavedQueryOptions(viewId: string, params: IViewQueryParams)
   const parts = [`savedQuery=${viewId}`];
   const filter = composeFilterExpression(params);
   if (filter) {
-    parts.push(`$filter=${filter}`);
+    // URL-encode the expression. Quote escaping protects the OData string
+    // literal, but user text can also carry characters that change the URL
+    // itself: an "R&D" quick find would otherwise cut the filter off at the
+    // ampersand and the server would reject the remainder. Every host passes
+    // the options string through to the URL as-is (the same reason the
+    // documented fetchXml pattern wraps its value in encodeURIComponent).
+    parts.push(`$filter=${encodeURIComponent(filter)}`);
   }
   const orderBy = composeOrderBy(params.orderBy);
   if (orderBy) {
-    parts.push(`$orderby=${orderBy}`);
+    parts.push(`$orderby=${encodeURIComponent(orderBy)}`);
   }
   if (params.top) {
     parts.push(`$top=${params.top}`);
@@ -920,8 +1036,11 @@ export interface IFetchCondition {
 /** Sets page/count (+ optional total) on the root <fetch>, stripping conflicting attrs. */
 export function setFetchPaging(fetchXml: string, options: IFetchPagingOptions): string {
   return fetchXml.replace(/<fetch\b([^>]*?)(\/?)>/, (_match, attrs: string, selfClose: string) => {
+    // Quote-agnostic strip: FetchXML in the wild (and this repo's own samples)
+    // uses single quotes, and a surviving top='25' beside the injected
+    // page/count is a document Dataverse rejects with a 400.
     const cleaned = attrs.replace(
-      /\s+(page|count|top|paging-cookie|returntotalrecordcount)="[^"]*"/g,
+      /\s+(page|count|top|paging-cookie|returntotalrecordcount)\s*=\s*("[^"]*"|'[^']*')/g,
       ""
     );
     let injected = ` page="${options.page}" count="${options.count}"`;
@@ -938,6 +1057,17 @@ export function addRootFilter(
   conditions: IFetchCondition[],
   type: "and" | "or" = "and"
 ): string {
+  // Values are XML-escaped below, but attribute and operator names are
+  // interpolated into markup, so garbage there (a pasted spreadsheet header, a
+  // quote) must fail loudly instead of silently reshaping the query.
+  for (const condition of conditions) {
+    if (!/^[A-Za-z0-9_.]+$/.test(condition.attribute)) {
+      throw new Error(`Invalid FetchXML attribute name "${condition.attribute}" in a filter condition.`);
+    }
+    if (!/^[a-z][a-z0-9-]*$/i.test(condition.operator)) {
+      throw new Error(`Invalid FetchXML operator "${condition.operator}" in a filter condition.`);
+    }
+  }
   const usable = conditions.filter((condition) => isRootAttribute(condition.attribute));
   if (usable.length === 0) {
     return fetchXml;
@@ -953,14 +1083,38 @@ export function addRootFilter(
   return fetchXml.replace(/(<entity\b[^>]*>)/, `$1${filterXml}`);
 }
 
-/** Replaces the root entity's `<order>` with a single host order. Root attrs only. */
+/**
+ * Replaces the ROOT entity's `<order>` with a single host order. Root attrs
+ * only. Orders inside `<link-entity>` blocks belong to that link's own sort
+ * and survive: only orders at link depth zero are stripped.
+ */
 export function setRootOrder(fetchXml: string, attribute: string, descending: boolean): string {
   if (!isRootAttribute(attribute)) {
     return fetchXml;
   }
-  const withoutOrders = fetchXml
-    .replace(/<order\b[^>]*\/>/g, "")
-    .replace(/<order\b[^>]*>\s*<\/order>/g, "");
+  const tokens = /<\/?link-entity\b[^>]*>|<order\b[^>]*\/>|<order\b[^>]*>\s*<\/order>/g;
+  let depth = 0;
+  let cursor = 0;
+  let withoutOrders = "";
+  for (let match = tokens.exec(fetchXml); match; match = tokens.exec(fetchXml)) {
+    const token = match[0];
+    withoutOrders += fetchXml.slice(cursor, match.index);
+    if (token.startsWith("</link-entity")) {
+      depth = Math.max(0, depth - 1);
+      withoutOrders += token;
+    } else if (token.startsWith("<link-entity")) {
+      if (!token.endsWith("/>")) {
+        depth++;
+      }
+      withoutOrders += token;
+    } else if (depth > 0) {
+      // An order inside a link-entity: keep it.
+      withoutOrders += token;
+    }
+    // else: a root-level order, dropped.
+    cursor = match.index + token.length;
+  }
+  withoutOrders += fetchXml.slice(cursor);
   const orderXml = `<order attribute="${attribute}" descending="${descending ? "true" : "false"}" />`;
   return withoutOrders.replace(/(<\/entity>)/, `${orderXml}$1`);
 }

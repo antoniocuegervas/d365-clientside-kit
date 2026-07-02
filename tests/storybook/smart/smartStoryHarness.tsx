@@ -31,7 +31,9 @@ function withClientQuerySemantics(context: IViewModelContext): IViewModelContext
   context.webAPI.retrieveMultipleRecords = async (entity, options, maxPageSize) => {
     const result = await original(entity, options, maxPageSize);
     let entities = result.entities;
-    const query = String(options ?? "");
+    // The live controls URL-encode their $filter/$orderby expressions (the way
+    // a real server receives them); decode before parsing the clauses out.
+    const query = decodeURIComponent(String(options ?? ""));
 
     const contains = /contains\((\w+),'([^']*)'\)/i.exec(query);
     if (contains) {

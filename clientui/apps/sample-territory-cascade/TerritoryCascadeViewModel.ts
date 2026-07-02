@@ -49,13 +49,28 @@ export class TerritoryCascadeViewModel {
       this.summary.value = "Pick a contact first.";
       return;
     }
-    if (this.contactMethod.value !== null) {
-      await this.context.webAPI.updateRecord("contact", contact.id, {
-        preferredcontactmethodcode: this.contactMethod.value,
-      });
+    // Check disposal BEFORE the write: a dialog closed mid-click must not send
+    // a stray PATCH whose outcome nobody sees.
+    if (this.tracker.isDisposed) {
+      return;
     }
-    if (!this.tracker.isDisposed) {
-      this.summary.value = `Preferred contact method saved for ${contact.name ?? contact.id}.`;
+    try {
+      if (this.contactMethod.value !== null) {
+        await this.context.webAPI.updateRecord("contact", contact.id, {
+          preferredcontactmethodcode: this.contactMethod.value,
+        });
+      }
+      if (!this.tracker.isDisposed) {
+        this.summary.value = `Preferred contact method saved for ${contact.name ?? contact.id}.`;
+      }
+    } catch (error) {
+      // Never surface raw SDK text; log it and use the standard error surface.
+      console.error("Territory cascade save failed", error);
+      if (!this.tracker.isDisposed) {
+        void this.context.navigation.openErrorDialog({
+          message: "The change could not be saved in this environment.",
+        });
+      }
     }
   };
 

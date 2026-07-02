@@ -48,6 +48,21 @@ export class MetadataService implements IMetadataApi {
   }
 
   /**
+   * Drops every cached read so the next one reloads from the server. Metadata
+   * is cached for the session on purpose (it is effectively immutable at
+   * runtime); this is the escape hatch for the one time it is not, a solution
+   * promotion landing under an open session.
+   */
+  clearCache(): void {
+    this.entityCache.clear();
+    this.attributeCache.clear();
+    this.viewCache.clear();
+    this.currencyCache.clear();
+    this.iconCache.clear();
+    this.activityTypesPromise = undefined;
+  }
+
+  /**
    * Returns the cached promise for a key, or starts the load and caches it. A
    * successful result stays cached for the whole session (metadata is
    * effectively immutable at runtime). A failed read is removed from the cache

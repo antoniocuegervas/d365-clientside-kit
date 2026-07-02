@@ -8,6 +8,7 @@ import {
 } from "@fluentui/react-icons";
 import { ObserverComponent } from "../../reactivity/ObserverComponent";
 import { valueOf, type OrObservable } from "../../reactivity/Observable";
+import { kitStrings } from "../../localization/kitStrings";
 
 /**
  * Pagination control, presentational: it displays the
@@ -85,6 +86,7 @@ const Body: React.FC<IPaginationProps> = (props) => {
   const total = valueOf(props.totalRecordCount ?? null);
   const pageRecordCount = valueOf(props.pageRecordCount ?? null);
   const disabled = valueOf(props.disabled ?? false);
+  const strings = kitStrings();
 
   const richMode = !!props.onGoToPage && typeof pageCount === "number" && pageCount > 0;
   // Next is available when there's a known later page, or (unknown count) the
@@ -96,9 +98,8 @@ const Body: React.FC<IPaginationProps> = (props) => {
   // Range label, shown in BOTH modes. The page and page size are always known, so
   // a range ("Showing records 51–100") can show even with no total; the total is
   // appended as "of N" only when known. pageRecordCount makes the upper bound
-  // exact on a short last page, otherwise a full page is assumed. The prose is
-  // English (like the "Page N" text); localizing it would mean passing the label
-  // down from the smart layer, which can read a RESX string.
+  // exact on a short last page, otherwise a full page is assumed. The prose
+  // comes from the kit strings (configureKitStrings overrides them at boot).
   const range = ((): string | undefined => {
     if (!props.pageSize) {
       return undefined;
@@ -115,8 +116,8 @@ const Body: React.FC<IPaginationProps> = (props) => {
         ? from + pageRecordCount - 1
         : page * size;
     return knownTotal
-      ? `Showing records ${from}–${to} of ${total}`
-      : `Showing records ${from}–${to}`;
+      ? strings.showingRecordsOfTotal(from, to, total as number)
+      : strings.showingRecords(from, to);
   })();
 
   if (!richMode) {
@@ -124,24 +125,24 @@ const Body: React.FC<IPaginationProps> = (props) => {
     return (
       <div className={styles.root}>
         {range ? (
-          <span className={styles.rangeLabel} aria-label="Record range">
+          <span className={styles.rangeLabel} aria-label={strings.recordRange}>
             {range}
           </span>
         ) : null}
         <Button
           appearance="subtle"
           icon={<ChevronLeftRegular />}
-          aria-label="Previous page"
+          aria-label={strings.previousPage}
           disabled={disabled || !canPrev}
           onClick={props.onPrevious}
         />
-        <span className={styles.label} aria-label="Current page">
-          Page {page}
+        <span className={styles.label} aria-label={strings.currentPage}>
+          {strings.pageN(page)}
         </span>
         <Button
           appearance="subtle"
           icon={<ChevronRightRegular />}
-          aria-label="Next page"
+          aria-label={strings.nextPage}
           disabled={disabled || !canNext}
           onClick={props.onNext}
         />
@@ -159,49 +160,49 @@ const Body: React.FC<IPaginationProps> = (props) => {
   return (
     <div className={styles.root}>
       {range ? (
-        <span className={styles.rangeLabel} aria-label="Record range">
+        <span className={styles.rangeLabel} aria-label={strings.recordRange}>
           {range}
         </span>
       ) : null}
       <Button
         appearance="subtle"
         icon={<ChevronDoubleLeftRegular />}
-        aria-label="First page"
+        aria-label={strings.firstPage}
         disabled={disabled || !canPrev}
         onClick={props.onFirst}
       />
       <Button
         appearance="subtle"
         icon={<ChevronLeftRegular />}
-        aria-label="Previous page"
+        aria-label={strings.previousPage}
         disabled={disabled || !canPrev}
         onClick={props.onPrevious}
       />
       <Dropdown
         className={styles.jump}
-        aria-label="Jump to page"
-        value={`Page ${page} of ${count}`}
+        aria-label={strings.jumpToPage}
+        value={strings.pageNOfM(page, count)}
         selectedOptions={[String(page)]}
         onOptionSelect={handleJump}
         disabled={disabled}
       >
         {Array.from({ length: count }, (_unused, index) => index + 1).map((n) => (
-          <Option key={n} value={String(n)} text={`Page ${n}`}>
-            {`Page ${n}`}
+          <Option key={n} value={String(n)} text={strings.pageN(n)}>
+            {strings.pageN(n)}
           </Option>
         ))}
       </Dropdown>
       <Button
         appearance="subtle"
         icon={<ChevronRightRegular />}
-        aria-label="Next page"
+        aria-label={strings.nextPage}
         disabled={disabled || !canNext}
         onClick={props.onNext}
       />
       <Button
         appearance="subtle"
         icon={<ChevronDoubleRightRegular />}
-        aria-label="Last page"
+        aria-label={strings.lastPage}
         disabled={disabled || page >= count}
         onClick={props.onLast}
       />

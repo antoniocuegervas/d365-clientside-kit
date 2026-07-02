@@ -61,8 +61,15 @@ export interface IModernXrmMockOptions extends ICommonMockOptions {
   webApi?: Partial<IMockWebApi>;
   /** Body returned by online.execute's response.json()/text(). */
   executeResponseBody?: unknown;
-  /** HTTP status for online.execute's response. Default 200. */
+  /**
+   * HTTP status for online.execute. Default 200. A status of 400+ makes the
+   * mock REJECT the way the platform does (the error callback object,
+   * errorCode + message), because the fetch-like response is the success
+   * shape only per the Client API reference.
+   */
   executeResponseStatus?: number;
+  /** Message carried by the rejection when executeResponseStatus is 400+. */
+  executeErrorMessage?: string;
   /** Org id surfaced on organizationSettings. */
   organizationId?: string;
   /** Auto-save flag surfaced on organizationSettings. */
@@ -113,7 +120,7 @@ function makePageMock(formRecord: IMockFormRecord | undefined, calls: IXrmMockCa
   };
 }
 
-/** A fetch-like ExecuteResponse stand-in for online.execute. */
+/** A fetch-like ExecuteResponse stand-in for online.execute's SUCCESS shape. */
 function makeExecuteResponse(body: unknown, status = 200) {
   return {
     ok: status >= 200 && status < 300,
@@ -121,6 +128,18 @@ function makeExecuteResponse(body: unknown, status = 200) {
     statusText: "OK",
     json: async () => body,
     text: async () => (body === undefined ? "" : JSON.stringify(body)),
+  };
+}
+
+/**
+ * The platform rejection for a failed execute: the error callback receives
+ * { errorCode, message } (Client API reference), NOT a response object. A
+ * plain object on purpose, the platform's rejection is not an Error instance.
+ */
+function makeExecuteRejection(options: IModernXrmMockOptions): unknown {
+  return {
+    errorCode: 2147746611, // 0x80040333, a CRM code, deliberately not an HTTP status
+    message: options.executeErrorMessage ?? "A validation error occurred.",
   };
 }
 
@@ -164,10 +183,20 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
       online: {
         execute: async (request: unknown) => {
           record("WebApi.online.execute", request);
+          if ((options.executeResponseStatus ?? 200) >= 400) {
+            // Platform behavior: HTTP failures reject; the fetch-like response
+            // is the success shape only.
+            throw makeExecuteRejection(options);
+          }
           return makeExecuteResponse(options.executeResponseBody, options.executeResponseStatus);
         },
         executeMultiple: async (requests: unknown[]) => {
           record("WebApi.online.executeMultiple", requests);
+          if ((options.executeResponseStatus ?? 200) >= 400) {
+            // Platform behavior: rejects wholesale when any operation fails,
+            // there are no per-request results on failure.
+            throw makeExecuteRejection(options);
+          }
           return (requests ?? []).map(() =>
             makeExecuteResponse(options.executeResponseBody, options.executeResponseStatus)
           );

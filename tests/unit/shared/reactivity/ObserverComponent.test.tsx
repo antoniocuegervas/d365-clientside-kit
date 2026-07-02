@@ -127,4 +127,88 @@ describe("ObserverComponent", () => {
     expect(obs.subscriberCount).toBe(0);
     expect(onUnmount).toHaveBeenCalledTimes(1);
   });
+
+  it("reobserve drops the old subscriptions and renders from the new sources", async () => {
+    const first = new Observable<string>("first");
+    const second = new Observable<string>("second");
+    class Probe extends ObserverComponent<{ source: Observable<string> }> {
+      constructor(props: { source: Observable<string> }) {
+        super(props);
+        this.observe(props.source);
+      }
+      override componentDidUpdate(prevProps: { source: Observable<string> }): void {
+        if (prevProps.source !== this.props.source) {
+          this.reobserve(this.props.source);
+        }
+      }
+      override render(): React.ReactNode {
+        return <span>{this.props.source.value}</span>;
+      }
+    }
+
+    const { container, rerender } = render(<Probe source={first} />);
+    expect(container.textContent).toBe("first");
+
+    rerender(<Probe source={second} />);
+    // The old source is fully released; the new one drives renders.
+    expect(first.subscriberCount).toBe(0);
+    expect(second.subscriberCount).toBe(1);
+    await act(async () => {
+      second.value = "updated";
+    });
+    expect(container.textContent).toBe("updated");
+    // Writes to the abandoned source no longer reach the component.
+    await act(async () => {
+      first.value = "stale";
+    });
+    expect(container.textContent).toBe("updated");
+  });
+
+  it("observe after unmount does not subscribe (nothing left to dispose it)", () => {
+    const obs = new Observable<number>(0);
+    class Probe extends ObserverComponent {
+      observeLate(): void {
+        this.observe(obs);
+      }
+      override render(): React.ReactNode {
+        return null;
+      }
+    }
+    const ref = React.createRef<Probe>();
+    const { unmount } = render(<Probe ref={ref} />);
+    const probe = ref.current!;
+    unmount();
+    // An async continuation landing after unmount must not leak a subscription
+    // that keeps the component alive from the observable's listener set.
+    probe.observeLate();
+    expect(obs.subscriberCount).toBe(0);
+  });
+
+  it("one throwing unsubscribe does not leak the remaining subscriptions", () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const healthy = new Observable<number>(0);
+      const broken = {
+        subscribe: () => () => {
+          throw new Error("teardown burst");
+        },
+      };
+      class Probe extends ObserverComponent {
+        constructor(props: object) {
+          super(props);
+          this.observe(broken, healthy);
+        }
+        override render(): React.ReactNode {
+          return null;
+        }
+      }
+      const { unmount } = render(<Probe />);
+      expect(healthy.subscriberCount).toBe(1);
+      unmount();
+      expect(healthy.subscriberCount).toBe(0);
+      expect(consoleError).toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
 });

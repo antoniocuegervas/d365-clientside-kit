@@ -16,11 +16,14 @@ pool:
 steps:
   - task: NodeTool@0
     inputs:
-      versionSpec: "22.x" # LTS line; the kit targets modern evergreen output
-    displayName: Use Node 22
+      versionSpec: "24.x" # same line the engines field and .nvmrc pin
+    displayName: Use Node 24
 
   - script: npm ci
     displayName: Install main kit dependencies
+
+  - script: npm run check:pcf-floor
+    displayName: PCF platform-floor check (first step of verify)
 
   - script: npm run lint
     displayName: Lint (incl. presentational restricted-imports rule)
@@ -46,18 +49,22 @@ steps:
         CHANGED=1
       else
         git fetch origin master --depth=50 || true
-        CHANGED=$(git diff --name-only origin/master...HEAD -- shared/ pcfs/ | wc -l)
+        # Root dependency changes can break PCF builds too, so the gate watches
+        # the lockfile and manifest beside the source folders.
+        CHANGED=$(git diff --name-only origin/master...HEAD -- shared/ pcfs/ package.json package-lock.json | wc -l)
       fi
       if [ "$CHANGED" -gt 0 ]; then
-        echo "shared/ or pcfs/ changed, building all sample PCFs (conditional gate)"
+        echo "shared/, pcfs/, or root dependencies changed, building all sample PCFs (conditional gate)"
         for pcf in pcfs/*/; do
           echo "=== $pcf"
-          (cd "$pcf" && npm ci && npm run build)
+          # Production mode: the deployable artifact shape (debug bundles are
+          # nearly ten times larger and must never ship).
+          (cd "$pcf" && npm ci && npm run build -- --buildMode production)
         done
       else
-        echo "No shared/ or pcfs/ changes, skipping PCF builds"
+        echo "No shared/, pcfs/, or root dependency changes, skipping PCF builds"
       fi
-    displayName: Conditional PCF builds when shared/ changes
+    displayName: Conditional PCF builds (production) when shared or deps change
 
   - publish: dist
     artifact: webresources

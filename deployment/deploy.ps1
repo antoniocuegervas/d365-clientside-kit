@@ -29,8 +29,14 @@ $ErrorActionPreference = "Stop"
 
 # Publisher prefix: the single source of truth both this deploy and the build read,
 # so the artifacts and the deployed webresources are named identically.
-$prefix = (Get-Content (Join-Path $PSScriptRoot "../kit.config.json") -Raw | ConvertFrom-Json).publisherPrefix
+$kitConfig = Get-Content (Join-Path $PSScriptRoot "../kit.config.json") -Raw | ConvertFrom-Json
+$prefix = $kitConfig.publisherPrefix
 if (-not $prefix) { throw "publisherPrefix missing from kit.config.json." }
+
+# Target solution: an optional "solutionName" in kit.config.json, so a fork's
+# webresources land in its own solution without hand-editing the template.
+$solution = $kitConfig.solutionName
+if (-not $solution) { $solution = "D365UIKit" }
 
 # 1. Resolve the connection string (env var wins, local file as fallback).
 $connection = $env:SPKL_CONNECTION
@@ -61,7 +67,8 @@ if (-not (Test-Path $template)) { throw "spkl.template.json not found at '$templ
 # build (its "../dist/" root is relative to this folder), so render in place. The
 # file is gitignored; spkl.template.json is the committed source of truth.
 $manifest = Join-Path $PSScriptRoot "spkl.json"
-(Get-Content $template -Raw).Replace("{{prefix}}", $prefix) | Set-Content $manifest -NoNewline
+(Get-Content $template -Raw).Replace("{{prefix}}", $prefix).Replace("{{solution}}", $solution) |
+  Set-Content $manifest -NoNewline
 
 # 4. Publish webresources non-interactively.
 if (-not (Test-Path $SpklPath)) {

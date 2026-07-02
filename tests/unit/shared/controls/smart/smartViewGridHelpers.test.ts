@@ -82,7 +82,7 @@ describe("savedQuery composition", () => {
   });
 
   describe("buildSavedQueryOptions", () => {
-    it("starts from savedQuery and layers filter/orderby/top", () => {
+    it("starts from savedQuery and layers filter/orderby/top (expressions URL-encoded)", () => {
       expect(
         buildSavedQueryOptions("v1", {
           quickFindText: "cont",
@@ -90,11 +90,33 @@ describe("savedQuery composition", () => {
           orderBy: { attribute: "name" },
           top: 50,
         })
-      ).toBe("?savedQuery=v1&$filter=contains(name,'cont')&$orderby=name asc&$top=50");
+      ).toBe(
+        `?savedQuery=v1&$filter=${encodeURIComponent("contains(name,'cont')")}` +
+          `&$orderby=${encodeURIComponent("name asc")}&$top=50`
+      );
     });
 
     it("savedQuery only when no extras apply", () => {
       expect(buildSavedQueryOptions("v1", {})).toBe("?savedQuery=v1");
+    });
+
+    it("URL-hostile quick-find text survives the URL layer intact", () => {
+      // Quote escaping protects the OData literal; this pins the OTHER layer:
+      // characters that would restructure the URL itself. The options string
+      // must parse into exactly its intended parameters, and the filter must
+      // round-trip through decoding to the intended expression.
+      for (const text of ["R&D", "100%", "C#", "a+b", "O'Brien & Sons #2 (50%)"]) {
+        const options = buildSavedQueryOptions("v1", {
+          quickFindText: text,
+          quickFindFields: ["name"],
+        });
+        const params = new URLSearchParams(options.slice(1));
+        expect([...params.keys()].sort()).toEqual(["$filter", "savedQuery"]);
+        expect(params.get("savedQuery")).toBe("v1");
+        expect(params.get("$filter")).toBe(
+          `contains(name,'${text.replace(/'/g, "''")}')`
+        );
+      }
     });
   });
 });
@@ -127,6 +149,26 @@ describe("FetchXML paging mutation", () => {
       expect(out).not.toContain('top="5"');
       expect(out).not.toContain('page="9"');
       expect(out).toBe('<fetch page="2" count="20"><entity/></fetch>');
+    });
+
+    it("strips single-quoted conflicting attributes (the samples' own house style)", () => {
+      // A surviving top beside the injected page/count is a document Dataverse
+      // rejects with a 400, so the strip must not care which quotes were used.
+      const out = setFetchPaging(
+        "<fetch version='1.0' output-format='xml-platform' mapping='logical' top='25'><entity name='activitypointer'/></fetch>",
+        { page: 1, count: 10 }
+      );
+      expect(out).not.toContain("top='25'");
+      expect(out).toContain("version='1.0'");
+      expect(out).toContain('page="1" count="10"');
+    });
+
+    it("strips mixed-quote paging attributes left from an earlier injection", () => {
+      const out = setFetchPaging("<fetch page='2' count=\"10\" top='25'><entity/></fetch>", {
+        page: 3,
+        count: 10,
+      });
+      expect(out).toBe('<fetch page="3" count="10"><entity/></fetch>');
     });
   });
 
@@ -165,6 +207,20 @@ describe("FetchXML paging mutation", () => {
       ]);
       expect(out).toContain('<condition attribute="parentaccountid" operator="null" />');
     });
+
+    it("throws on attribute or operator names that would reshape the markup", () => {
+      const fetch = "<fetch><entity name='account'></entity></fetch>";
+      // A pasted spreadsheet header or a quote must fail loudly, not inject.
+      expect(() =>
+        addRootFilter(fetch, [{ attribute: 'name" operator="ne', operator: "eq", value: "x" }])
+      ).toThrow(/Invalid FetchXML attribute name/);
+      expect(() =>
+        addRootFilter(fetch, [{ attribute: "Account Name", operator: "eq", value: "x" }])
+      ).toThrow(/Invalid FetchXML attribute name/);
+      expect(() =>
+        addRootFilter(fetch, [{ attribute: "name", operator: 'eq" value="1', value: "x" }])
+      ).toThrow(/Invalid FetchXML operator/);
+    });
   });
 
   describe("setRootOrder", () => {
@@ -183,6 +239,39 @@ describe("FetchXML paging mutation", () => {
     it("no-ops for dotted attributes", () => {
       const fetch = "<fetch><entity name='account'></entity></fetch>";
       expect(setRootOrder(fetch, "pc.name", true)).toBe(fetch);
+    });
+
+    it("keeps orders inside link-entity blocks (only the root order is replaced)", () => {
+      const out = setRootOrder(
+        "<fetch><entity name='account'>" +
+          "<order attribute='createdon' descending='true'/>" +
+          "<link-entity name='contact' alias='pc'>" +
+          "<order attribute='fullname' descending='false'/>" +
+          "</link-entity>" +
+          "</entity></fetch>",
+        "name",
+        true
+      );
+      // The link-entity's own sort survives; the root order is replaced.
+      expect(out).toContain("<order attribute='fullname' descending='false'/>");
+      expect(out).not.toContain("createdon");
+      expect(out).toContain('<order attribute="name" descending="true" /></entity>');
+    });
+
+    it("handles nested link-entities without stripping their orders", () => {
+      const out = setRootOrder(
+        "<fetch><entity name='account'>" +
+          "<link-entity name='contact'>" +
+          "<link-entity name='team' />" +
+          "<order attribute='fullname'/>" +
+          "</link-entity>" +
+          "<order attribute='createdon'/>" +
+          "</entity></fetch>",
+        "name",
+        false
+      );
+      expect(out).toContain("<order attribute='fullname'/>");
+      expect(out).not.toContain("createdon");
     });
   });
 });

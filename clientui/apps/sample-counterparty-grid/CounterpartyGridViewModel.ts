@@ -27,6 +27,12 @@ export class CounterpartyGridViewModel {
   readonly activityTypes = new Observable<IActivityTypeInfo[]>([]);
 
   private readonly tracker = new SubscriptionTracker();
+  /**
+   * Bumped on every load. Each load only writes while it is still the latest,
+   * so a double refresh cannot interleave the two-phase writes (activities
+   * from one load, counterparty fill from another).
+   */
+  private loadSequence = 0;
 
   constructor(private readonly context: IViewModelContext) {
     this.columns.value = [
@@ -55,10 +61,12 @@ export class CounterpartyGridViewModel {
   }
 
   readonly load = async (): Promise<void> => {
+    const sequence = ++this.loadSequence;
+    const isCurrent = () => !this.tracker.isDisposed && sequence === this.loadSequence;
     this.loading.value = true;
     try {
       const result = await this.context.webAPI.fetch("activitypointer", activityFetch());
-      if (this.tracker.isDisposed) {
+      if (!isCurrent()) {
         return;
       }
       const rows = result.entities.map(toRow);
@@ -69,14 +77,22 @@ export class CounterpartyGridViewModel {
         this.context,
         rows.map((row) => String(row.recordId))
       );
-      if (this.tracker.isDisposed) {
+      if (!isCurrent()) {
         return;
       }
       this.rows.value = rows.map((row) =>
         applyCounterparty({ ...row }, info.get(normalizeGuid(String(row.recordId))))
       );
+    } catch (error) {
+      // A failed load must not surface as an unhandled rejection: log it for
+      // developers and leave the grid empty rather than half-filled.
+      if (isCurrent()) {
+        console.error("Counterparty grid load failed", error);
+        this.rows.value = [];
+      }
     } finally {
-      if (!this.tracker.isDisposed) {
+      // The spinner belongs to the latest load; a superseded one leaves it on.
+      if (isCurrent()) {
         this.loading.value = false;
       }
     }
@@ -119,11 +135,11 @@ function toRow(record: Record<string, unknown>): IGridRow {
   return {
     key: String(record.activityid),
     recordId: String(record.activityid),
-    // activitypointer has no openable form of its own; the real type code (e.g. "Phone Call")
-    // collapses to its entity logical name ("phonecall") for openForm.
-    entityName: (LibraryUtils.formattedValue(record, "activitytypecode") ?? "")
-      .toLowerCase()
-      .replace(/\s+/g, ""),
+    // activitypointer has no openable form of its own, so openForm needs the real
+    // activity's entity logical name. The RAW activitytypecode carries exactly
+    // that in every language ("phonecall"); the formatted value is the localized
+    // label ("Phone Call", "Telefonanruf") and only feeds the visible cell.
+    entityName: String(record.activitytypecode ?? ""),
     type: LibraryUtils.formattedValue(record, "activitytypecode") ?? "",
     subject: (record.subject as string) ?? "",
     regarding: LibraryUtils.formattedValue(record, "_regardingobjectid_value") ?? "",

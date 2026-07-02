@@ -33,6 +33,12 @@ export interface ICdsClientOptions {
    * URL limits). The default is conservative; override if your gateway allows more.
    */
   maxUrlLength?: number;
+  /**
+   * Per-request timeout in milliseconds. Default 45000. Without one, a hung
+   * connection (proxy, VPN, a laptop resuming from sleep) leaves the promise
+   * pending forever and every loading flag waiting on it spins forever.
+   */
+  timeoutMs?: number;
 }
 
 export interface IRetrieveMultipleResult {
@@ -66,16 +72,21 @@ export class CdsClientError extends Error {
 
 const DEFAULT_API_VERSION = "9.2";
 const DEFAULT_MAX_URL_LENGTH = 2048;
+const DEFAULT_TIMEOUT_MS = 45000;
+/** Longest single wait honored for a 429 Retry-After before giving up. */
+const MAX_RETRY_AFTER_MS = 30000;
 
 export class CdsClient {
   readonly clientUrl: string;
   readonly apiVersion: string;
   private readonly maxUrlLength: number;
+  private readonly timeoutMs: number;
 
   constructor(options: ICdsClientOptions) {
     this.clientUrl = options.clientUrl.replace(/\/+$/, "");
     this.apiVersion = options.apiVersion ?? DEFAULT_API_VERSION;
     this.maxUrlLength = options.maxUrlLength ?? DEFAULT_MAX_URL_LENGTH;
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
   /** Web API root, e.g. "https://org.crm.dynamics.com/api/data/v9.2/". */
@@ -130,14 +141,19 @@ export class CdsClient {
 
   /**
    * Retrieves multiple records with a raw OData query string ("?$select=...&$top=...").
-   * For FetchXML use {@link fetch}, which adds the long-query batch fallback.
+   * Falls back to a $batch POST when the URL would exceed the length limit (a
+   * savedQuery plus a long composed $filter can get there), like {@link fetch}.
    */
   async retrieveMultiple(
     entitySet: string,
     query?: string,
     maxPageSize?: number
   ): Promise<IRetrieveMultipleResult> {
-    return this.retrieveMultipleByUrl(`${this.apiUrl}${entitySet}${query ?? ""}`, maxPageSize);
+    const url = `${this.apiUrl}${entitySet}${query ?? ""}`;
+    if (url.length <= this.maxUrlLength) {
+      return this.retrieveMultipleByUrl(url, maxPageSize);
+    }
+    return this.getCollectionViaBatch(url, maxPageSize);
   }
 
   /**
@@ -183,16 +199,19 @@ export class CdsClient {
     if (url.length <= this.maxUrlLength) {
       return this.retrieveMultipleByUrl(url);
     }
-    return this.fetchViaBatch(entitySet, fetchXml);
+    return this.getCollectionViaBatch(url);
   }
 
-  /** Long-FetchXML fallback: wraps the GET in a multipart $batch request. */
-  private async fetchViaBatch(
-    entitySet: string,
-    fetchXml: string
+  /** Long-URL fallback: wraps a collection GET in a multipart $batch request. */
+  private async getCollectionViaBatch(
+    innerUrl: string,
+    maxPageSize?: number
   ): Promise<IRetrieveMultipleResult> {
     const boundary = LibraryUtils.newBatchBoundary();
-    const innerUrl = `${this.apiUrl}${entitySet}?fetchXml=${encodeURIComponent(fetchXml)}`;
+    const preferParts = ['odata.include-annotations="*"'];
+    if (maxPageSize !== undefined) {
+      preferParts.push(`odata.maxpagesize=${maxPageSize}`);
+    }
     const body = [
       `--${boundary}`,
       "Content-Type: application/http",
@@ -200,7 +219,7 @@ export class CdsClient {
       "",
       `GET ${innerUrl} HTTP/1.1`,
       "Accept: application/json",
-      'Prefer: odata.include-annotations="*"',
+      `Prefer: ${preferParts.join(",")}`,
       "",
       "",
       `--${boundary}--`,
@@ -382,7 +401,9 @@ export class CdsClient {
    * content-id reference ("$1"), the prior operation's result directly.
    */
   private changeSetOperationUrl(request: IChangeSetRequest): string {
-    const entitySet = LibraryUtils.entitySetName(request.entityLogicalName);
+    // An explicit entitySet wins: the pluralizer is a convention, and inside a
+    // change set a wrong guess 404s the whole transaction.
+    const entitySet = request.entitySet ?? LibraryUtils.entitySetName(request.entityLogicalName);
     if (request.method === "POST") {
       return `${this.apiUrl}${entitySet}`;
     }
@@ -492,11 +513,35 @@ export class CdsClient {
 
   /**
    * Sends the request and resolves with the XHR on ANY HTTP status, rejecting
-   * only on a network-level failure. `request` layers the 2xx check on top; the
-   * fetch-like `execute` keeps non-2xx responses so it can report `ok: false`
-   * rather than throwing, matching the native online.execute.
+   * only on a network-level failure or timeout. `request` layers the 2xx check
+   * on top; the fetch-like `execute` keeps non-2xx responses so it can report
+   * `ok: false` rather than throwing, matching the kit contract. A 429
+   * (service-protection throttling) is retried once after the server's
+   * Retry-After, capped, so one throttled burst does not surface as a failure.
    */
-  private send(
+  private async send(
+    method: "GET" | "POST" | "PATCH" | "DELETE",
+    url: string,
+    body?: string,
+    extraHeaders?: Record<string, string>
+  ): Promise<XMLHttpRequest> {
+    const xhr = await this.sendOnce(method, url, body, extraHeaders);
+    if (xhr.status !== 429) {
+      return xhr;
+    }
+    const retryAfterSeconds = Number(xhr.getResponseHeader("Retry-After"));
+    const delayMs = Math.min(
+      Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+        ? retryAfterSeconds * 1000
+        : 5000,
+      MAX_RETRY_AFTER_MS
+    );
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    // One retry only: a second 429 goes back to the caller as any other status.
+    return this.sendOnce(method, url, body, extraHeaders);
+  }
+
+  private sendOnce(
     method: "GET" | "POST" | "PATCH" | "DELETE",
     url: string,
     body?: string,
@@ -535,6 +580,11 @@ export class CdsClient {
       xhr.onload = () => resolve(xhr);
       xhr.onerror = () =>
         reject(new CdsClientError(0, `Network error calling ${url}`, xhr.responseText));
+      // A hung connection must fail like a network error, not spin forever:
+      // every loading flag downstream waits on this promise.
+      xhr.timeout = this.timeoutMs;
+      xhr.ontimeout = () =>
+        reject(new CdsClientError(0, `Timed out after ${this.timeoutMs} ms calling ${url}`, ""));
       xhr.send(body);
     });
   }

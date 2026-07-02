@@ -195,3 +195,17 @@ describe("valueOfList", () => {
     expect(valueOfList(new ObservableArray<number>([6, 7]))).toEqual([6, 7]);
   });
 });
+
+describe("update short-circuit", () => {
+  it("an updater returning the same array does not notify", () => {
+    const list = new ObservableArray<number>([1, 2]);
+    const listener = jest.fn();
+    list.subscribe(listener);
+    // Same reference back means "no change", matching setValue's semantics;
+    // update-heavy ViewModels must not pay a render for a no-op.
+    list.update((current) => current);
+    expect(listener).not.toHaveBeenCalled();
+    list.update((current) => [...current, 3]);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+});

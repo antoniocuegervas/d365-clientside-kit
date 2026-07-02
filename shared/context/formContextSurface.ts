@@ -128,7 +128,13 @@ export interface IFormEntity {
   getEntityReference(): IXrmLookupValue;
   getIsDirty(): boolean;
   getDataXml(): string;
-  /** Saves the record. `saveMode` mirrors the native entity.save argument. */
+  /**
+   * Saves the record. `saveMode` mirrors the native entity.save argument
+   * ("saveandclose", "saveandnew"). Resolves when the save COMPLETES on hosts
+   * exposing the promise-returning data-level save (modern UCI); on hosts
+   * without it (CRM 8.x) it resolves when the save is queued, the only
+   * semantics the native void API offers there.
+   */
   save(saveMode?: string): Promise<void>;
   attributes: IFormCollection<IAttribute>;
   addOnSave(handler: FormEventHandler): void;
@@ -560,7 +566,17 @@ function wrapProcessManager(host: HostProcessManager, hostLabel: string): IFormP
   };
 }
 
-function wrapEntity(host: HostEntity, hostLabel: string): IFormEntity {
+/** entity.save's string modes mapped to data.save's numeric saveMode values. */
+const entitySaveModes: Record<string, number> = {
+  saveandclose: 2,
+  saveandnew: 59,
+};
+
+function wrapEntity(
+  host: HostEntity,
+  hostLabel: string,
+  dataSave?: (saveOptions?: unknown) => PromiseLike<unknown>
+): IFormEntity {
   return {
     getId: () => {
       const id = host.getId?.() ?? "";
@@ -578,6 +594,16 @@ function wrapEntity(host: HostEntity, hostLabel: string): IFormEntity {
     getIsDirty: () => host.getIsDirty?.() ?? false,
     getDataXml: () => need(host.getDataXml, host, "entity.getDataXml", hostLabel)(),
     save: async (saveMode) => {
+      // The native entity.save returns void at QUEUE time; the data-level save
+      // returns a real completion promise. Prefer it where the host has one,
+      // so `await save()` means "saved" (a follow-up getRecordId or query sees
+      // the committed record). Hosts without it (CRM 8.x) keep the native
+      // call, which resolves when the save is queued, not done.
+      if (dataSave) {
+        const mode = entitySaveModes[saveMode?.toLowerCase() ?? ""];
+        await dataSave(mode !== undefined ? { saveMode: mode } : undefined);
+        return;
+      }
       await Promise.resolve(need(host.save, host, "entity.save", hostLabel)(saveMode));
     },
     attributes: wrapCollection(host.attributes, (attribute) => wrapAttribute(attribute, hostLabel)),
@@ -592,7 +618,11 @@ function wrapEntity(host: HostEntity, hostLabel: string): IFormEntity {
 function wrapData(host: HostData, hostLabel: string): IFormData {
   const entity = host.entity;
   return {
-    entity: wrapEntity(entity ?? {}, hostLabel),
+    entity: wrapEntity(
+      entity ?? {},
+      hostLabel,
+      host.save ? (saveOptions) => host.save!(saveOptions) : undefined
+    ),
     getIsDirty: () => host.getIsDirty?.() ?? false,
     refresh: async (save) => {
       await need(host.refresh, host, "data.refresh", hostLabel)(save ?? false);

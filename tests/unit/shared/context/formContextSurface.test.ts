@@ -289,13 +289,41 @@ describe("buildFormContext", () => {
     await fc.data.save();
     const handler = () => undefined;
     fc.data.addOnLoad(handler);
+    // entity.save routes through the promise-returning data-level save where
+    // the host has one (the native entity.save resolves at queue time, not on
+    // completion), with the string mode mapped to its numeric equivalent.
     await fc.data.entity.save("saveandclose");
     fc.data.entity.addOnPostSave(handler);
     expect(calls).toContainEqual({ api: "data.refresh", args: [true] });
     expect(calls).toContainEqual({ api: "data.save", args: [undefined] });
     expect(calls).toContainEqual({ api: "data.addOnLoad", args: [handler] });
-    expect(calls).toContainEqual({ api: "entity.save", args: ["saveandclose"] });
+    expect(calls).toContainEqual({ api: "data.save", args: [{ saveMode: 2 }] });
     expect(calls).toContainEqual({ api: "entity.addOnPostSave", args: [handler] });
+  });
+
+  it("entity.save resolves only after the host's data-level save completes", async () => {
+    const { form, calls } = makeHostForm();
+    let completeSave: (() => void) | undefined;
+    (form as unknown as { data: { save: (options?: unknown) => Promise<void> } }).data.save = (
+      options?: unknown
+    ) => {
+      calls.push({ api: "data.save", args: [options] });
+      return new Promise<void>((resolve) => {
+        completeSave = resolve;
+      });
+    };
+    const fc = buildFormContext(form, HOST);
+    let settled = false;
+    const pending = fc.data.entity.save().then(() => {
+      settled = true;
+    });
+    // Give a queue-time resolution every chance to (wrongly) fire.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    completeSave!();
+    await pending;
+    expect(settled).toBe(true);
   });
 
   it("wraps the BPF process: active process/stage, moveNext, getEnabledProcesses", async () => {

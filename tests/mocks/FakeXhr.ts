@@ -15,6 +15,8 @@ export interface IScriptedResponse {
   status: number;
   responseText?: string;
   headers?: Record<string, string>;
+  /** Fire ontimeout instead of onload (a hung connection hitting xhr.timeout). */
+  timedOut?: boolean;
 }
 
 type Responder = (request: IRecordedRequest) => IScriptedResponse | undefined;
@@ -53,8 +55,10 @@ export class FakeXhrServer {
       withCredentials = false;
       status = 0;
       responseText = "";
+      timeout = 0;
       onload: (() => void) | null = null;
       onerror: (() => void) | null = null;
+      ontimeout: (() => void) | null = null;
       private method = "";
       private url = "";
       private headers: Record<string, string> = {};
@@ -85,6 +89,10 @@ export class FakeXhrServer {
         const response = server.resolve(recorded);
         // Async like the real thing, so promise plumbing is exercised.
         queueMicrotask(() => {
+          if (response.timedOut) {
+            this.ontimeout?.();
+            return;
+          }
           this.status = response.status;
           this.responseText = response.responseText ?? "";
           this.responseHeaders = response.headers ?? {};

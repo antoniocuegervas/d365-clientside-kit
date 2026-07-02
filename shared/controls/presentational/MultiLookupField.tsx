@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import {
   Tag,
   TagGroup,
@@ -117,12 +118,12 @@ const Body: React.FC<
             selectedOptions={[]}
             onChange={props.onInput}
             onOptionSelect={props.onSelect}
-            placeholder={placeholder ?? "Look for records"}
+            placeholder={placeholder ?? kitStrings().lookForRecords}
             freeform
           >
             {results.length === 0 ? (
               <Option key="__none__" value="__none__" text="" disabled>
-                {state.searchText ? "No records found" : "Type to search"}
+                {state.searchText ? kitStrings().noRecordsFound : kitStrings().typeToSearch}
               </Option>
             ) : (
               results.map((result) => (

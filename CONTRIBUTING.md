@@ -4,6 +4,11 @@ Thanks for taking a look. This repository is the canonical source for the D365
 Client-Side UI Kit. There are two ways to engage with it, and they are not the
 same thing.
 
+If you are just USING the kit, day 1 is `npm install` + `npm run storybook`
+and the README's getting-started path; nothing below applies until you send a
+change back. Run `npm run verify` before a pull request, not before your
+first experiment.
+
 ## Starting your own project (using the kit)
 
 To build your own D365 client-side work on top of the kit, start a new

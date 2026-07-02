@@ -65,9 +65,15 @@ export class Observable<T> implements ISubscribable {
     // we are still calling them. Pass the snapshot pair (current/previous) rather
     // than re-reading this._value, so if a listener re-enters setValue the
     // remaining listeners still get THIS change's old/new pair, not a newer value
-    // paired with the old previous.
+    // paired with the old previous. Each call is isolated: the value is already
+    // committed, so one throwing subscriber must not starve the rest of a change
+    // they are owed, nor blow up whoever wrote the value.
     for (const listener of [...this.listeners]) {
-      listener(current, previous);
+      try {
+        listener(current, previous);
+      } catch (error) {
+        console.error("Observable subscriber threw", error);
+      }
     }
   }
 
@@ -89,7 +95,11 @@ export class Observable<T> implements ISubscribable {
    */
   notify(): void {
     for (const listener of [...this.listeners]) {
-      listener(this._value, this._value);
+      try {
+        listener(this._value, this._value);
+      } catch (error) {
+        console.error("Observable subscriber threw", error);
+      }
     }
   }
 

@@ -50,6 +50,12 @@ export abstract class ObserverComponent<P = object, S = object> extends React.Co
    * `OrObservable<T>` props can be passed straight through.
    */
   protected observe(...sources: Array<OrObservable<unknown> | ISubscribable | undefined | null>): void {
+    if (this.observerDisposed) {
+      // An observe after unmount (an async continuation landing late) would
+      // subscribe with nobody left to dispose it, keeping the component alive
+      // from the observable's listener set. Mirror SubscriptionTracker.add.
+      return;
+    }
     for (const source of sources) {
       if (!source || typeof source !== "object") {
         continue;
@@ -80,20 +86,26 @@ export abstract class ObserverComponent<P = object, S = object> extends React.Co
   protected reobserve(
     ...sources: Array<OrObservable<unknown> | ISubscribable | undefined | null>
   ): void {
-    for (const unsubscribe of this.observerSubscriptions) {
-      unsubscribe();
-    }
-    this.observerSubscriptions = [];
+    this.disposeObserverSubscriptions();
     this.observe(...sources);
   }
 
   override componentWillUnmount(): void {
     this.observerDisposed = true;
+    this.disposeObserverSubscriptions();
+    this.onUnmount();
+  }
+
+  private disposeObserverSubscriptions(): void {
+    // Isolate each unsubscribe: one throwing must not leak the rest.
     for (const unsubscribe of this.observerSubscriptions) {
-      unsubscribe();
+      try {
+        unsubscribe();
+      } catch (error) {
+        console.error("ObserverComponent unsubscribe threw", error);
+      }
     }
     this.observerSubscriptions = [];
-    this.onUnmount();
   }
 
   /**

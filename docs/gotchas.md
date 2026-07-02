@@ -16,7 +16,8 @@ current Dataverse instance, and those calls route straight to
 | `createRecord` / `updateRecord` / `deleteRecord` / `retrieveRecord` / `retrieveMultipleRecords` | native | native | cds-client |
 | `fetchPage`, `retrieveMultipleByUrl` | cds-client | cds-client | cds-client |
 | `executeAction`, `executeClassicWorkflow` | cds-client | cds-client | cds-client |
-| `execute`, `executeMultiple` | native | cds-client | cds-client |
+| `execute` | native | cds-client | cds-client |
+| `executeMultiple` | cds-client | cds-client | cds-client |
 
 Why the non-obvious rows:
 
@@ -26,27 +27,55 @@ Why the non-obvious rows:
 - `executeAction` / `executeClassicWorkflow` ride cds-client everywhere so app code
   never has to hand-build the `Xrm.WebApi.online.execute` request-object
   contract for the common "run this action" case.
-- `execute` / `executeMultiple` use the native execute on modern (full
-  action/function/CRUD support) and emulate it over cds-client on PCF and V8,
-  where there is no native execute. The cds-client emulation runs actions and
-  functions and rejects CRUD requests, pointing you at the dedicated
-  create/update/delete/retrieve methods.
+- `execute` uses the native execute on modern (full action/function/CRUD
+  support) and emulates it over cds-client on PCF and V8, where there is no
+  native execute. The cds-client emulation runs actions and functions and
+  rejects CRUD requests, pointing you at the dedicated
+  create/update/delete/retrieve methods. The native promise rejects on an HTTP
+  failure (the fetch-like response is its success shape only); the adapter
+  folds that rejection back into the kit's `ok: false` response.
+- `executeMultiple` rides cds-client everywhere, including modern: native
+  executeMultiple rejects wholesale when any operation fails, which cannot
+  honor the flat-array contract (one response per request, each with its own
+  `ok`/status). The cds `$batch` returns exactly that in one round-trip.
 
-### Routing is transparent
+### Routing is transparent on the success path
 
-Which host a method lands on does not change what you get back. The cds-client
-paths are held to parity with, or a superset of, the native ones, with no
-flow-control differences:
+Which host a method lands on does not change what a SUCCESSFUL call gives
+back. The cds-client paths are held to parity with, or a superset of, the
+native ones:
 
 - **Writes** return the same `{ entityType, id }` on every host.
 - **Reads** return the same `{ entities, nextLink }` core; the cds-client paths
   add more (all annotations, and the FetchXML paging fields native drops), never
   less.
-- **`execute`** returns the same `IExecuteResponse` everywhere and resolves with
-  `ok: false` on an HTTP error, rejecting only on a network failure (fetch
-  semantics), on native and cds-client alike.
+- **`execute` / `executeMultiple`** return the same `IExecuteResponse` shape
+  everywhere and resolve with `ok: false` on an HTTP error.
 
-So you code against the contract, not the host.
+Rejections are the caveat: what a REJECTED promise carries is host-shaped.
+Native CRUD on modern rejects with the platform's Xrm error object
+(`errorCode`, `message`); the cds-client paths reject with `CdsClientError`
+(`status`, `message`, `responseText`); and on the modern host `execute` cannot
+tell a network failure from a business error, so both resolve `ok: false`
+there while the cds-client hosts reject on a network failure. Code that
+INSPECTS a caught error is therefore host-coupled; code that only reacts to
+"it failed" is not. So: code against the contract for results and flow
+control, and treat the caught error's shape as opaque unless you know your
+host.
+
+## The grid's `?savedQuery=` + `$filter` composition is a tested convention
+
+The saved-view grid runs its data as `?savedQuery={id}` with `$filter`,
+`$orderby`, and `$top` layered on top. This works, is widely used in the
+community, and is live-verified here, but Microsoft's predefined-queries page
+documents only the bare `savedQuery` call, so the composition is platform
+behavior the documentation has not promised. If it ever regresses, the rich
+(FetchXML) grid path covers the same ground.
+
+Related quick-find nuance: in the RICH path the search text goes into a
+FetchXML `like` pattern, where `%` and `_` are wildcards. The kit passes user
+text through literally (a search for `100%` matches more than the literal
+string). Deliberate: the native quick find behaves the same way.
 
 ## `executeAction` vs `execute`: ergonomic vs standard
 
@@ -212,8 +241,9 @@ teaches the pluralizer the real `EntitySetName` whenever it loads an entity's
 metadata: any later resolution for that entity returns the authoritative name.
 This is opportunistic, an entity whose metadata has never been loaded still uses
 the convention. Where you know the convention is wrong and no metadata has been
-loaded, pass the explicit set name (for example the `entitySet` argument on
-`odataBind`).
+loaded, pass the explicit set name: the `entitySet` argument on `odataBind`, and
+the optional `entitySet` on each `IChangeSetRequest` (inside a change set a
+wrong guess 404s the whole transaction).
 
 ## A polymorphic (Customer/Owner) lookup writes through a target-suffixed navigation property
 
@@ -336,13 +366,14 @@ inside the themed provider); it is not clipped because Fluent positions it `fixe
 The kit's `NativeLookupField` flyout does this, so it renders the same in the
 webresource and a field-bound PCF.
 
-## Column (field-level) security is the form's job, not the kit's
+## Column (field-level) security: the posture differs by delivery shape
 
 Native model-driven forms resolve each user's effective access to a column-secured
 field and render it accordingly: masked or blank with no read, read-only with no
-update. That resolution comes from the form runtime, which a webresource control
-does not have. So the kit takes the safe, honest path rather than pretend to match
-it:
+update. Whether a kit control can match that depends on where it runs.
+
+**Webresources** have no per-user access signal (that resolution lives in the
+form runtime), so the kit takes the safe, honest path:
 
 - A column-secured attribute (`IAttributeMetadata.isSecured`) renders **read-only
   by default** in the smart controls, so a field the current user may not be allowed
@@ -352,8 +383,14 @@ it:
   user cannot read as null, and the kit cannot tell that apart from a genuinely
   empty value without the form runtime.
 
+**Bound PCFs** DO receive the user's effective access through the documented
+property surface (`context.parameters.<property>.security`, the SecurityValues
+editable/readable pair), and the kit's field PCFs consume it: a secured column
+the user holds write access to stays editable, one they cannot edit renders
+read-only. The webresource fail-safe applies only where that signal does not
+exist.
+
 The kit deliberately does not resolve per-user column permissions itself. If a
-custom UI genuinely needs native-grade, per-user field security, that is
-a sign the requirement has outgrown a client-side kit: use a native form, where the
-platform enforces it. This kit is for the cases where that enforcement is not the
-point.
+custom WEBRESOURCE UI genuinely needs native-grade, per-user field security,
+that is a sign the requirement has outgrown a client-side kit: use a native
+form (or a bound PCF, which gets the signal), and let the platform enforce it.

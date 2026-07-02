@@ -3,7 +3,7 @@
     {
       "profile": "default",
       "root": "../dist/",
-      "solution": "D365UIKit",
+      "solution": "{{solution}}",
       "files": [
         {
           "uniquename": "{{prefix}}clientui.html",

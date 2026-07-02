@@ -73,7 +73,13 @@ export class ObservableArray<T> implements ISubscribable {
 
   /** Builds the next list from the current one and stores it. */
   update(fn: (current: readonly T[]) => readonly T[]): void {
-    this.commit(fn(this._value).slice());
+    const next = fn(this._value);
+    // Same short-circuit as setValue: an updater returning the list unchanged
+    // is a no-op, not a fresh notification (and render) for every subscriber.
+    if (Object.is(next, this._value)) {
+      return;
+    }
+    this.commit(next.slice());
   }
 
   //#region Methods that change the list (each one refreshes the view)
@@ -268,9 +274,14 @@ export class ObservableArray<T> implements ISubscribable {
     const previous = this._value;
     this._value = freezeArrayInDev(next);
     // Copy the listeners first: one of them might add or remove a listener while
-    // we are still looping over them.
+    // we are still looping over them. Each call is isolated: the list is already
+    // committed, so one throwing subscriber must not starve the rest.
     for (const listener of [...this.listeners]) {
-      listener(this._value, previous);
+      try {
+        listener(this._value, previous);
+      } catch (error) {
+        console.error("ObservableArray subscriber threw", error);
+      }
     }
   }
 }

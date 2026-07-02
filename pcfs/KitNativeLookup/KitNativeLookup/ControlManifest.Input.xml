@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="D365Kit" constructor="KitNativeLookup" version="1.1.0" display-name-key="Kit Example: Native Lookup" description-key="Native-parity single-record lookup, the kit SmartNativeLookup bound to a lookup column. See docs/adding-a-pcf.md." control-type="virtual" >
+  <control namespace="D365Kit" constructor="KitNativeLookup" version="1.1.1" display-name-key="Kit Example: Native Lookup" description-key="Native-parity single-record lookup, the kit SmartNativeLookup bound to a lookup column. See docs/adding-a-pcf.md." control-type="virtual" >
     <external-service-usage enabled="false">
     </external-service-usage>
     <!-- The bound lookup column, as a type-group so the control can bind to a
@@ -12,11 +12,11 @@
       <type>Lookup.Owner</type>
     </type-group>
     <property name="value" display-name-key="Value" description-key="The bound lookup column rendered with the kit native-parity lookup" of-type-group="lookups" usage="bound" required="true" />
-    <!-- The bound column's logical name (e.g. preferredsystemuserid). A field-bound
-         PCF does not expose its own attribute name, and the smart control resolves
-         the lookup targets, view, and icon from the entity + attribute metadata, so
-         the maker supplies it here. -->
-    <property name="attribute" display-name-key="Lookup column logical name" description-key="Logical name of the bound lookup column (e.g. preferredsystemuserid), used to resolve targets and the lookup view from metadata" of-type="SingleLine.Text" usage="input" required="true" />
+    <!-- Optional override for the bound column's logical name. The control reads
+         it from the documented bound-property metadata (parameters.value
+         .attributes.LogicalName) by default; this override exists for hosts or
+         harnesses that do not populate that surface. -->
+    <property name="attribute" display-name-key="Lookup column logical name (optional)" description-key="Override for the bound lookup column logical name; by default it is read from the bound property attribute metadata" of-type="SingleLine.Text" usage="input" required="false" />
     <!-- Optional: override the lookup view that drives the flyout columns and search.
          Omitted, the entity's default lookup view (querytype 64) is used. -->
     <property name="viewName" display-name-key="Lookup view name (optional)" description-key="Override the lookup view that drives the flyout columns and search; default is the entity lookup view" of-type="SingleLine.Text" usage="input" required="false" />

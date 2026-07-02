@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import { Button, makeStyles, mergeClasses, tokens } from "@fluentui/react-components";
 import { CheckmarkRegular } from "@fluentui/react-icons";
 import { ObserverComponent } from "../../reactivity/ObserverComponent";
@@ -126,7 +127,7 @@ const Body: React.FC<IStepperProps> = (props) => {
         </Button>
         {isLast ? (
           <Button appearance="primary" onClick={onFinish} disabled={!canAdvance || busy}>
-            {busy ? "Working…" : finishLabel ?? "Finish"}
+            {busy ? kitStrings().working : finishLabel ?? kitStrings().finish}
           </Button>
         ) : (
           <Button appearance="primary" onClick={onNext} disabled={!canAdvance || busy}>

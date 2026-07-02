@@ -29,6 +29,8 @@ export interface ISmartNumberFieldProps extends ISmartFieldProps<number | null> 
 export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumberFieldProps> {
   private resolvedCurrencySymbol?: string;
   private resolvedCurrencyPrecision?: number;
+  /** Bumped per currency load so a slow earlier record's symbol cannot win. */
+  private currencySequence = 0;
 
   protected override usesFormatting(): boolean {
     return true;
@@ -42,10 +44,28 @@ export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumber
     }
   }
 
+  override componentDidUpdate(prevProps: ISmartNumberFieldProps): void {
+    super.componentDidUpdate(prevProps);
+    // A reused instance following a record change must not keep showing the
+    // previous record's currency symbol and precision.
+    if (prevProps.transactionCurrencyId !== this.props.transactionCurrencyId) {
+      this.currencySequence++;
+      this.resolvedCurrencySymbol = undefined;
+      this.resolvedCurrencyPrecision = undefined;
+      const { transactionCurrencyId, currencySymbol } = this.props;
+      if (transactionCurrencyId && !currencySymbol) {
+        void this.loadCurrency(transactionCurrencyId);
+      } else {
+        this.forceUpdate();
+      }
+    }
+  }
+
   private async loadCurrency(transactionCurrencyId: string): Promise<void> {
+    const sequence = ++this.currencySequence;
     try {
       const info = await this.vmContext.metadata.getCurrencySymbol(transactionCurrencyId);
-      if (!this.isDisposed) {
+      if (!this.isDisposed && sequence === this.currencySequence) {
         this.resolvedCurrencySymbol = info.symbol;
         this.resolvedCurrencyPrecision = info.precision;
         this.forceUpdate();

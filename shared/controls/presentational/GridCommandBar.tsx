@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import { Toolbar, ToolbarButton, ToolbarDivider } from "@fluentui/react-components";
 import { AddRegular, DeleteRegular, ArrowClockwiseRegular } from "@fluentui/react-icons";
 import { ObserverComponent } from "../../reactivity/ObserverComponent";
@@ -41,7 +42,7 @@ const Body: React.FC<IGridCommandBarProps> = (props) => {
     <Toolbar aria-label="Grid actions">
       {props.onNew ? (
         <ToolbarButton icon={<AddRegular />} onClick={props.onNew} disabled={disabled}>
-          {props.newLabel ?? "New"}
+          {props.newLabel ?? kitStrings().newLabel}
         </ToolbarButton>
       ) : null}
       {props.onDelete ? (

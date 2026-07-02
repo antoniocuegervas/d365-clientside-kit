@@ -26,12 +26,19 @@ export class MergedGridViewModel {
   readonly loadError = new Observable<string | null>(null);
 
   private readonly tracker = new SubscriptionTracker();
+  /**
+   * Bumped on every load. Each load only writes while it is still the latest,
+   * so overlapping refreshes cannot let a slow stale merge overwrite a newer one.
+   */
+  private loadSequence = 0;
 
   constructor(private readonly context: IViewModelContext) {
     void this.load();
   }
 
   readonly load = async (): Promise<void> => {
+    const sequence = ++this.loadSequence;
+    const isCurrent = () => !this.tracker.isDisposed && sequence === this.loadSequence;
     this.loading.value = true;
     this.loadError.value = null;
     try {
@@ -67,7 +74,7 @@ export class MergedGridViewModel {
         this.context.webAPI.fetch("opportunity", openFetch),
         this.context.webAPI.fetch("opportunity", wonFetch),
       ]);
-      if (this.tracker.isDisposed) {
+      if (!isCurrent()) {
         return;
       }
       this.results.value = [
@@ -75,7 +82,7 @@ export class MergedGridViewModel {
         ...recentlyWon.entities.map((record) => this.toRow(record, "Won (last 30 days)")),
       ];
     } catch (error) {
-      if (!this.tracker.isDisposed) {
+      if (isCurrent()) {
         // A failed query (e.g. the opportunity entity is not in this environment)
         // must not read as an empty pipeline. Never surface raw SDK text: log it
         // for developers and show a neutral degraded banner instead.
@@ -84,7 +91,8 @@ export class MergedGridViewModel {
         this.loadError.value = "This data could not be loaded in this environment.";
       }
     } finally {
-      if (!this.tracker.isDisposed) {
+      // The spinner belongs to the latest load; a superseded one leaves it on.
+      if (isCurrent()) {
         this.loading.value = false;
       }
     }

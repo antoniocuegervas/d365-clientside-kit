@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import type {
   IAttributeMetadata,
   IEntityMetadata,
@@ -93,25 +94,44 @@ export class SmartNativeLookup extends SmartFieldBase<
    * list, and result caches are this subclass's own, so it clears them here,
    * otherwise the flyout would keep searching the previous target.
    */
+  override componentDidMount(): void {
+    super.componentDidMount();
+    this.syncTargetState();
+  }
+
   override componentDidUpdate(prevProps: ISmartNativeLookupProps): void {
     super.componentDidUpdate(prevProps);
     const attributeChanged =
       prevProps.entity !== this.props.entity || prevProps.attribute !== this.props.attribute;
     const targetChanged = prevProps.targetEntity !== this.props.targetEntity;
-    if (!attributeChanged && !targetChanged) {
-      return;
+    if (attributeChanged || targetChanged) {
+      this.resetTargetState();
     }
-    this.resetTargetState();
-    // An entity or attribute change reloads metadata and re-renders, so renderField
-    // re-runs initTargets. A targetEntity-only change keeps the same metadata, so
-    // re-pick the target now from the metadata already in hand.
-    if (!attributeChanged && this.currentMetadata) {
+    // Target and icon state syncs AFTER every commit, never during render:
+    // initTargets and ensureSelectedIcon write observables, and a state write
+    // from render is one Fluent update away from an update-depth loop. The
+    // reset above cleared currentMetadata, so a stale binding cannot re-init
+    // until renderField has run with the new metadata.
+    this.syncTargetState();
+  }
+
+  /** (Re)initializes the target set and the selected value's icon, post-commit. */
+  private syncTargetState(): void {
+    if (this.currentMetadata) {
       this.initTargets(this.currentMetadata);
     }
+    this.ensureSelectedIcon();
   }
 
   /** Clears every per-target field so the next binding starts clean. */
   private resetTargetState(): void {
+    // Invalidate any search still in flight: it departed against the OLD
+    // binding, and without the bump its late response would pass the
+    // stale-response guard and fill the flyout with cross-target rows.
+    this.searchSequence++;
+    // Cleared so syncTargetState cannot re-init from the previous binding's
+    // metadata; renderField repopulates it when the new metadata renders.
+    this.currentMetadata = undefined;
     this.initialized = false;
     this.activeTarget.value = undefined;
     this.switcherTargets.value = undefined;
@@ -179,6 +199,13 @@ export class SmartNativeLookup extends SmartFieldBase<
         return { entityMetadata, view, iconUrl };
       })();
       this.targetContexts.set(target, pending);
+      // A failed resolution must not stay cached: evict it so the next search
+      // retries instead of failing for the life of the mounted control.
+      pending.catch(() => {
+        if (this.targetContexts.get(target) === pending) {
+          this.targetContexts.delete(target);
+        }
+      });
     }
     return pending;
   }
@@ -217,7 +244,11 @@ export class SmartNativeLookup extends SmartFieldBase<
           : undefined,
         this.props.filter,
       ].filter(Boolean);
-      const filter = clauses.length > 0 ? `&$filter=${clauses.join(" and ")}` : "";
+      // URL-encode the expression: search text like "R&D" would otherwise cut
+      // the filter off at the ampersand, the server would reject it, and the
+      // catch below would read as "no matches" for a record that exists.
+      const filter =
+        clauses.length > 0 ? `&$filter=${encodeURIComponent(clauses.join(" and "))}` : "";
       const top = this.props.top ?? 10;
       // Run the view as the source so its layout columns come back (with formatted
       // values), and cap with $top: the flyout wants a small suggestion list, not
@@ -304,8 +335,15 @@ export class SmartNativeLookup extends SmartFieldBase<
         if (!this.isDisposed && result.length > 0) {
           this.commitChange(result[0]);
         }
-      } catch {
-        // Dialog unavailable on this host, so leave the value unchanged.
+      } catch (error) {
+        // Dialog unavailable on this host (PCF has no lookupObjects surface):
+        // a dead Advanced button reads as a broken control, so say what happened.
+        console.error("Lookup dialog unavailable", error);
+        if (!this.isDisposed) {
+          void this.vmContext.navigation.openErrorDialog({
+            message: kitStrings().pickerUnavailable,
+          });
+        }
       }
     })();
   };
@@ -350,9 +388,9 @@ export class SmartNativeLookup extends SmartFieldBase<
   }
 
   protected renderField(metadata: IAttributeMetadata): React.ReactNode {
+    // Render only records the metadata; the observable writes that depend on
+    // it (initTargets, ensureSelectedIcon) run post-commit in syncTargetState.
     this.currentMetadata = metadata;
-    this.initTargets(metadata);
-    this.ensureSelectedIcon();
     return (
       <NativeLookupField
         label={this.resolveLabel(metadata)}
@@ -365,7 +403,7 @@ export class SmartNativeLookup extends SmartFieldBase<
         // The placeholder uses the metadata display name even when the label is
         // suppressed (label="", e.g. a PCF inside a form field that already shows
         // the label), so it stays meaningful rather than "Look for ".
-        placeholder={`Look for ${this.props.label || metadata.displayName}`}
+        placeholder={kitStrings().lookFor(this.props.label || metadata.displayName)}
         selected={this.props.value}
         results={this.results}
         searching={this.searching}

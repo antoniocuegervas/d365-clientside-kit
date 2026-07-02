@@ -4,6 +4,34 @@ The form-designer mapping: each smart control needs `entity` + `attribute` +
 a value `Observable`; everything else resolves from Dataverse metadata and
 every resolved default can be overridden by a prop.
 
+## Value types and imports (what to actually type)
+
+The two things every wiring session needs first: what `T` is in each
+control's value `Observable<T>`, and where the pieces import from. The
+compiler catches a wrong guess, but here is the answer up front:
+
+| Smart control | `value` Observable type |
+|---|---|
+| `SmartTextField` | `Observable<string \| null>` |
+| `SmartOptionSet` / `SmartBooleanField` | `Observable<number \| null>` (booleans ride the option values 0/1) |
+| `SmartMultiSelectOptionSet` | `Observable<number[]>` |
+| `SmartNumberField` | `Observable<number \| null>` |
+| `SmartDatePicker` | `Observable<Date \| null>` |
+| `SmartLookup` / `SmartNativeLookup` | `Observable<IEntityReference \| null>` |
+
+Real import paths from an app folder (`clientui/apps/<your-app>/`):
+
+```ts
+import { Observable } from "../../../shared/reactivity/Observable";
+import { SmartTextField } from "../../../shared/controls/smart/SmartTextField";
+import { SmartDatePicker } from "../../../shared/controls/smart/SmartDatePicker";
+import { SmartNativeLookup } from "../../../shared/controls/smart/SmartNativeLookup";
+import type { IEntityReference } from "../../../shared/utils/EntityModel";
+```
+
+Every smart control lives under `shared/controls/smart/<Name>.tsx`;
+`IEntityReference` comes from `shared/utils/EntityModel`.
+
 ## Common to all Smart field controls (`ISmartFieldProps`)
 
 | Param | Required | Resolves automatically when omitted |

@@ -18,12 +18,14 @@ describe("CounterpartyGridViewModel", () => {
               {
                 activityid: "a0000000-0000-0000-0000-000000000001",
                 subject: "Follow up on quote",
+                activitytypecode: "phonecall",
                 [`activitytypecode${FV}`]: "Phone Call",
                 [`_regardingobjectid_value${FV}`]: "Contoso Ltd",
               },
               {
                 activityid: "a0000000-0000-0000-0000-000000000002",
                 subject: "Internal prep",
+                activitytypecode: "task",
                 [`activitytypecode${FV}`]: "Task",
                 [`_regardingobjectid_value${FV}`]: "Contoso Ltd",
               },
@@ -88,6 +90,7 @@ describe("CounterpartyGridViewModel", () => {
               {
                 activityid: "a0000000-0000-0000-0000-000000000001",
                 subject: "Follow up on quote",
+                activitytypecode: "phonecall",
                 [`activitytypecode${FV}`]: "Phone Call",
               },
             ],
@@ -123,5 +126,92 @@ describe("CounterpartyGridViewModel", () => {
     const viewModel = new CounterpartyGridViewModel(createFakeViewModelContext().context);
     const subject = viewModel.columns.value.find((column) => column.key === "subject");
     expect(subject?.onRender).toBeInstanceOf(Function);
+  });
+
+  it("opens rows via the raw type code, not the localized label", async () => {
+    // A German org: the formatted value is "Telefonanruf"; only the raw
+    // activitytypecode carries the entity logical name openForm needs.
+    const fake = createFakeViewModelContext({
+      queryResults: {
+        activitypointer: [
+          {
+            entities: [
+              {
+                activityid: "a0000000-0000-0000-0000-000000000001",
+                subject: "Angebot nachfassen",
+                activitytypecode: "phonecall",
+                [`activitytypecode${FV}`]: "Telefonanruf",
+              },
+            ],
+          },
+        ],
+        activityparty: [{ entities: [] }],
+      },
+    });
+    const viewModel = new CounterpartyGridViewModel(fake.context);
+    await settle();
+
+    expect(viewModel.rows.value[0].type).toBe("Telefonanruf");
+    viewModel.selectedKey.value = "a0000000-0000-0000-0000-000000000001";
+    viewModel.onEdit();
+    expect(fake.calls).toContainEqual({
+      api: "openForm",
+      args: ["phonecall", "a0000000-0000-0000-0000-000000000001"],
+    });
+  });
+
+  it("a refresh during a slow load wins: the stale load may not interleave its writes", async () => {
+    // Load 1 departs and is held; a refresh starts load 2, which completes.
+    // When load 1's response finally lands it must be discarded whole (no
+    // stale activities, no second party query).
+    const gates = new Map<number, () => void>();
+    const fake = createFakeViewModelContext({
+      queryResults: {
+        activitypointer: [
+          {
+            entities: [
+              {
+                activityid: "a0000000-0000-0000-0000-000000000001",
+                subject: "Old page",
+                activitytypecode: "task",
+                [`activitytypecode${FV}`]: "Task",
+              },
+            ],
+          },
+          {
+            entities: [
+              {
+                activityid: "a0000000-0000-0000-0000-000000000002",
+                subject: "New page",
+                activitytypecode: "phonecall",
+                [`activitytypecode${FV}`]: "Phone Call",
+              },
+            ],
+          },
+        ],
+        activityparty: [{ entities: [] }],
+      },
+      queryGate: ({ entity, index }) => {
+        if (entity === "activitypointer" && index === 0) {
+          return new Promise<void>((resolve) => gates.set(index, resolve));
+        }
+      },
+    });
+    const viewModel = new CounterpartyGridViewModel(fake.context);
+    await settle();
+
+    viewModel.onRefresh();
+    await settle();
+    expect(viewModel.rows.value.map((row) => row.subject)).toEqual(["New page"]);
+    expect(viewModel.loading.value).toBe(false);
+
+    // The held first load lands last and is discarded.
+    gates.get(0)!();
+    await settle();
+    expect(viewModel.rows.value.map((row) => row.subject)).toEqual(["New page"]);
+    const partyQueries = fake.calls.filter(
+      (call) => call.api === "fetch" && call.args[0] === "activityparty"
+    );
+    expect(partyQueries.length).toBe(1);
   });
 });

@@ -4,14 +4,20 @@ import type { Observable } from "../../../shared/reactivity/Observable";
 import type { IEntityReference } from "../../../shared/utils/EntityModel";
 
 export interface INativeLookupAppProps {
-  /** Host form's entity logical name (from contextInfo). */
+  /** Host form's entity logical name (from the form context). */
   entity: string | undefined;
-  /** Bound lookup column's logical name (maker-supplied). */
+  /** Bound lookup column's logical name (bound-property metadata, or the manifest override). */
   attribute: string;
   /** Optional lookup view name override. */
   viewName?: string;
   showIcons: boolean;
   disabled: boolean;
+  /**
+   * Per-user column security from the host (parameters.value.security):
+   * true forces read-only, false says the user can edit the secured column,
+   * undefined (not secured) leaves the shared metadata default in charge.
+   */
+  readOnly?: boolean;
   /** Host-owned value the control writes the pick into. */
   value: Observable<IEntityReference | null>;
   onChange: (value: IEntityReference | null) => void;
@@ -37,6 +43,7 @@ export const NativeLookupApp: React.FC<INativeLookupAppProps> = (props) => {
       viewName={props.viewName}
       showIcons={props.showIcons}
       disabled={props.disabled}
+      readOnly={props.readOnly}
       onChange={props.onChange}
       // Suppress the control's own label: the form field already renders it.
       label=""

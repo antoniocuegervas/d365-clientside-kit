@@ -213,6 +213,12 @@ export interface IChangeSetRequest {
   /** Target entity logical name (e.g. "account"); resolved to its entity set. */
   entityLogicalName: string;
   /**
+   * Explicit entity set name, for entities whose set name does not follow the
+   * pluralization convention and whose metadata has not been loaded yet, the
+   * same escape hatch `odataBind` offers.
+   */
+  entitySet?: string;
+  /**
    * Target record id for PATCH/DELETE. May be a content-id reference ("$1",
    * "$2", ...) to a record CREATED earlier in the SAME change set, addressed by
    * its 1-based position in the requests array. Omit for a create.
@@ -470,21 +476,27 @@ export interface IWebApi {
   /**
    * Runs a single action, function, or CRUD request object, the standard generic
    * path mirroring `Xrm.WebApi.online.execute`. Returns a fetch-like response
-   * (call `.json()` for the body) that resolves with `ok: false` on an HTTP error
-   * and rejects only on a network failure, identically on every host. The modern
-   * host delegates to the native
-   * execute (full action/function/CRUD); PCF and the legacy host ride cds-client,
-   * which supports actions and functions and rejects CRUD requests with a pointer
-   * to the dedicated create/update/delete/retrieve methods. For the common action
-   * case prefer the ergonomic {@link executeAction}.
+   * (call `.json()` for the body) that resolves with `ok: false` on an HTTP error,
+   * identically on every host. The modern host delegates to the native execute
+   * (full action/function/CRUD), whose promise rejects on an HTTP failure; the
+   * adapter folds that rejection back into the `ok: false` response. One host
+   * caveat: the cds-client hosts (PCF, legacy) reject on a NETWORK failure,
+   * while the native API cannot tell a network failure from a business error,
+   * so on the modern host a network failure also resolves `ok: false` (status
+   * 500). PCF and the legacy host ride cds-client, which supports actions and
+   * functions and rejects CRUD requests with a pointer to the dedicated
+   * create/update/delete/retrieve methods. For the common action case prefer
+   * the ergonomic {@link executeAction}.
    */
   execute(request: IWebApiRequest): Promise<IExecuteResponse>;
   /**
    * Executes multiple requests in one round-trip, mirroring
-   * `Xrm.WebApi.online.executeMultiple`. The modern host delegates natively; the
-   * cds-client hosts send a single $batch. Operations are independent (one
-   * failing does not roll back the others), matching native's flat-array form;
-   * the responses come back in request order, each with its own `ok`/status.
+   * `Xrm.WebApi.online.executeMultiple`'s flat-array form. Rides cds-client's
+   * single $batch on every host, including modern: the native executeMultiple
+   * rejects wholesale when any operation fails, which cannot honor this
+   * contract's per-request results. Operations are independent (one failing
+   * does not roll back the others); the responses come back in request order,
+   * each with its own `ok`/status.
    */
   executeMultiple(requests: IWebApiRequest[]): Promise<IExecuteResponse[]>;
   /**
@@ -988,5 +1000,13 @@ export interface IMetadataApi {
    * Returns undefined when no icon can be resolved. Cached per entity.
    */
   getEntityIconUrl(entityLogicalName: string): Promise<string | undefined>;
+  /**
+   * Drops every cached metadata read (entities, attributes, views, currencies,
+   * icons), so the next read reloads from the server. Metadata is otherwise
+   * cached for the session; call this after a known solution promotion so an
+   * open session picks up changed option sets, labels, or view layouts without
+   * a full reload.
+   */
+  clearCache(): void;
 }
 //#endregion

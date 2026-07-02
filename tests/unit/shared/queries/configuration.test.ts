@@ -20,7 +20,9 @@ describe("getConfigurationParameter", () => {
     );
     const query = calls.find((c) => c.api === "retrieveMultipleRecords")!;
     expect(query.args[0]).toBe("new_configuration");
-    expect(String(query.args[1])).toContain("new_name eq 'ApiUrl'");
+    // The filter expression travels URL-encoded (a key like "a&b" would
+    // otherwise restructure the query string).
+    expect(decodeURIComponent(String(query.args[1]))).toContain("new_name eq 'ApiUrl'");
     expect(String(query.args[1])).toContain("$select=new_value");
   });
 

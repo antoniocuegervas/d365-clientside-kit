@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import { SmartComponent } from "../../context/ViewModelContextProvider";
 import type { IAttributeMetadata, IFormattingInfo } from "../../context/IViewModelContext";
 import type { Observable, OrObservable } from "../../reactivity/Observable";
@@ -134,7 +135,7 @@ export abstract class SmartFieldBase<
         // Seeing this logged during a unit test run is expected and not a failure: a SmartFieldBase
         // test fails a metadata load on purpose to exercise this fallback, and the test passes.
         console.error(`Smart field metadata load failed for ${entity}.${attribute}`, error);
-        this.setState({ loadError: "Unavailable in this environment." });
+        this.setState({ loadError: kitStrings().fieldUnavailable });
       }
     }
   }
@@ -187,7 +188,7 @@ export abstract class SmartFieldBase<
       );
     }
     if (!metadata) {
-      return <WaitingMessage inline message={this.props.label ?? "Loading…"} />;
+      return <WaitingMessage inline message={this.props.label ?? kitStrings().loading} />;
     }
     return this.renderField(metadata);
   }
