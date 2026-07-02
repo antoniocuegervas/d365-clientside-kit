@@ -16,9 +16,7 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "@fluentui/react-components": "9.68.0",
-    "@fluentui/react-icons": "2.0.329",
-    "@fluentui/react-datepicker-compat": "0.6.32",
-    "@fluentui/react-timepicker-compat": "0.4.35"
+    "@fluentui/react-icons": "2.0.329"
   },
   "comments": {
     "overrides": "Pin the Fluent v9 tabster chain to the model-driven host's platform-library floor (9.68.0 -> react-tabster 9.26.1 -> tabster 8.5.5). The host shares a single tabster instance on window; a newer bundled tabster augments that instance with a shape it doesn't have and throws, blanking the control. Matching the host's versions keeps the shared instance compatible. Read the host's live version before pinning (window.__tabsterInstance._version) and re-pin after a platform bump."

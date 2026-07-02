@@ -1,0 +1,10 @@
+{
+  "comment": "Single source for the PCF Fluent pin. Every PCF that bundles @fluentui/react-components must declare exactly this version, and (unless listed in tabsterFree) exactly these overrides, or `npm run verify` fails (scripts/check-pcf-pins.mjs). The values are the model-driven host's platform-library floor; the re-pin runbook in docs/deployment.md says how to read the host's live versions and when to update this file.",
+  "@fluentui/react-components": "9.68.0",
+  "overrides": {
+    "@fluentui/react-tabster": "9.26.1",
+    "tabster": "8.5.5"
+  },
+  "tabsterFreeComment": "Controls proven not to touch the shared tabster instance (display-only surfaces, skew-tested on a live form). They must NOT carry the overrides, so they keep demonstrating that a tooltip-only PCF needs no pin.",
+  "tabsterFree": ["KitTooltip"]
+}

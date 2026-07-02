@@ -128,9 +128,12 @@ bundled versions ahead again, so parity has to be re-established on the fork:
 1. Read the host's live tabster version from a form: open any model-driven form in the
    target org, open the browser console, and read `window.__tabsterInstance._version`. Note
    the platform-library Fluent version too (the loaded `platformlibs/fluent/<ver>/` script).
-2. Set each pinned PCF's `@fluentui/react-components` to that platform-library version and
-   the `overrides` `tabster` / `@fluentui/react-tabster` to the versions it resolves, then
-   `npm install` to refresh the lockfile.
+2. Update `pcfs/fluent-pins.json` (the single source for the pin values), then set each
+   pinned PCF's `@fluentui/react-components` and its `overrides` to match, and
+   `npm install` in each to refresh the lockfiles. The pin check
+   (`npm run check:pcf-pins`, part of `npm run verify`) fails until every PCF agrees with
+   the pins file, so a missed manifest cannot slip through, and a brand-new PCF that
+   skips the pin or the webpack dedupe is caught the same way.
 3. Rebuild Release and redeploy, with the manifest version bump above.
 4. Verify on a live form: open a record and confirm each control renders. A build that
    succeeds is not evidence, the collision only shows on the shared-window host.
@@ -172,10 +175,17 @@ that cluster as one webresource app instead (a section-embedded shell page): one
 bundle, one React, and every control in it shares both, which is exactly the
 per-control tax the PCF shape cannot avoid.
 
-These are working numbers, not measured form-load impact. The live measurement
-(DevTools Performance on a warm cache, the same form with and without N kit
-controls, scripting time attributed per control) still needs a real org and should
-be re-taken alongside the per-wave re-pin above.
+A first live datapoint (a small dev org, 2026-07): the sample Contact main form
+carrying four kit PCFs (tooltip, choice, date picker, native lookup) plus the
+timeline opened in 1.03 to 1.17 seconds warm, median about 1.09 s over four full
+reloads, reading the Unified Interface page-load KPI from the `&perf=true`
+overlay. That is an absolute time, not a delta: the kit-free twin form was not
+measured, so the number bounds the cost rather than isolating it. What it does
+establish is that four kit controls coexist with a normal, roughly one-second
+warm form load. The remaining measurement is the A/B delta against a twin form
+without the kit controls; create that twin in the form designer, not through the
+raw API (an API-created form never joins the entity's form order, so the app
+will not offer it), and re-take the numbers alongside the per-wave re-pin above.
 
 ## ALM: shipping the controls to customers, not just trying the samples
 

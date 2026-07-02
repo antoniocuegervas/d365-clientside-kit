@@ -66,6 +66,12 @@ const PartyLink: React.FC<{ party: ICounterpartyParty; onNavigate: NavigateToPar
 // close grace lets the pointer travel from the "(+N more)" trigger into the
 // surface to click a party; a click opens it immediately. Fluent's Popover has a
 // mouse-leave delay but no open delay, so the open timing is controlled here.
+//
+// This surface stays on Popover deliberately, do not move it to the tooltip
+// pattern: the parties inside are clickable links, and a tooltip surface is
+// display-only (keyboard users could never reach the links). The grids that
+// render this cell use the focus-managed DataGrid anyway, so the tabster pin
+// applies to them regardless of what this cell does.
 const OPEN_DELAY_MS = 400;
 const CLOSE_DELAY_MS = 300;
 

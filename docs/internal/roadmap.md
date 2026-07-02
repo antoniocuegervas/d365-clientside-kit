@@ -73,6 +73,17 @@ their offline-capable path is native `Xrm.WebApi`, not cds-client.
   native metadata and feeds the same `LibraryUtils` cache. This SUPERSEDES the
   proposed async cds-client entity-set resolver, which should NOT be built. The
   shipped cache-aware pluralizer stays as the sync fast path and fallback.
+- Load-time render count (observed live, 2026-07): the UCI perf monitor shows
+  the native lookup PCF rendering 5 times during form load versus 3 for its
+  native twin, because each async metadata resolution (attribute, switcher
+  target labels, icon, lookup view) lands in its own Observable write and each
+  write is a render. Correct but chatty. When this rework changes how those
+  resolutions arrive, batch the post-resolution writes (resolve everything,
+  then write once) and use the perf monitor's render count as an acceptance
+  check: a smart control during form load should render in the same 2-3 band
+  as the platform's own controls. Also flagged once: "control initialized more
+  than once during form load" on that PCF; likely the platform's own
+  measure-pass re-init, worth one targeted DevTools look next org session.
 
 ## Direction: in-app "what's new" for a release
 
@@ -315,29 +326,39 @@ Bounded items, not directions. Each was deliberately deferred from a resolved
 piece of that round (the posture is recorded in decisions.md, D-051) and lives
 here so it is not lost with the round's working notes.
 
-- **Move the counterparty "+N more" hovercard off `Popover`.** The hovercard in
-  `CounterpartyCell` is read-only display and needs no focus trap, so it can ride
-  the same tabster-free surface the tooltip PCF now uses (Fluent `Tooltip` or a
-  positioning-only surface). Evaluate, then move it, which shrinks the
-  counterparty grid's tabster exposure to the DataGrid itself. Relates to the
-  "real tooltip" direction above: if a kit-owned info surface gets built there,
-  the hovercard should reuse it.
-- **Centralize the PCF Fluent/tabster pin.** Today each focus-managed PCF carries
-  its own pinned versions and `overrides` block, and nothing stops a new PCF
-  copied from a sample from skipping them (that is exactly how the last drift
-  happened). Options: a shared base config the PCF projects extend, or a CI/lint
-  check that fails a PCF build importing `@fluentui/react-components` without the
-  matching `overrides`.
+- **Move the counterparty "+N more" hovercard off `Popover`.** EVALUATED AND
+  CLOSED (2026-07-02): it stays on `Popover`, for two reasons recorded in the
+  component. The premise ("read-only display") was wrong: every party in the
+  surface is a clickable link, and the hover open/close grace exists precisely so
+  the pointer can travel in and click one; a tooltip surface is display-only and
+  keyboard users could never reach links inside it. And the win was illusory:
+  both consumers are counterparty grids whose `DataGrid` engages tabster
+  regardless, so the pin stays either way. The tabster-free tier remains for
+  genuinely display-only surfaces (the tooltip PCF).
+- **Centralize the PCF Fluent/tabster pin.** DONE (2026-07-02):
+  `pcfs/fluent-pins.json` is the single source for the pin values (including the
+  tabster-free list), and `scripts/check-pcf-pins.mjs` runs first in
+  `npm run verify`: every Fluent PCF must match the pinned version and overrides
+  (or carry none, if tabster-free), have the webpack/featureconfig dedupe files,
+  alias any declared `*-compat` package, and use exact versions throughout. Its
+  first run caught a real drift (KitOptionSet carried vestigial unaliased compat
+  dependencies, now removed). A shared base config the projects extend was not
+  built: npm manifests do not inherit, so enforcement beats inheritance here.
 - **Hold the Storybook snippet bar on the non-field stories.** DONE (2026-07-02):
   the audit found the smart and scenario tiers already at the bar; the gap was the
   twelve field-tier presentational stories, which had no component-level contract
   description. Each now states the values-in, events-out contract, what the host
   supplies, and its smart counterpart.
-- **Measure real form-load impact of the kit PCFs.** The per-control bundle sizes
-  and the working per-form ceiling are published in deployment.md ("How many kit
-  PCFs one form should carry"); what is still missing is the live measurement
-  (DevTools Performance, same form with and without N kit controls, warm cache).
-  Needs an org session; re-take alongside the per-wave re-pin.
+- **Measure real form-load impact of the kit PCFs.** PARTIALLY DONE (2026-07-02):
+  the absolute number is captured and published in deployment.md, the sample
+  Contact form with four kit PCFs plus the timeline opens warm in 1.03-1.17 s
+  (median ~1.09 s, four full reloads, UCI page-load KPI via `&perf=true`). Still
+  open: the A/B delta against a kit-free twin form. Learnings for that run: build
+  the twin in the form designer, not the raw API (an API-created systemform
+  defaults to `formpresentation` 0 and never joins the entity's form order, so
+  UCI ignores it even with `&formid=` and an app publish), and expect the
+  client-side form cache to need an IndexedDB/localStorage clear between
+  publishes (see gotchas.md).
 
 ## Shipped (were roadmap items)
 
