@@ -1,6 +1,7 @@
 import * as React from "react";
 import { kitStrings } from "../../localization/kitStrings";
 import type { IAttributeMetadata, ILookupOptions } from "../../context/IViewModelContext";
+import { attributeTargets } from "../../metadata/attributeMetadataReads";
 import { Observable } from "../../reactivity/Observable";
 import { normalizeGuid, type IEntityReference } from "../../utils/EntityModel";
 import { LibraryUtils } from "../../utils/LibraryUtils";
@@ -89,7 +90,7 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
   }
 
   private resolveTarget(metadata: IAttributeMetadata): string | undefined {
-    return this.props.targetEntity ?? metadata.targets?.[0];
+    return this.props.targetEntity ?? attributeTargets(metadata)[0];
   }
 
   private readonly handleSearchTextChanged = (searchText: string): void => {
@@ -173,9 +174,9 @@ export class SmartLookup extends SmartFieldBase<IEntityReference | null, ISmartL
     const sequence = ++this.searchSequence;
     this.searching.value = true;
     try {
-      const entityMetadata = await this.vmContext.metadata.getEntityMetadata(target);
-      const nameAttribute = entityMetadata.primaryNameAttribute;
-      const idAttribute = entityMetadata.primaryIdAttribute;
+      const entityMetadata = await this.vmContext.utils.getEntityMetadata(target, []);
+      const nameAttribute = entityMetadata.PrimaryNameAttribute ?? "name";
+      const idAttribute = entityMetadata.PrimaryIdAttribute ?? `${target}id`;
       const [viewId, iconUrl] = await Promise.all([
         this.resolveViewId(target),
         this.resolveIcon(target),

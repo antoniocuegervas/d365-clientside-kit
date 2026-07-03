@@ -2,7 +2,12 @@ import * as React from "react";
 import { Button, Input, Tooltip } from "@fluentui/react-components";
 import { InfoRegular } from "@fluentui/react-icons";
 import { SmartComponent } from "../../../shared/context/ViewModelContextProvider";
-import type { IAttributeMetadata } from "../../../shared/context/IViewModelContext";
+import {
+  attributeDescription,
+  attributeDisplayName,
+  attributeRequired,
+  findAttributeMetadata,
+} from "../../../shared/metadata/attributeMetadataReads";
 import type { Observable } from "../../../shared/reactivity/Observable";
 
 export interface ITooltipAppProps {
@@ -17,7 +22,11 @@ export interface ITooltipAppProps {
 }
 
 interface ITooltipAppState {
-  metadata?: IAttributeMetadata;
+  metadata?: {
+    displayName: string;
+    required: boolean;
+    description?: string;
+  };
 }
 
 /**
@@ -43,12 +52,21 @@ export class TooltipApp extends SmartComponent<ITooltipAppProps, ITooltipAppStat
 
   private async loadMetadata(): Promise<void> {
     try {
-      const metadata = await this.vmContext.metadata.getAttributeMetadata(
+      // The standard idiom: entity metadata scoped to the bound attribute,
+      // then the attribute picked off the collection.
+      const entityMetadata = await this.vmContext.utils.getEntityMetadata(
         this.props.entityLogicalName,
-        this.props.attributeLogicalName
+        [this.props.attributeLogicalName]
       );
-      if (!this.isDisposed) {
-        this.setState({ metadata });
+      const attribute = findAttributeMetadata(entityMetadata, this.props.attributeLogicalName);
+      if (!this.isDisposed && attribute) {
+        this.setState({
+          metadata: {
+            displayName: attributeDisplayName(attribute) ?? this.props.attributeLogicalName,
+            required: attributeRequired(attribute),
+            description: attributeDescription(attribute),
+          },
+        });
       }
     } catch {
       // No metadata, the control still works as a plain input.

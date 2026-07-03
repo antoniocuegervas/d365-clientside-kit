@@ -1,4 +1,7 @@
 import { CdsClient, type IRetrieveMultipleResult } from "../data/CdsClient";
+import { CdsEntityMetadataProvider } from "../metadata/CdsEntityMetadataProvider";
+import { KitMetadataSource } from "../metadata/KitMetadataSource";
+import { createGetEntityMetadata } from "../metadata/createGetEntityMetadata";
 import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
@@ -90,8 +93,11 @@ export interface IPcfContextLike {
   };
   /** Undocumented but stable, the only client-url source inside PCF. */
   page?: { getClientUrl?(): string };
-  /** Optional native lookup dialog, when the PCF host surfaces one. */
-  utils?: IXrmUtilityLookup;
+  /** Optional native lookup dialog and metadata store, when the PCF host surfaces them. */
+  utils?: IXrmUtilityLookup & {
+    /** The platform metadata store read; present on real PCF hosts. */
+    getEntityMetadata?(entityName: string, attributes?: string[]): PromiseLike<unknown>;
+  };
   /** Client/form-factor surface. */
   client?: IXrmClientLike;
   /** Device capture surface. */
@@ -157,12 +163,21 @@ export class PCFContext implements IViewModelContext {
     const client = new CdsClient({ clientUrl: this.clientUrl });
     this.cdsClient = client;
     this.webAPI = new PcfWebApi(source.webAPI, client);
-    this.metadata = new MetadataService(client);
+    // The kit metadata helpers: views and currency are data reads and ride
+    // the PCF webAPI (offline-capable) through this.webAPI; activity types
+    // and icons are EntityDefinitions queries and stay on cds-client.
+    // Entity/attribute metadata mirrors the standard API below.
+    const metadataProvider = new CdsEntityMetadataProvider(client);
+    this.metadata = new MetadataService(
+      new KitMetadataSource({ dataReads: this.webAPI, client }),
+      [metadataProvider]
+    );
     this.navigation = new PcfNavigation(source.navigation, source.utils);
     // Platform-mirror surface: client/device native to PCF; resource strings via the
     // control's resources; the Xrm.Utility progress/status extras have no PCF
     // equivalent and degrade (do nothing / reject).
     const resources = source.resources;
+    const nativeGetEntityMetadata = source.utils?.getEntityMetadata;
     this.utils = {
       ...utilsFromXrm(
         (message: string) => void this.navigation.openAlertDialog(message),
@@ -170,6 +185,17 @@ export class PCFContext implements IViewModelContext {
         "PCF"
       ),
       getResourceString: (_webResourceName, key) => resources?.getString?.(key) ?? undefined,
+      // Standard-mirrored metadata: context.utils.getEntityMetadata passes
+      // through untouched (platform-cached, offline-capable); the OData
+      // synthesis is the fallback, and the whole path when the host surface
+      // is absent (a harness, or a stripped embedded host).
+      getEntityMetadata: createGetEntityMetadata({
+        native:
+          typeof nativeGetEntityMetadata === "function"
+            ? (entityName, attributes) => source.utils!.getEntityMetadata!(entityName, attributes)
+            : undefined,
+        provider: metadataProvider,
+      }),
     };
     this.client = clientFromSource(source.client);
     this.device = deviceFromSource(source.device, "PCF");

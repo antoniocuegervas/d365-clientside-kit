@@ -6,8 +6,17 @@ import {
 import { WebResourceContext } from "../../../../shared/context/WebResourceContext";
 import { WebResourceContextV8 } from "../../../../shared/context/WebResourceContextV8";
 import { PCFContext, type IPcfContextLike } from "../../../../shared/context/PCFContext";
+import {
+  attributeDisplayName,
+  attributeKind,
+  findAttributeMetadata,
+} from "../../../../shared/metadata/attributeMetadataReads";
 import { FakeXhrServer } from "../../../mocks/FakeXhr";
-import { createModernXrmMock, createV8XrmMock } from "../../../mocks/XrmMock";
+import {
+  createModernXrmMock,
+  createV8XrmMock,
+  makeEntityMetadataMock,
+} from "../../../mocks/XrmMock";
 import { EntityReference } from "../../../../shared/utils/EntityModel";
 
 describe("createWebResourceContext factory", () => {
@@ -1193,5 +1202,138 @@ describe("PCFContext", () => {
       { width: 300, height: undefined },
       "x",
     ]);
+  });
+});
+
+describe("standard-mirrored metadata wiring (utils.getEntityMetadata)", () => {
+  it("modern: passes Xrm.Utility.getEntityMetadata through untouched when present", async () => {
+    const scripted = makeEntityMetadataMock({
+      logicalName: "account",
+      attributes: [{ LogicalName: "industrycode", Type: "picklist", DisplayName: "Industry" }],
+    });
+    const { xrm, calls } = createModernXrmMock({ entityMetadata: { account: scripted } });
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+
+    const metadata = await context.utils.getEntityMetadata("account", ["industrycode"]);
+    // The very object the host resolved, not a kit reshaping of it.
+    expect(metadata).toBe(scripted);
+    const attribute = findAttributeMetadata(metadata, "industrycode");
+    expect(attribute).toBeDefined();
+    expect(attributeDisplayName(attribute!)).toBe("Industry");
+    expect(attributeKind(attribute!)).toBe("optionset");
+    // Served by the native store, no OData request left the adapter.
+    expect(calls.find((c) => c.api === "Utility.getEntityMetadata")?.args).toEqual([
+      "account",
+      ["industrycode"],
+    ]);
+  });
+
+  it("modern: a host without the native surface synthesizes the standard shape over cds-client", async () => {
+    const server = new FakeXhrServer();
+    server.install();
+    try {
+      server.respondWith((request) =>
+        request.url.includes("EntityDefinitions(LogicalName='account')")
+          ? {
+              status: 200,
+              responseText: JSON.stringify({
+                LogicalName: "account",
+                DisplayName: { UserLocalizedLabel: { Label: "Account" } },
+                EntitySetName: "accounts",
+                PrimaryIdAttribute: "accountid",
+                PrimaryNameAttribute: "name",
+              }),
+            }
+          : undefined
+      );
+      // The default mock scripts NO Utility.getEntityMetadata, like a harness.
+      const { xrm } = createModernXrmMock({ clientUrl: "https://org.crm.dynamics.com" });
+      const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+      const metadata = await context.utils.getEntityMetadata("account", []);
+      // Synthesized into the same standard shape the native store serves.
+      expect(metadata.DisplayName).toBe("Account");
+      expect(metadata.EntitySetName).toBe("accounts");
+      expect(server.lastRequest.url).toContain("EntityDefinitions");
+    } finally {
+      server.uninstall();
+    }
+  });
+
+  it("modern: saved views and currency ride native Xrm.WebApi, not cds-client", async () => {
+    const { xrm, calls } = createModernXrmMock({
+      webApi: {
+        retrieveMultipleRecords: async () => ({
+          entities: [
+            {
+              savedqueryid: "11110000-0000-0000-0000-000000000001",
+              name: "Active Accounts",
+              returnedtypecode: "account",
+              fetchxml: "<fetch/>",
+              layoutxml: "",
+            },
+          ],
+        }),
+        retrieveRecord: async () => ({ currencysymbol: "€", currencyprecision: 2 }),
+      },
+    });
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+
+    const view = await context.metadata.getView("account");
+    expect(view.name).toBe("Active Accounts");
+    // The savedquery row came through the host's own Web API (the
+    // offline-capable path), by logical name like every IWebApi call.
+    const viewRead = calls.find((c) => c.api === "WebApi.retrieveMultipleRecords");
+    expect(viewRead?.args[0]).toBe("savedquery");
+    expect(decodeURIComponent(String(viewRead?.args[1]))).toContain("querytype eq 0");
+
+    const currency = await context.metadata.getCurrencySymbol(
+      "44440000-0000-0000-0000-000000000004"
+    );
+    expect(currency).toEqual({ symbol: "€", precision: 2 });
+    const currencyRead = calls.find((c) => c.api === "WebApi.retrieveRecord");
+    expect(currencyRead?.args[0]).toBe("transactioncurrency");
+  });
+
+  it("PCF: reads metadata through context.utils.getEntityMetadata when present", async () => {
+    const nativeCalls: Array<{ entity: string; attributes?: string[] }> = [];
+    const source: IPcfContextLike = {
+      webAPI: {
+        createRecord: async () => ({ id: "1" }),
+        updateRecord: async () => ({}),
+        deleteRecord: async () => ({}),
+        retrieveRecord: async () => ({}),
+        retrieveMultipleRecords: async () => ({ entities: [] }),
+      },
+      userSettings: { userId: "{ABCDABCD-0000-0000-0000-000000000008}", userName: "Pcf User" },
+      navigation: {
+        openForm: async () => ({}),
+        openAlertDialog: async () => ({}),
+        openConfirmDialog: async () => ({ confirmed: true }),
+        openUrl: () => undefined,
+        openWebResource: () => undefined,
+        openErrorDialog: async () => ({}),
+        openFile: async () => ({}),
+        navigateTo: async () => ({}),
+      },
+      page: { getClientUrl: () => "https://org.crm.dynamics.com" },
+      utils: {
+        getEntityMetadata: async (entity: string, attributes?: string[]) => {
+          nativeCalls.push({ entity, attributes });
+          return makeEntityMetadataMock({
+            logicalName: "contact",
+            displayName: "Contact",
+            entitySetName: "contacts",
+            primaryIdAttribute: "contactid",
+            primaryNameAttribute: "fullname",
+          });
+        },
+      },
+    };
+
+    const context = new PCFContext(source);
+    const metadata = await context.utils.getEntityMetadata("contact", []);
+    expect(metadata.DisplayName).toBe("Contact");
+    expect(metadata.PrimaryNameAttribute).toBe("fullname");
+    expect(nativeCalls).toEqual([{ entity: "contact", attributes: [] }]);
   });
 });

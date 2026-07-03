@@ -1,5 +1,6 @@
 import * as React from "react";
 import type { IAttributeMetadata } from "../../context/IViewModelContext";
+import { attributeOptions } from "../../metadata/attributeMetadataReads";
 import { MultiSelectOptionSetField } from "../presentational/MultiSelectOptionSetField";
 import { SmartFieldBase, type ISmartFieldProps } from "./SmartFieldBase";
 
@@ -23,7 +24,7 @@ export class SmartMultiSelectOptionSet extends SmartFieldBase<
         hint={this.resolveHint(metadata)}
         labelPosition={this.props.labelPosition}
         errorMessage={this.props.errorMessage}
-        options={metadata.options ?? []}
+        options={attributeOptions(metadata)}
         selectedValues={this.props.value}
         onChange={this.commitChange}
       />

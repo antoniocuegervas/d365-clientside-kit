@@ -70,45 +70,46 @@ export const fieldContext: IViewModelContext = withClientQuerySemantics(
   createFakeViewModelContext({
   attributes: {
     "contact.firstname": {
-      displayName: "First Name",
-      kind: "text",
-      maxLength: 100,
-      required: true,
-      // Description flows through as the field hint (see fieldContractNote).
-      description: "The contact's given name, as it appears on correspondence.",
+      DisplayName: "First Name",
+      Type: "string",
+      MaxLength: 100,
+      RequiredLevel: 2,
+      // Authored Description: NOT rendered by default (hint is opt-in); kept
+      // seeded so description-consuming surfaces have something to read.
+      Description: "The contact's given name, as it appears on correspondence.",
     },
-    "contact.description": { displayName: "Description", kind: "memo" },
+    "contact.description": { DisplayName: "Description", Type: "memo" },
     "contact.gendercode": {
-      displayName: "Gender",
-      kind: "optionset",
-      options: [
-        { value: 1, label: "Male" },
-        { value: 2, label: "Female" },
-      ],
+      DisplayName: "Gender",
+      Type: "picklist",
+      OptionSet: { Options: [
+        { Value: 1, Label: "Male" },
+        { Value: 2, Label: "Female" },
+      ] },
     },
     "contact.donotemail": {
-      displayName: "Do Not Allow Emails",
-      kind: "boolean",
+      DisplayName: "Do Not Allow Emails",
+      Type: "boolean",
       // options[0] is the false label, options[1] the true label.
-      options: [
-        { value: 0, label: "Allow" },
-        { value: 1, label: "Do Not Allow" },
-      ],
+      OptionSet: { Options: [
+        { Value: 0, Label: "Allow" },
+        { Value: 1, Label: "Do Not Allow" },
+      ] },
     },
-    "contact.numberofchildren": { displayName: "No. of Children", kind: "integer" },
-    "account.exchangerate": { displayName: "Exchange Rate", kind: "decimal", precision: 4 },
-    "contact.creditlimit": { displayName: "Credit Limit", kind: "money", precision: 2 },
-    "contact.birthdate": { displayName: "Birthday", kind: "date" },
-    "appointment.scheduledstart": { displayName: "Start Time", kind: "datetime" },
-    "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+    "contact.numberofchildren": { DisplayName: "No. of Children", Type: "integer" },
+    "account.exchangerate": { DisplayName: "Exchange Rate", Type: "decimal", Precision: 4 },
+    "contact.creditlimit": { DisplayName: "Credit Limit", Type: "money", Precision: 2 },
+    "contact.birthdate": { DisplayName: "Birthday", Type: "datetime", Behavior: 2 },
+    "appointment.scheduledstart": { DisplayName: "Start Time", Type: "datetime" },
+    "contact.parentcustomerid": { DisplayName: "Company", Type: "lookup", Targets: ["account"] },
     // Polymorphic (Customer) lookup: two targets, so the call site must pick one
     // via targetEntity. Drives the SmartLookup "Polymorphic" story.
     "incident.customerid": {
-      displayName: "Customer",
-      kind: "lookup",
-      targets: ["account", "contact"],
+      DisplayName: "Customer",
+      Type: "lookup",
+      Targets: ["account", "contact"],
     },
-    "account.name": { displayName: "Account Name", kind: "text" },
+    "account.name": { DisplayName: "Account Name", Type: "string" },
   },
   // User locale formatting, so the date and number stories resolve their format
   // from metadata (date pattern, separators, calendar names) the way a real host
@@ -198,9 +199,9 @@ export const fieldContext: IViewModelContext = withClientQuerySemantics(
 export const gridContext: IViewModelContext = withClientQuerySemantics(
   createFakeViewModelContext({
   attributes: {
-    "account.name": { displayName: "Account Name", kind: "text" },
-    "account.telephone1": { displayName: "Main Phone", kind: "text" },
-    "account.address1_city": { displayName: "City", kind: "text" },
+    "account.name": { DisplayName: "Account Name", Type: "string" },
+    "account.telephone1": { DisplayName: "Main Phone", Type: "string" },
+    "account.address1_city": { DisplayName: "City", Type: "string" },
   },
   views: {
     // The entity's default grid view (no viewId/viewName given).
@@ -286,12 +287,12 @@ const icon = (fill: string): string =>
 export const nativeLookupContext: IViewModelContext = withClientQuerySemantics(
   createFakeViewModelContext({
     attributes: {
-      "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+      "contact.parentcustomerid": { DisplayName: "Company", Type: "lookup", Targets: ["account"] },
       // Polymorphic (Customer): two targets, so the flyout offers a target switcher.
       "incident.customerid": {
-        displayName: "Customer",
-        kind: "lookup",
-        targets: ["account", "contact"],
+        DisplayName: "Customer",
+        Type: "lookup",
+        Targets: ["account", "contact"],
       },
     },
     entities: {
@@ -364,8 +365,8 @@ export const nativeLookupContext: IViewModelContext = withClientQuerySemantics(
  */
 export const pagedGridContext: IViewModelContext = createFakeViewModelContext({
   attributes: {
-    "account.name": { displayName: "Account Name", kind: "text" },
-    "account.telephone1": { displayName: "Main Phone", kind: "text" },
+    "account.name": { DisplayName: "Account Name", Type: "string" },
+    "account.telephone1": { DisplayName: "Main Phone", Type: "string" },
   },
   views: {
     "default:account": {
@@ -457,8 +458,10 @@ export const fieldContractNote =
   "ViewModel/View code. Pass an `entity`, an `attribute`, and a value `Observable`: the " +
   "ViewModel owns that Observable, and the control writes the user's edit back into it (and " +
   "raises `onChange`). Any metadata-derived default can be overridden by a prop (`label`, " +
-  "`required`, `hint`, `labelPosition`, `disabled`, `readOnly`, `errorMessage`), exactly like " +
-  "overriding a field on a form. The `hint` defaults to the attribute's Dataverse Description; a " +
-  "free-form `placeholder` is still not offered, because what a smart field shows should come " +
-  "from metadata, not the call site. For how a ViewModel, View, and provider assemble into a " +
-  "running app, see the End-to-end wiring page in this section.";
+  "`required`, `labelPosition`, `disabled`, `readOnly`, `errorMessage`), exactly like " +
+  "overriding a field on a form. Always-visible helper text is opt-in: `hint` renders only " +
+  "when passed; the attribute's Dataverse Description is deliberately not a default (it stays " +
+  "readable for on-demand surfaces like the tooltip pattern). A free-form `placeholder` is " +
+  "still not offered, because what a smart field shows should come from metadata, not the " +
+  "call site. For how a ViewModel, View, and provider assemble into a running app, see the " +
+  "End-to-end wiring page in this section.";

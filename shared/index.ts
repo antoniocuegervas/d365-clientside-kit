@@ -98,6 +98,31 @@ export {
   parseLayoutColumns,
   parseLayoutColumnsFromJson,
 } from "./metadata/MetadataService";
+export type { IMetadataSource } from "./metadata/IMetadataSource";
+export { KitMetadataSource, type IMetadataDataReads } from "./metadata/KitMetadataSource";
+export { CdsEntityMetadataProvider } from "./metadata/CdsEntityMetadataProvider";
+export {
+  createGetEntityMetadata,
+  type NativeGetEntityMetadata,
+} from "./metadata/createGetEntityMetadata";
+export {
+  findAttributeMetadata,
+  attributeDisplayName,
+  attributeDescription,
+  attributeKind,
+  attributeRequired,
+  attributeIsSecured,
+  attributeCanBeSecuredForCreate,
+  attributeCanBeSecuredForRead,
+  attributeCanBeSecuredForUpdate,
+  attributeOptions,
+  attributeTargets,
+  attributeMaxLength,
+  attributePrecision,
+  attributePrecisionSource,
+  attributeMinValue,
+  attributeMaxValue,
+} from "./metadata/attributeMetadataReads";
 
 // Theme (single D365-aligned Fluent v9 theme module)
 export { d365Theme, resolveKitTheme } from "./theme/d365Theme";

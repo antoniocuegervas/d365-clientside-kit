@@ -1,4 +1,6 @@
 import { CdsClient } from "../../../../shared/data/CdsClient";
+import { CdsWebApi } from "../../../../shared/context/WebResourceContextV8";
+import { KitMetadataSource } from "../../../../shared/metadata/KitMetadataSource";
 import {
   MetadataService,
   parseLayoutColumns,
@@ -21,75 +23,17 @@ describe("MetadataService", () => {
     LibraryUtils.clearEntitySetNameCache();
     server = new FakeXhrServer();
     server.install();
-    service = new MetadataService(new CdsClient({ clientUrl: "https://org.crm.dynamics.com" }));
+    // Data reads (views, currency) ride an IWebApi; the cds-backed emulation
+    // gives this suite the same XHR surface FakeXhr already scripts.
+    const client = new CdsClient({ clientUrl: "https://org.crm.dynamics.com" });
+    service = new MetadataService(
+      new KitMetadataSource({ dataReads: new CdsWebApi(client), client })
+    );
   });
 
   afterEach(() => {
     server.uninstall();
     LibraryUtils.clearEntitySetNameCache();
-  });
-
-  it("normalizes entity metadata", async () => {
-    server.respondWith((request) =>
-      request.url.startsWith(`${API}EntityDefinitions(LogicalName='account')`)
-        ? {
-            status: 200,
-            responseText: JSON.stringify({
-              LogicalName: "account",
-              DisplayName: label("Account"),
-              EntitySetName: "accounts",
-              PrimaryIdAttribute: "accountid",
-              PrimaryNameAttribute: "name",
-            }),
-          }
-        : undefined
-    );
-    const metadata = await service.getEntityMetadata("account");
-    expect(metadata).toEqual({
-      logicalName: "account",
-      displayName: "Account",
-      entitySetName: "accounts",
-      primaryIdAttribute: "accountid",
-      primaryNameAttribute: "name",
-    });
-  });
-
-  it("evicts a rejected read so a later call retries instead of failing for the session", async () => {
-    let attempts = 0;
-    server.respondWith((request) => {
-      if (!request.url.startsWith(`${API}EntityDefinitions(LogicalName='account')`)) {
-        return undefined;
-      }
-      attempts += 1;
-      // Fail the first read (a transient blip), succeed on the retry.
-      return attempts === 1
-        ? { status: 503, responseText: "temporarily unavailable" }
-        : {
-            status: 200,
-            responseText: JSON.stringify({
-              LogicalName: "account",
-              DisplayName: label("Account"),
-              EntitySetName: "accounts",
-              PrimaryIdAttribute: "accountid",
-              PrimaryNameAttribute: "name",
-            }),
-          };
-    });
-
-    // First read hits the blip and rejects: a smart field would show "Unavailable".
-    await expect(service.getEntityMetadata("account")).rejects.toBeDefined();
-    // The rejected promise must not become the permanent cache entry: the next
-    // read retries against the network and succeeds.
-    const metadata = await service.getEntityMetadata("account");
-    expect(metadata.displayName).toBe("Account");
-    expect(attempts).toBe(2);
-  });
-
-  it("escapes single quotes in a logical name into the OData path, like viewName", async () => {
-    server.respondAlways({ status: 200, responseText: "{}" });
-    await service.getEntityMetadata("o'brien");
-    // The quote is doubled per OData string-literal rules, not interpolated raw.
-    expect(server.lastRequest.url).toContain("EntityDefinitions(LogicalName='o''brien')");
   });
 
   it("lists creatable activity types, ordered by name, without the supertype or system types", async () => {
@@ -115,192 +59,39 @@ describe("MetadataService", () => {
     ]);
   });
 
-  it("teaches the pluralizer the real set name for a custom entity", async () => {
-    // The convention would guess "new_widgets"; metadata carries the truth.
-    expect(LibraryUtils.entitySetName("new_widget")).toBe("new_widgets");
-    server.respondWith((request) =>
-      request.url.startsWith(`${API}EntityDefinitions(LogicalName='new_widget')`)
-        ? {
+  it("evicts a rejected view read so a later call retries instead of failing for the session", async () => {
+    let attempts = 0;
+    server.respondWith((request) => {
+      if (!request.url.includes("savedqueries?")) {
+        return undefined;
+      }
+      attempts += 1;
+      // Fail the first read (a transient blip), succeed on the retry.
+      return attempts === 1
+        ? { status: 503, responseText: "temporarily unavailable" }
+        : {
             status: 200,
             responseText: JSON.stringify({
-              LogicalName: "new_widget",
-              DisplayName: label("Widget"),
-              EntitySetName: "new_widgetz",
-              PrimaryIdAttribute: "new_widgetid",
-              PrimaryNameAttribute: "new_name",
+              value: [
+                {
+                  savedqueryid: "22220000-0000-0000-0000-000000000002",
+                  name: "My Active Accounts",
+                  returnedtypecode: "account",
+                  fetchxml: "<fetch/>",
+                  layoutxml: "",
+                },
+              ],
             }),
-          }
-        : undefined
-    );
-    await service.getEntityMetadata("new_widget");
-    expect(LibraryUtils.entitySetName("new_widget")).toBe("new_widgetz");
-  });
-
-  it("resolves a picklist attribute with options (base + cast query)", async () => {
-    server.respondWith((request) =>
-      request.url.includes("/Attributes(LogicalName='industrycode')?$select=")
-        ? {
-            status: 200,
-            responseText: JSON.stringify({
-              LogicalName: "industrycode",
-              DisplayName: label("Industry"),
-              AttributeTypeName: { Value: "PicklistType" },
-              RequiredLevel: { Value: "None" },
-            }),
-          }
-        : undefined
-    );
-    server.respondWith((request) =>
-      request.url.includes("Microsoft.Dynamics.CRM.PicklistAttributeMetadata")
-        ? {
-            status: 200,
-            responseText: JSON.stringify({
-              OptionSet: {
-                Options: [
-                  { Value: 1, Label: label("Accounting"), Color: "#0000ff" },
-                  { Value: 2, Label: label("Consulting") },
-                ],
-              },
-            }),
-          }
-        : undefined
-    );
-
-    const metadata = await service.getAttributeMetadata("account", "industrycode");
-    expect(metadata.kind).toBe("optionset");
-    expect(metadata.displayName).toBe("Industry");
-    expect(metadata.required).toBe(false);
-    expect(metadata.options).toEqual([
-      { value: 1, label: "Accounting", color: "#0000ff" },
-      { value: 2, label: "Consulting", color: undefined },
-    ]);
-  });
-
-  it("caches attribute metadata (one load per entity.attribute)", async () => {
-    server.respondAlways({
-      status: 200,
-      responseText: JSON.stringify({
-        LogicalName: "name",
-        DisplayName: label("Account Name"),
-        AttributeTypeName: { Value: "StringType" },
-        RequiredLevel: { Value: "ApplicationRequired" },
-        MaxLength: 160,
-      }),
+          };
     });
-    const first = await service.getAttributeMetadata("account", "name");
-    const requestCount = server.requests.length;
-    const second = await service.getAttributeMetadata("account", "name");
-    expect(second).toBe(first);
-    expect(server.requests.length).toBe(requestCount);
-    expect(first.required).toBe(true);
-    expect(first.kind).toBe("text");
-  });
 
-  it("resolves lookup targets", async () => {
-    server.respondWith((request) =>
-      request.url.includes("$select=LogicalName,DisplayName,Description,AttributeTypeName")
-        ? {
-            status: 200,
-            responseText: JSON.stringify({
-              LogicalName: "parentcustomerid",
-              DisplayName: label("Company Name"),
-              AttributeTypeName: { Value: "CustomerType" },
-              RequiredLevel: { Value: "SystemRequired" },
-            }),
-          }
-        : undefined
-    );
-    server.respondWith((request) =>
-      request.url.includes("Microsoft.Dynamics.CRM.LookupAttributeMetadata")
-        ? { status: 200, responseText: JSON.stringify({ Targets: ["account", "contact"] }) }
-        : undefined
-    );
-    const metadata = await service.getAttributeMetadata("contact", "parentcustomerid");
-    expect(metadata.kind).toBe("lookup");
-    expect(metadata.required).toBe(true);
-    expect(metadata.targets).toEqual(["account", "contact"]);
-  });
-
-  it("downgrades DateOnly datetimes to kind 'date'", async () => {
-    server.respondWith((request) =>
-      request.url.includes("$select=LogicalName,DisplayName,Description,AttributeTypeName")
-        ? {
-            status: 200,
-            responseText: JSON.stringify({
-              LogicalName: "birthdate",
-              DisplayName: label("Birthday"),
-              AttributeTypeName: { Value: "DateTimeType" },
-              RequiredLevel: { Value: "None" },
-            }),
-          }
-        : undefined
-    );
-    server.respondWith((request) =>
-      request.url.includes("Microsoft.Dynamics.CRM.DateTimeAttributeMetadata")
-        ? { status: 200, responseText: JSON.stringify({ Format: "DateOnly" }) }
-        : undefined
-    );
-    const metadata = await service.getAttributeMetadata("contact", "birthdate");
-    expect(metadata.kind).toBe("date");
-  });
-
-  it("reads boolean true/false options in false-first order", async () => {
-    server.respondWith((request) =>
-      request.url.includes("$select=LogicalName,DisplayName,Description,AttributeTypeName")
-        ? {
-            status: 200,
-            responseText: JSON.stringify({
-              LogicalName: "donotemail",
-              DisplayName: label("Do Not Email"),
-              AttributeTypeName: { Value: "BooleanType" },
-              RequiredLevel: { Value: "None" },
-            }),
-          }
-        : undefined
-    );
-    server.respondWith((request) =>
-      request.url.includes("Microsoft.Dynamics.CRM.BooleanAttributeMetadata")
-        ? {
-            status: 200,
-            responseText: JSON.stringify({
-              OptionSet: {
-                TrueOption: { Value: 1, Label: label("Do Not Allow") },
-                FalseOption: { Value: 0, Label: label("Allow") },
-              },
-            }),
-          }
-        : undefined
-    );
-    const metadata = await service.getAttributeMetadata("contact", "donotemail");
-    expect(metadata.kind).toBe("boolean");
-    expect(metadata.options).toEqual([
-      { value: 0, label: "Allow", color: undefined },
-      { value: 1, label: "Do Not Allow", color: undefined },
-    ]);
-  });
-
-  it("loads money precision via the cast query", async () => {
-    server.respondWith((request) =>
-      request.url.includes("$select=LogicalName,DisplayName,Description,AttributeTypeName")
-        ? {
-            status: 200,
-            responseText: JSON.stringify({
-              LogicalName: "revenue",
-              DisplayName: label("Annual Revenue"),
-              AttributeTypeName: { Value: "MoneyType" },
-              RequiredLevel: { Value: "None" },
-            }),
-          }
-        : undefined
-    );
-    server.respondWith((request) =>
-      request.url.includes("Microsoft.Dynamics.CRM.MoneyAttributeMetadata")
-        ? { status: 200, responseText: JSON.stringify({ Precision: 2 }) }
-        : undefined
-    );
-    const metadata = await service.getAttributeMetadata("account", "revenue");
-    expect(metadata.kind).toBe("money");
-    expect(metadata.precision).toBe(2);
+    // First read hits the blip and rejects: the grid would show its banner.
+    await expect(service.getView("account")).rejects.toBeDefined();
+    // The rejected promise must not become the permanent cache entry: the next
+    // read retries against the network and succeeds.
+    const view = await service.getView("account");
+    expect(view.name).toBe("My Active Accounts");
+    expect(attempts).toBe(2);
   });
 
   describe("getView (read-only view grid)", () => {
@@ -473,6 +264,31 @@ describe("MetadataService", () => {
       expect(decodeURIComponent(server.lastRequest.url)).toContain(
         "$select=currencysymbol,currencyprecision"
       );
+    });
+  });
+
+  describe("getPricingDecimalPrecision", () => {
+    it("reads the org row once and caches for the session", async () => {
+      server.respondWith((request) =>
+        request.url.includes("organizations?")
+          ? {
+              status: 200,
+              responseText: JSON.stringify({ value: [{ pricingdecimalprecision: 3 }] }),
+            }
+          : undefined
+      );
+      await expect(service.getPricingDecimalPrecision()).resolves.toBe(3);
+      const requestCount = server.requests.length;
+      await expect(service.getPricingDecimalPrecision()).resolves.toBe(3);
+      expect(server.requests.length).toBe(requestCount);
+      expect(decodeURIComponent(server.lastRequest.url)).toContain(
+        "$select=pricingdecimalprecision"
+      );
+    });
+
+    it("resolves undefined when the read yields nothing", async () => {
+      server.respondAlways({ status: 200, responseText: JSON.stringify({ value: [] }) });
+      await expect(service.getPricingDecimalPrecision()).resolves.toBeUndefined();
     });
   });
 

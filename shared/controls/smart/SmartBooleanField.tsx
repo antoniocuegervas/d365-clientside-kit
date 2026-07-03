@@ -1,5 +1,6 @@
 import * as React from "react";
 import type { IAttributeMetadata } from "../../context/IViewModelContext";
+import { attributeOptions } from "../../metadata/attributeMetadataReads";
 import { BooleanField } from "../presentational/BooleanField";
 import { SmartFieldBase, type ISmartFieldProps } from "./SmartFieldBase";
 
@@ -11,9 +12,10 @@ export type ISmartBooleanFieldProps = ISmartFieldProps<boolean | null>;
  */
 export class SmartBooleanField extends SmartFieldBase<boolean | null, ISmartBooleanFieldProps> {
   protected renderField(metadata: IAttributeMetadata): React.ReactNode {
-    // MetadataService normalizes to [falseOption, trueOption] order.
-    const falseLabel = metadata.options?.[0]?.label;
-    const trueLabel = metadata.options?.[1]?.label;
+    // attributeOptions emits boolean options in [falseOption, trueOption] order.
+    const options = attributeOptions(metadata);
+    const falseLabel = options[0]?.label;
+    const trueLabel = options[1]?.label;
     return (
       <BooleanField
         label={this.resolveLabel(metadata)}

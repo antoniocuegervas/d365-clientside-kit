@@ -1,5 +1,6 @@
 import * as React from "react";
 import type { IAttributeMetadata } from "../../context/IViewModelContext";
+import { attributeKind, attributeMaxLength } from "../../metadata/attributeMetadataReads";
 import { MultilineTextField } from "../presentational/MultilineTextField";
 import { TextField } from "../presentational/TextField";
 import { SmartFieldBase, type ISmartFieldProps } from "./SmartFieldBase";
@@ -26,9 +27,9 @@ export class SmartTextField extends SmartFieldBase<string | null, ISmartTextFiel
       errorMessage: this.props.errorMessage,
       value: this.props.value,
       onChange: this.commitChange,
-      maxLength: metadata.maxLength,
+      maxLength: attributeMaxLength(metadata),
     };
-    return metadata.kind === "memo" ? (
+    return attributeKind(metadata) === "memo" ? (
       <MultilineTextField {...common} rows={this.props.rows} />
     ) : (
       <TextField {...common} />

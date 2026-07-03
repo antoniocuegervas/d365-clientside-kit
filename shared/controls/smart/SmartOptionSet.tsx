@@ -1,5 +1,6 @@
 import * as React from "react";
 import type { IAttributeMetadata } from "../../context/IViewModelContext";
+import { attributeOptions } from "../../metadata/attributeMetadataReads";
 import type { IOptionItem } from "../../utils/EntityModel";
 import { OptionSetField } from "../presentational/OptionSetField";
 import { SmartFieldBase, type ISmartFieldProps } from "./SmartFieldBase";
@@ -16,7 +17,7 @@ export interface ISmartOptionSetProps extends ISmartFieldProps<number | null> {
  */
 export class SmartOptionSet extends SmartFieldBase<number | null, ISmartOptionSetProps> {
   protected renderField(metadata: IAttributeMetadata): React.ReactNode {
-    const options = metadata.options ?? [];
+    const options = attributeOptions(metadata);
     return (
       <OptionSetField
         label={this.resolveLabel(metadata)}

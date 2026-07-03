@@ -7,6 +7,11 @@ import type {
   IEntityMetadata,
   IViewDefinition,
 } from "../../context/IViewModelContext";
+import {
+  attributeDisplayName,
+  attributeKind,
+  findAttributeMetadata,
+} from "../../metadata/attributeMetadataReads";
 import { Observable, type Unsubscribe } from "../../reactivity/Observable";
 import { ObservableArray } from "../../reactivity/ObservableArray";
 import type { ObservableEvent } from "../../reactivity/ObservableEvent";
@@ -325,7 +330,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         return;
       }
       this.view = view;
-      this.entityMeta = await this.vmContext.metadata.getEntityMetadata(view.entityLogicalName);
+      this.entityMeta = await this.vmContext.utils.getEntityMetadata(view.entityLogicalName, []);
       if (this.isDisposed) {
         return;
       }
@@ -349,8 +354,30 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
    */
   private async resolveColumns(view: IViewDefinition): Promise<IGridColumn[]> {
     const overrides = this.props.columnOverrides ?? {};
-    const layoutColumns = await Promise.all(
-      view.columns.map(async (column) => {
+    // One standard getEntityMetadata call per OWNING entity, asking for every
+    // column it owns at once (the root entity plus each related entity of the
+    // link-entity/aliased columns), instead of one read per column. A failed
+    // entity read degrades that entity's columns to raw names, like before.
+    const namesByEntity = new Map<string, string[]>();
+    for (const column of view.columns) {
+      if (overrides[column.name]) {
+        continue;
+      }
+      const owningEntity = column.relatedEntity ?? view.entityLogicalName;
+      const { logicalName } = splitAliasedColumn(column.name);
+      namesByEntity.set(owningEntity, [...(namesByEntity.get(owningEntity) ?? []), logicalName]);
+    }
+    const metadataByEntity = new Map<string, IEntityMetadata>();
+    await Promise.all(
+      [...namesByEntity.entries()].map(async ([entity, names]) => {
+        try {
+          metadataByEntity.set(entity, await this.vmContext.utils.getEntityMetadata(entity, names));
+        } catch {
+          // metadata unavailable for this entity's columns, keep raw names
+        }
+      })
+    );
+    const layoutColumns = view.columns.map((column) => {
         const override = overrides[column.name];
         if (override) {
           return this.toDynamicColumn(column.name, override, column.width);
@@ -359,16 +386,11 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
         const { logicalName } = splitAliasedColumn(column.name);
         let header = column.name;
         let kind: AttributeKind | undefined;
-        try {
-          const attribute = await this.vmContext.metadata.getAttributeMetadata(
-            owningEntity,
-            logicalName
-          );
-          header = attribute.displayName;
-          kind = attribute.kind;
+        const attribute = findAttributeMetadata(metadataByEntity.get(owningEntity), logicalName);
+        if (attribute) {
+          header = attributeDisplayName(attribute) ?? column.name;
+          kind = attributeKind(attribute);
           this.columnKinds.set(column.name, kind);
-        } catch {
-          // metadata unavailable for this column, keep the raw name, no kind
         }
         // Sorting is opt-in through `serverSort` and always done on the query, so
         // only real root attributes are sortable: lookups, link-entity columns,
@@ -390,8 +412,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
           base.onRender = (row) => this.renderLookupCell(row[column.name]);
         }
         return base;
-      })
-    );
+      });
     // Synthetic calc_* override columns (not in the layout) are appended.
     const layoutNames = new Set(view.columns.map((column) => column.name));
     for (const [key, spec] of Object.entries(overrides)) {
@@ -461,7 +482,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
     if (this.props.quickFindFields && this.props.quickFindFields.length > 0) {
       return this.props.quickFindFields;
     }
-    return this.entityMeta ? [this.entityMeta.primaryNameAttribute] : [];
+    return this.entityMeta?.PrimaryNameAttribute ? [this.entityMeta.PrimaryNameAttribute] : [];
   }
 
   /** Composes `?savedQuery=…` with quick find / filters / `$orderby` / `$top`. */
@@ -479,7 +500,7 @@ export class SmartViewGrid extends SmartComponent<ISmartViewGridProps, ISmartVie
   }
 
   private mapRows(view: IViewDefinition, records: Array<Record<string, unknown>>): IGridRow[] {
-    const idAttribute = this.entityMeta?.primaryIdAttribute ?? `${view.entityLogicalName}id`;
+    const idAttribute = this.entityMeta?.PrimaryIdAttribute ?? `${view.entityLogicalName}id`;
     const overrides = this.props.columnOverrides ?? {};
     return records.map((record, index) => {
       const rawId = record[idAttribute];

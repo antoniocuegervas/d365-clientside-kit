@@ -15,7 +15,7 @@
     low and receive current. The icon package is not part of the platform Fluent
     library, so the icons the grid renders stay in the bundle.
   -->
-  <control namespace="D365Kit" constructor="KitCounterpartyGrid" version="0.1.5" display-name-key="Counterparty Activities" description-key="Cross-type activity grid with synthesized counterparty and role columns." control-type="virtual">
+  <control namespace="D365Kit" constructor="KitCounterpartyGrid" version="0.1.6" display-name-key="Counterparty Activities" description-key="Cross-type activity grid with synthesized counterparty and role columns." control-type="virtual">
     <external-service-usage enabled="false">
     </external-service-usage>
     <!-- Bound to the account's Activities subgrid (activitypointer). -->

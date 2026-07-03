@@ -1,5 +1,12 @@
 import * as React from "react";
 import type { IAttributeMetadata } from "../../context/IViewModelContext";
+import {
+  attributeKind,
+  attributeMaxValue,
+  attributeMinValue,
+  attributePrecision,
+  attributePrecisionSource,
+} from "../../metadata/attributeMetadataReads";
 import { CurrencyField } from "../presentational/CurrencyField";
 import { NumberField } from "../presentational/NumberField";
 import { SmartFieldBase, type ISmartFieldProps } from "./SmartFieldBase";
@@ -31,23 +38,18 @@ export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumber
   private resolvedCurrencyPrecision?: number;
   /** Bumped per currency load so a slow earlier record's symbol cannot win. */
   private currencySequence = 0;
+  /** Org pricing precision, resolved when a money field declares PrecisionSource 2. */
+  private resolvedOrgPrecision?: number;
 
   protected override usesFormatting(): boolean {
     return true;
   }
 
-  override componentDidMount(): void {
-    super.componentDidMount();
-    const { transactionCurrencyId, currencySymbol } = this.props;
-    if (transactionCurrencyId && !currencySymbol) {
-      void this.loadCurrency(transactionCurrencyId);
-    }
-  }
-
   override componentDidUpdate(prevProps: ISmartNumberFieldProps): void {
     super.componentDidUpdate(prevProps);
     // A reused instance following a record change must not keep showing the
-    // previous record's currency symbol and precision.
+    // previous record's currency symbol and precision. (The FIRST load rides
+    // loadExtras with the metadata; this path is a runtime record change.)
     if (prevProps.transactionCurrencyId !== this.props.transactionCurrencyId) {
       this.currencySequence++;
       this.resolvedCurrencySymbol = undefined;
@@ -59,6 +61,46 @@ export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumber
         this.forceUpdate();
       }
     }
+  }
+
+  /**
+   * Everything a money field's first paint can need, resolved BEFORE the
+   * single metadata commit (see SmartFieldBase.loadExtras): the record
+   * currency's symbol and precision, and the org pricing precision when the
+   * attribute declares PrecisionSource 2. Both cached by the context, both
+   * non-fatal (the field falls back to the attribute precision and the
+   * default symbol).
+   */
+  protected override async loadExtras(
+    metadata: IAttributeMetadata
+  ): Promise<(() => void) | undefined> {
+    const { transactionCurrencyId, currencySymbol } = this.props;
+    const wantsCurrency = !!transactionCurrencyId && !currencySymbol;
+    const wantsOrgPrecision =
+      attributeKind(metadata) === "money" && attributePrecisionSource(metadata) === 2;
+    if (!wantsCurrency && !wantsOrgPrecision) {
+      return undefined;
+    }
+    const sequence = ++this.currencySequence;
+    const [currency, orgPrecision] = await Promise.all([
+      wantsCurrency
+        ? this.vmContext.metadata.getCurrencySymbol(transactionCurrencyId).catch(() => undefined)
+        : Promise.resolve(undefined),
+      wantsOrgPrecision
+        ? this.vmContext.metadata.getPricingDecimalPrecision().catch(() => undefined)
+        : Promise.resolve(undefined),
+    ]);
+    return () => {
+      // The sequence still guards the currency: a record change that raced
+      // this load owns the newer sequence and must win.
+      if (currency && sequence === this.currencySequence) {
+        this.resolvedCurrencySymbol = currency.symbol;
+        this.resolvedCurrencyPrecision = currency.precision;
+      }
+      if (orgPrecision !== undefined) {
+        this.resolvedOrgPrecision = orgPrecision;
+      }
+    };
   }
 
   private async loadCurrency(transactionCurrencyId: string): Promise<void> {
@@ -76,21 +118,26 @@ export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumber
   }
 
   /**
-   * Resolves the money precision the platform would use. PrecisionSource 1 means
-   * the record currency's precision applies (it rides in on getCurrencySymbol);
-   * source 0 and the default use the attribute precision. Source 2 (org pricing
-   * precision) is not fetched and falls back to the attribute precision; see the
-   * money-precision gotcha.
+   * Resolves the money precision the platform would use. PrecisionSource 1
+   * means the record currency's precision applies (it rides in on
+   * getCurrencySymbol); source 2 means the ORG pricing precision
+   * (organization.pricingdecimalprecision, fetched once); source 0 and every
+   * unresolved case fall back to the attribute precision.
    */
   private moneyPrecision(metadata: IAttributeMetadata): number {
-    if (metadata.precisionSource === 1 && this.resolvedCurrencyPrecision !== undefined) {
+    const source = attributePrecisionSource(metadata);
+    if (source === 1 && this.resolvedCurrencyPrecision !== undefined) {
       return this.resolvedCurrencyPrecision;
     }
-    return metadata.precision ?? 2;
+    if (source === 2 && this.resolvedOrgPrecision !== undefined) {
+      return this.resolvedOrgPrecision;
+    }
+    return attributePrecision(metadata) ?? 2;
   }
 
   protected renderField(metadata: IAttributeMetadata): React.ReactNode {
     const formatting = this.state.formatting;
+    const kind = attributeKind(metadata);
     const common = {
       label: this.resolveLabel(metadata),
       required: this.resolveRequired(metadata),
@@ -101,12 +148,12 @@ export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumber
       errorMessage: this.props.errorMessage,
       value: this.props.value,
       onChange: this.commitChange,
-      min: metadata.minValue,
-      max: metadata.maxValue,
+      min: attributeMinValue(metadata),
+      max: attributeMaxValue(metadata),
       decimalSymbol: formatting?.decimalSymbol,
       groupSeparator: formatting?.numberSeparator,
     };
-    if (metadata.kind === "money") {
+    if (kind === "money") {
       return (
         <CurrencyField
           {...common}
@@ -115,7 +162,7 @@ export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumber
         />
       );
     }
-    const precision = metadata.kind === "integer" ? 0 : metadata.precision;
+    const precision = kind === "integer" ? 0 : attributePrecision(metadata);
     return <NumberField {...common} precision={precision} />;
   }
 }

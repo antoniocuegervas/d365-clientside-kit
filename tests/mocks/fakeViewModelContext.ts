@@ -1,7 +1,6 @@
 import type {
   IActivityTypeInfo,
   IAppProperties,
-  IAttributeMetadata,
   ICurrencyInfo,
   IEntityMetadata,
   IExecuteResponse,
@@ -11,6 +10,7 @@ import type {
   IViewDefinition,
   IViewModelContext,
 } from "../../shared/context/IViewModelContext";
+import { makeEntityMetadataMock } from "./XrmMock";
 import {
   buildFormContext,
   type IFormContext,
@@ -37,8 +37,25 @@ export interface IFakeQueryFailure {
 export type FakeQueryOutcome = IRetrieveMultipleResult | IFakeQueryFailure;
 
 export interface IFakeContextOptions {
-  attributes?: Record<string, Partial<IAttributeMetadata>>; // key: "entity.attribute"
-  entities?: Record<string, Partial<IEntityMetadata>>;
+  /**
+   * Scripted attribute metadata, keyed "entity.attribute". Each value is the
+   * PascalCase attributeDescriptor payload the standard shape carries (`Type`,
+   * `DisplayName`, `MaxLength`, `OptionSet`, ...), exactly what a real host's
+   * getEntityMetadata serves; LogicalName is filled from the key. An attribute
+   * a test never scripted is simply absent from the resolved entity metadata,
+   * like an attribute that does not exist on the entity.
+   */
+  attributes?: Record<string, Record<string, unknown>>;
+  /** Entity-level overrides for utils.getEntityMetadata, keyed by entity. */
+  entities?: Record<
+    string,
+    Partial<{
+      displayName: string;
+      entitySetName: string;
+      primaryIdAttribute: string;
+      primaryNameAttribute: string;
+    }>
+  >;
   views?: Record<string, Partial<IViewDefinition>>; // key: savedQueryId or "default:entity"
   /** Activity types returned by getActivityTypes. Default empty. */
   activityTypes?: IActivityTypeInfo[];
@@ -84,6 +101,8 @@ export interface IFakeContextOptions {
   geoPosition?: IGeoPosition | null;
   /** Currency info returned by getCurrencySymbol, keyed by currency id. */
   currencies?: Record<string, ICurrencyInfo>;
+  /** Org pricing precision returned by getPricingDecimalPrecision. */
+  pricingDecimalPrecision?: number;
   /** Icon URLs returned by getEntityIconUrl, keyed by entity logical name. */
   entityIcons?: Record<string, string>;
   /** Org unique name surfaced on globalContext.organizationSettings. */
@@ -320,34 +339,6 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
       },
     },
     metadata: {
-      getEntityMetadata: async (entity) => {
-        record("getEntityMetadata", entity);
-        await maybeDelay();
-        const overrides = options.entities?.[entity] ?? {};
-        return {
-          logicalName: entity,
-          displayName: entity,
-          entitySetName: `${entity}s`,
-          primaryIdAttribute: `${entity}id`,
-          primaryNameAttribute: "name",
-          ...overrides,
-        };
-      },
-      getAttributeMetadata: async (entity, attribute) => {
-        record("getAttributeMetadata", entity, attribute);
-        await maybeDelay();
-        const overrides = options.attributes?.[`${entity}.${attribute}`];
-        if (!overrides) {
-          throw new Error(`No fake metadata scripted for ${entity}.${attribute}`);
-        }
-        return {
-          logicalName: attribute,
-          displayName: attribute,
-          kind: "text",
-          required: false,
-          ...overrides,
-        };
-      },
       getView: async (entity, savedQueryId) => {
         record("getView", entity, savedQueryId);
         await maybeDelay();
@@ -400,6 +391,11 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
         record("getCurrencySymbol", transactionCurrencyId);
         await maybeDelay();
         return options.currencies?.[transactionCurrencyId] ?? { symbol: "$" };
+      },
+      getPricingDecimalPrecision: async () => {
+        record("getPricingDecimalPrecision");
+        await maybeDelay();
+        return options.pricingDecimalPrecision;
       },
       getEntityIconUrl: async (entity) => {
         record("getEntityIconUrl", entity);
@@ -469,6 +465,27 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
     },
     utils: {
       alert: (message) => record("alert", message),
+      getEntityMetadata: async (entityName, attributes) => {
+        record("utils.getEntityMetadata", entityName, attributes);
+        await maybeDelay();
+        // Assemble the standard shape from the scripted descriptors, exactly
+        // what a real host serves: entity fields plus an ItemCollection of
+        // attributeDescriptor items. Every descriptor scripted for the entity
+        // is included (get() finds the requested ones), and an unscripted
+        // attribute is simply absent, like a column that does not exist.
+        const prefix = `${entityName}.`;
+        const descriptors = Object.entries(options.attributes ?? {})
+          .filter(([key]) => key.startsWith(prefix))
+          .map(([key, payload]) => ({
+            LogicalName: key.slice(prefix.length),
+            ...payload,
+          }));
+        return makeEntityMetadataMock({
+          logicalName: entityName,
+          ...options.entities?.[entityName],
+          attributes: descriptors,
+        }) as IEntityMetadata;
+      },
       getResourceString: (webResourceName, key) => {
         record("getResourceString", webResourceName, key);
         return options.resourceStrings?.[key];

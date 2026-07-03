@@ -16,8 +16,9 @@ import {
 } from "../../../../../shared/controls/smart/SmartViewGrid";
 import type { IEntityReference } from "../../../../../shared/utils/EntityModel";
 import { createFakeViewModelContext } from "../../../../mocks/fakeViewModelContext";
+import { makeEntityMetadataMock } from "../../../../mocks/XrmMock";
 import type {
-  IAttributeMetadata,
+  IEntityMetadata,
   IViewModelContext,
 } from "../../../../../shared/context/IViewModelContext";
 
@@ -29,10 +30,10 @@ describe("SmartTextField (declarative block)", () => {
     const { context } = createFakeViewModelContext({
       attributes: {
         "account.name": {
-          displayName: "Account Name",
-          kind: "text",
-          required: true,
-          maxLength: 160,
+          DisplayName: "Account Name",
+          Type: "string",
+          RequiredLevel: 2,
+          MaxLength: 160,
         },
       },
     });
@@ -47,7 +48,7 @@ describe("SmartTextField (declarative block)", () => {
 
   it("writes changes back into the host-owned observable", async () => {
     const { context } = createFakeViewModelContext({
-      attributes: { "account.name": { displayName: "Account Name", kind: "text" } },
+      attributes: { "account.name": { DisplayName: "Account Name", Type: "string" } },
     });
     const value = new Observable<string | null>(null);
     renderWith(context, <SmartTextField entity="account" attribute="name" value={value} />);
@@ -58,7 +59,7 @@ describe("SmartTextField (declarative block)", () => {
 
   it("prop overrides beat metadata (form-designer override semantics)", async () => {
     const { context } = createFakeViewModelContext({
-      attributes: { "account.name": { displayName: "Account Name", kind: "text", required: true } },
+      attributes: { "account.name": { DisplayName: "Account Name", Type: "string", RequiredLevel: 2 } },
     });
     const value = new Observable<string | null>(null);
     renderWith(
@@ -77,7 +78,7 @@ describe("SmartTextField (declarative block)", () => {
 
   it("renders a memo attribute as multiline", async () => {
     const { context } = createFakeViewModelContext({
-      attributes: { "account.description": { displayName: "Description", kind: "memo" } },
+      attributes: { "account.description": { DisplayName: "Description", Type: "memo" } },
     });
     const value = new Observable<string | null>("notes");
     renderWith(context, <SmartTextField entity="account" attribute="description" value={value} />);
@@ -104,23 +105,26 @@ describe("SmartTextField (declarative block)", () => {
     }
   });
 
-  it("uses the attribute Description as the field hint", async () => {
+  it("does NOT surface the attribute Description as helper text (hint is opt-in)", async () => {
+    // The Description stays in the metadata for surfaces that opt in (the
+    // tooltip pattern); a field with only a Description renders no hint.
     const { context } = createFakeViewModelContext({
       attributes: {
-        "account.name": { displayName: "Account Name", kind: "text", description: "The legal business name." },
+        "account.name": { DisplayName: "Account Name", Type: "string", Description: "The legal business name." },
       },
     });
     renderWith(
       context,
       <SmartTextField entity="account" attribute="name" value={new Observable<string | null>("")} />
     );
-    expect(await screen.findByText("The legal business name.")).toBeTruthy();
+    expect(await screen.findByText("Account Name")).toBeTruthy();
+    expect(screen.queryByText("The legal business name.")).toBeNull();
   });
 
-  it("a hint prop overrides the metadata Description", async () => {
+  it("renders helper text only when the hint prop is passed", async () => {
     const { context } = createFakeViewModelContext({
       attributes: {
-        "account.name": { displayName: "Account Name", kind: "text", description: "The legal business name." },
+        "account.name": { DisplayName: "Account Name", Type: "string", Description: "The legal business name." },
       },
     });
     renderWith(
@@ -139,7 +143,7 @@ describe("SmartTextField (declarative block)", () => {
   it("renders a column-secured field read-only by default; readOnly={false} forces edit", async () => {
     const { context } = createFakeViewModelContext({
       attributes: {
-        "account.name": { displayName: "Account Name", kind: "text", isSecured: true },
+        "account.name": { DisplayName: "Account Name", Type: "string", IsSecured: true },
       },
     });
     const value = new Observable<string | null>("Contoso");
@@ -162,14 +166,34 @@ describe("SmartTextField (declarative block)", () => {
     );
     expect(await screen.findByRole("textbox")).toBeTruthy();
   });
+
+  it("keeps a secured column editable when its update can never be restricted", async () => {
+    // CanBeSecuredForUpdate false: no FLS profile can deny update on this
+    // column, so the read-only fail-safe would be pure friction.
+    const { context } = createFakeViewModelContext({
+      attributes: {
+        "account.name": {
+          DisplayName: "Account Name",
+          Type: "string",
+          IsSecured: true,
+          CanBeSecuredForUpdate: false,
+        },
+      },
+    });
+    renderWith(
+      context,
+      <SmartTextField entity="account" attribute="name" value={new Observable<string | null>("x")} />
+    );
+    expect(await screen.findByRole("textbox")).toBeTruthy();
+  });
 });
 
 describe("SmartFieldBase reuse resilience", () => {
   it("rebinds metadata and value subscription when props change on a reused instance", async () => {
     const { context } = createFakeViewModelContext({
       attributes: {
-        "account.name": { displayName: "Account Name", kind: "text" },
-        "contact.firstname": { displayName: "First Name", kind: "text" },
+        "account.name": { DisplayName: "Account Name", Type: "string" },
+        "contact.firstname": { DisplayName: "First Name", Type: "string" },
       },
     });
     const accountName = new Observable<string | null>("Contoso");
@@ -206,18 +230,16 @@ describe("SmartFieldBase reuse resilience", () => {
     const { context } = createFakeViewModelContext();
     // Drive resolution order by hand: hold the first attribute's load open until
     // after the rebind's load has resolved, the exact race the guard defends.
-    let resolveAccount!: (metadata: IAttributeMetadata) => void;
-    const accountLoad = new Promise<IAttributeMetadata>((resolve) => {
+    let resolveAccount!: (metadata: IEntityMetadata) => void;
+    const accountLoad = new Promise<IEntityMetadata>((resolve) => {
       resolveAccount = resolve;
     });
-    const firstNameMeta: IAttributeMetadata = {
-      logicalName: "firstname",
-      displayName: "First Name",
-      kind: "text",
-      required: false,
-    };
-    context.metadata.getAttributeMetadata = (_entity, attribute) =>
-      attribute === "name" ? accountLoad : Promise.resolve(firstNameMeta);
+    const contactMetadata = makeEntityMetadataMock({
+      logicalName: "contact",
+      attributes: [{ LogicalName: "firstname", Type: "string", DisplayName: "First Name" }],
+    }) as IEntityMetadata;
+    context.utils.getEntityMetadata = (entityName) =>
+      entityName === "account" ? accountLoad : Promise.resolve(contactMetadata);
 
     const accountName = new Observable<string | null>("Contoso");
     const firstName = new Observable<string | null>(null);
@@ -237,12 +259,12 @@ describe("SmartFieldBase reuse resilience", () => {
 
     // The stale first load resolves last: it must be ignored, not rendered.
     await act(async () => {
-      resolveAccount({
-        logicalName: "name",
-        displayName: "Account Name",
-        kind: "text",
-        required: false,
-      });
+      resolveAccount(
+        makeEntityMetadataMock({
+          logicalName: "account",
+          attributes: [{ LogicalName: "name", Type: "string", DisplayName: "Account Name" }],
+        }) as IEntityMetadata
+      );
       await accountLoad;
     });
     expect(screen.getByText("First Name")).toBeTruthy();
@@ -251,15 +273,17 @@ describe("SmartFieldBase reuse resilience", () => {
 });
 
 describe("SmartOptionSet", () => {
-  const options = [
-    { value: 1, label: "Accounting" },
-    { value: 6, label: "Consulting" },
-  ];
+  const optionSet = {
+    Options: [
+      { Value: 1, Label: "Accounting" },
+      { Value: 6, Label: "Consulting" },
+    ],
+  };
 
   it("loads options from metadata and renders the selected label", async () => {
     const { context } = createFakeViewModelContext({
       attributes: {
-        "account.industrycode": { displayName: "Industry", kind: "optionset", options },
+        "account.industrycode": { DisplayName: "Industry", Type: "picklist", OptionSet: optionSet },
       },
     });
     const value = new Observable<number | null>(6);
@@ -271,7 +295,7 @@ describe("SmartOptionSet", () => {
   it("supports dynamic option pruning via filterOptions", async () => {
     const { context } = createFakeViewModelContext({
       attributes: {
-        "account.industrycode": { displayName: "Industry", kind: "optionset", options },
+        "account.industrycode": { DisplayName: "Industry", Type: "picklist", OptionSet: optionSet },
       },
     });
     const value = new Observable<number | null>(null);
@@ -296,9 +320,9 @@ describe("SmartLookup", () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
         "contact.parentcustomerid": {
-          displayName: "Company Name",
-          kind: "lookup",
-          targets: ["account"],
+          DisplayName: "Company Name",
+          Type: "lookup",
+          Targets: ["account"],
         },
       },
       queryResults: {
@@ -342,9 +366,9 @@ describe("SmartLookup", () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
         "contact.parentcustomerid": {
-          displayName: "Company Name",
-          kind: "lookup",
-          targets: ["account"],
+          DisplayName: "Company Name",
+          Type: "lookup",
+          Targets: ["account"],
         },
       },
       queryResults: {
@@ -373,7 +397,7 @@ describe("SmartLookup", () => {
   it("dialog mode opens the native picker and commits the chosen record", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
-        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+        "contact.parentcustomerid": { DisplayName: "Company", Type: "lookup", Targets: ["account"] },
       },
       lookupResults: [
         { id: "a1a00000-0000-0000-0000-000000000001", logicalName: "account", name: "Contoso Ltd" },
@@ -395,7 +419,7 @@ describe("SmartLookup", () => {
   it("opens the selected record's form when the value link is clicked", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
-        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+        "contact.parentcustomerid": { DisplayName: "Company", Type: "lookup", Targets: ["account"] },
       },
     });
     const value = new Observable<IEntityReference | null>({
@@ -417,7 +441,7 @@ describe("SmartLookup", () => {
   it("view-driven search runs the saved view as the source", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
-        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+        "contact.parentcustomerid": { DisplayName: "Company", Type: "lookup", Targets: ["account"] },
       },
       views: {
         "name:account:Lookup View": { id: "99990000-0000-0000-0000-000000000009" },
@@ -446,7 +470,7 @@ describe("SmartLookup", () => {
   it("attaches the resolved entity icon to inline results", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
-        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+        "contact.parentcustomerid": { DisplayName: "Company", Type: "lookup", Targets: ["account"] },
       },
       entityIcons: { account: "https://org/_imgs/svg_1.svg" },
       queryResults: {
@@ -477,7 +501,7 @@ describe("SmartLookup", () => {
   it("defaults to the entity's lookup view as the search source", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
-        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+        "contact.parentcustomerid": { DisplayName: "Company", Type: "lookup", Targets: ["account"] },
       },
       views: { "lookup:account": { id: "aaaa0000-0000-0000-0000-00000000000a" } },
       queryResults: {
@@ -500,7 +524,7 @@ describe("SmartLookup", () => {
   it("ANDs the extra filter clause into the search", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
-        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+        "contact.parentcustomerid": { DisplayName: "Company", Type: "lookup", Targets: ["account"] },
       },
     });
     const value = new Observable<IEntityReference | null>(null);
@@ -525,8 +549,8 @@ describe("SmartLookup", () => {
   it("resolves the new target's view on rebind instead of reusing the previous target's", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
-        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
-        "account.primarycontactid": { displayName: "Primary Contact", kind: "lookup", targets: ["contact"] },
+        "contact.parentcustomerid": { DisplayName: "Company", Type: "lookup", Targets: ["account"] },
+        "account.primarycontactid": { DisplayName: "Primary Contact", Type: "lookup", Targets: ["contact"] },
       },
       views: {
         "lookup:account": { id: "aaaa0000-0000-0000-0000-00000000000a" },
@@ -570,7 +594,7 @@ describe("SmartLookup", () => {
     const gates: Array<() => void> = [];
     const { context } = createFakeViewModelContext({
       attributes: {
-        "account.primarycontactid": { displayName: "Primary Contact", kind: "lookup", targets: ["contact"] },
+        "account.primarycontactid": { DisplayName: "Primary Contact", Type: "lookup", Targets: ["contact"] },
       },
       entities: {
         contact: { primaryIdAttribute: "contactid", primaryNameAttribute: "fullname" },
@@ -625,7 +649,7 @@ describe("SmartLookup", () => {
     try {
       const { context, calls } = createFakeViewModelContext({
         attributes: {
-          "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+          "contact.parentcustomerid": { DisplayName: "Company", Type: "lookup", Targets: ["account"] },
         },
       });
       // A host without the native picker (the PCF shape): lookupObjects throws.
@@ -652,7 +676,7 @@ describe("SmartLookup", () => {
     try {
       const { context } = createFakeViewModelContext({
         attributes: {
-          "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+          "contact.parentcustomerid": { DisplayName: "Company", Type: "lookup", Targets: ["account"] },
         },
         queryResults: {
           account: [{ failWith: "401 session expired" }],
@@ -679,9 +703,9 @@ describe("SmartNativeLookup", () => {
   const baseOptions = {
     attributes: {
       "contact.preferredsystemuserid": {
-        displayName: "Preferred User",
-        kind: "lookup" as const,
-        targets: ["systemuser"],
+        DisplayName: "Preferred User",
+        Type: "lookup" as const,
+        Targets: ["systemuser"],
       },
     },
     entities: {
@@ -826,9 +850,9 @@ describe("SmartNativeLookup", () => {
   const polyOptions = {
     attributes: {
       "contact.parentcustomerid": {
-        displayName: "Company Name",
-        kind: "lookup" as const,
-        targets: ["account", "contact"],
+        DisplayName: "Company Name",
+        Type: "lookup" as const,
+        Targets: ["account", "contact"],
       },
     },
     entities: {
@@ -893,14 +917,14 @@ describe("SmartNativeLookup", () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
         "contact.preferredsystemuserid": {
-          displayName: "Preferred User",
-          kind: "lookup",
-          targets: ["systemuser"],
+          DisplayName: "Preferred User",
+          Type: "lookup",
+          Targets: ["systemuser"],
         },
         "account.primarycontactid": {
-          displayName: "Primary Contact",
-          kind: "lookup",
-          targets: ["contact"],
+          DisplayName: "Primary Contact",
+          Type: "lookup",
+          Targets: ["contact"],
         },
       },
       entities: {
@@ -973,7 +997,7 @@ describe("SmartNumberField locale + currency", () => {
   it("formats with the user's decimal symbol and group separator", async () => {
     const { context } = createFakeViewModelContext({
       attributes: {
-        "opportunity.estimatedvalue": { displayName: "Est. Value", kind: "decimal", precision: 2 },
+        "opportunity.estimatedvalue": { DisplayName: "Est. Value", Type: "decimal", Precision: 2 },
       },
       formatting: { decimalSymbol: ",", numberSeparator: "." },
     });
@@ -992,7 +1016,7 @@ describe("SmartNumberField locale + currency", () => {
   it("resolves the record's currency symbol from transactionCurrencyId", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
-        "opportunity.estimatedvalue": { displayName: "Est. Value", kind: "money", precision: 2 },
+        "opportunity.estimatedvalue": { DisplayName: "Est. Value", Type: "money", Precision: 2 },
       },
       currencies: {
         "55550000-0000-0000-0000-000000000005": { symbol: "€", precision: 2 },
@@ -1017,7 +1041,7 @@ describe("SmartNumberField locale + currency", () => {
   it("re-resolves the currency when transactionCurrencyId changes on a reused instance", async () => {
     const { context } = createFakeViewModelContext({
       attributes: {
-        "opportunity.estimatedvalue": { displayName: "Est. Value", kind: "money", precision: 2 },
+        "opportunity.estimatedvalue": { DisplayName: "Est. Value", Type: "money", Precision: 2 },
       },
       currencies: {
         "55550000-0000-0000-0000-000000000005": { symbol: "€", precision: 2 },
@@ -1057,10 +1081,10 @@ describe("SmartNumberField locale + currency", () => {
     const { context } = createFakeViewModelContext({
       attributes: {
         "opportunity.estimatedvalue": {
-          displayName: "Est. Value",
-          kind: "money",
-          precision: 2,
-          precisionSource: 1,
+          DisplayName: "Est. Value",
+          Type: "money",
+          Precision: 2,
+          PrecisionSource: 1,
         },
       },
       currencies: {
@@ -1087,7 +1111,7 @@ describe("SmartNumberField locale + currency", () => {
   it("an explicit currencySymbol prop wins over resolution", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
-        "opportunity.estimatedvalue": { displayName: "Est. Value", kind: "money", precision: 2 },
+        "opportunity.estimatedvalue": { DisplayName: "Est. Value", Type: "money", Precision: 2 },
       },
     });
     const value = new Observable<number | null>(1000);
@@ -1104,13 +1128,150 @@ describe("SmartNumberField locale + currency", () => {
     expect(await screen.findByText("£")).toBeTruthy();
     expect(calls.find((c) => c.api === "getCurrencySymbol")).toBeUndefined();
   });
+
+  it("uses the org pricing precision when PrecisionSource is 2", async () => {
+    // The live org's revenue column rounds by pricingdecimalprecision, not
+    // its own Precision; source 2 declares exactly that.
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "account.revenue": {
+          DisplayName: "Annual Revenue",
+          Type: "money",
+          Precision: 2,
+          PrecisionSource: 2,
+        },
+      },
+      pricingDecimalPrecision: 0,
+      formatting: { decimalSymbol: ".", numberSeparator: "," },
+    });
+    const value = new Observable<number | null>(1000);
+    renderWith(
+      context,
+      <SmartNumberField entity="account" attribute="revenue" value={value} />
+    );
+    // 0 decimals (the org pricing precision), not 2 (the attribute precision).
+    await waitFor(() => {
+      expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("1,000");
+    });
+    expect(calls.find((c) => c.api === "getPricingDecimalPrecision")).toBeDefined();
+  });
+
+  it("does not read the org pricing precision for other precision sources", async () => {
+    const { context, calls } = createFakeViewModelContext({
+      attributes: {
+        "opportunity.estimatedvalue": {
+          DisplayName: "Est. Value",
+          Type: "money",
+          Precision: 2,
+          PrecisionSource: 0,
+        },
+      },
+    });
+    renderWith(
+      context,
+      <SmartNumberField
+        entity="opportunity"
+        attribute="estimatedvalue"
+        value={new Observable<number | null>(5)}
+      />
+    );
+    await screen.findByRole("textbox");
+    expect(calls.find((c) => c.api === "getPricingDecimalPrecision")).toBeUndefined();
+  });
+});
+
+describe("form-load render batching", () => {
+  // The UCI perf monitor showed the kit's smart controls rendering once per
+  // resolved piece (metadata, formatting, currency, icons, switcher labels)
+  // during form load, versus 2-3 renders for the platform's own controls.
+  // Everything now resolves BEFORE one state commit, so a control's lifecycle
+  // is: one loading paint, one content paint. The React Profiler counts the
+  // commits; 2 is the contract, anything more is a regression toward the
+  // one-repaint-per-resolution behavior.
+  const countCommits = (ui: React.ReactNode, context: IViewModelContext) => {
+    let commits = 0;
+    render(
+      <React.Profiler
+        id="smart-batching"
+        onRender={() => {
+          commits += 1;
+        }}
+      >
+        <ViewModelContextProvider context={context}>{ui}</ViewModelContextProvider>
+      </React.Profiler>
+    );
+    return () => commits;
+  };
+
+  it("SmartNumberField paints twice: loading, then everything at once", async () => {
+    // The heaviest field case: metadata + locale formatting + record currency
+    // + org pricing precision, four async resolutions, one content commit.
+    const { context } = createFakeViewModelContext({
+      attributes: {
+        "account.revenue": {
+          DisplayName: "Annual Revenue",
+          Type: "money",
+          Precision: 2,
+          PrecisionSource: 2,
+        },
+      },
+      currencies: { "55550000-0000-0000-0000-000000000005": { symbol: "€", precision: 2 } },
+      pricingDecimalPrecision: 0,
+      formatting: { decimalSymbol: ".", numberSeparator: "," },
+    });
+    const commits = countCommits(
+      <SmartNumberField
+        entity="account"
+        attribute="revenue"
+        value={new Observable<number | null>(1000)}
+        transactionCurrencyId="55550000-0000-0000-0000-000000000005"
+      />,
+      context
+    );
+    await waitFor(() => {
+      expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("1,000");
+    });
+    expect(await screen.findByText("€")).toBeTruthy();
+    expect(commits()).toBeLessThanOrEqual(2);
+  });
+
+  it("SmartNativeLookup paints twice with switcher labels and the selected icon in place", async () => {
+    // The known-chatty control: a polymorphic lookup resolving the attribute,
+    // two target display names, and the selected value's icon.
+    const { context } = createFakeViewModelContext({
+      attributes: {
+        "contact.parentcustomerid": {
+          DisplayName: "Company",
+          Type: "customer",
+          Targets: ["account", "contact"],
+        },
+      },
+      entities: {
+        account: { displayName: "Account" },
+        contact: { displayName: "Contact" },
+      },
+      entityIcons: { account: "https://org/_imgs/svg_1.svg" },
+    });
+    const value = new Observable<IEntityReference | null>({
+      id: "a1a00000-0000-0000-0000-000000000001",
+      logicalName: "account",
+      name: "Contoso Ltd",
+    });
+    const commits = countCommits(
+      <SmartNativeLookup entity="contact" attribute="parentcustomerid" value={value} />,
+      context
+    );
+    expect(await screen.findByText("Contoso Ltd")).toBeTruthy();
+    // The switcher labels and icon resolved BEFORE the content commit.
+    expect(commits()).toBeLessThanOrEqual(2);
+  });
 });
 
 describe("SmartViewGrid (read-only view grid)", () => {
   const viewSetup = {
     attributes: {
-      "account.name": { displayName: "Account Name", kind: "text" as const },
-      "account.telephone1": { displayName: "Main Phone", kind: "text" as const },
+      "account.name": { DisplayName: "Account Name", Type: "string" as const },
+      "account.telephone1": { DisplayName: "Main Phone", Type: "string" as const },
     },
     views: {
       "default:account": {
@@ -1434,8 +1595,8 @@ describe("SmartViewGrid (read-only view grid)", () => {
   it("renders lookup columns as clickable links that openForm the target", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
-        "account.name": { displayName: "Account Name", kind: "text" },
-        "account.primarycontactid": { displayName: "Primary Contact", kind: "lookup", targets: ["contact"] },
+        "account.name": { DisplayName: "Account Name", Type: "string" },
+        "account.primarycontactid": { DisplayName: "Primary Contact", Type: "lookup", Targets: ["contact"] },
       },
       views: {
         "default:account": {
@@ -1474,9 +1635,9 @@ describe("SmartViewGrid (read-only view grid)", () => {
   it("resolves a link-entity column against its owning entity", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
-        "account.name": { displayName: "Account Name", kind: "text" },
-        "contact.emailaddress1": { displayName: "Email", kind: "text" },
-        "contact.parentcustomerid": { displayName: "Company", kind: "lookup", targets: ["account"] },
+        "account.name": { DisplayName: "Account Name", Type: "string" },
+        "contact.emailaddress1": { DisplayName: "Email", Type: "string" },
+        "contact.parentcustomerid": { DisplayName: "Company", Type: "lookup", Targets: ["account"] },
       },
       views: {
         "default:account": {
@@ -1516,13 +1677,14 @@ describe("SmartViewGrid (read-only view grid)", () => {
       "account",
       "a9a00000-0000-0000-0000-000000000009",
     ]);
-    // Metadata was fetched against the contact entity for the related column.
+    // Metadata was fetched against the contact entity for the related column,
+    // one standard getEntityMetadata call carrying that entity's column names.
     expect(
       calls.some(
         (c) =>
-          c.api === "getAttributeMetadata" &&
+          c.api === "utils.getEntityMetadata" &&
           c.args[0] === "contact" &&
-          c.args[1] === "emailaddress1"
+          (c.args[1] as string[]).includes("emailaddress1")
       )
     ).toBe(true);
   });
@@ -1735,7 +1897,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
 
   it("dynamic column resolves from the first non-empty source field", async () => {
     const { context, calls } = createFakeViewModelContext({
-      attributes: { "opportunity.name": { displayName: "Topic", kind: "text" } },
+      attributes: { "opportunity.name": { DisplayName: "Topic", Type: "string" } },
       views: {
         "default:opportunity": {
           entityLogicalName: "opportunity",
@@ -1792,8 +1954,8 @@ describe("SmartViewGrid (read-only view grid)", () => {
     // language; only the formatted label is localized (German org here).
     const { context, calls } = createFakeViewModelContext({
       attributes: {
-        "activitypointer.subject": { displayName: "Subject", kind: "text" },
-        "activitypointer.activitytypecode": { displayName: "Activity Type", kind: "optionset" },
+        "activitypointer.subject": { DisplayName: "Subject", Type: "string" },
+        "activitypointer.activitytypecode": { DisplayName: "Activity Type", Type: "picklist" },
       },
       entities: { activitypointer: { primaryIdAttribute: "activityid" } },
       views: {
@@ -1831,8 +1993,8 @@ describe("SmartViewGrid (read-only view grid)", () => {
   it("activity invoke resolves a numeric type code through the activity-type metadata", async () => {
     const { context, calls } = createFakeViewModelContext({
       attributes: {
-        "activitypointer.subject": { displayName: "Subject", kind: "text" },
-        "activitypointer.activitytypecode": { displayName: "Activity Type", kind: "optionset" },
+        "activitypointer.subject": { DisplayName: "Subject", Type: "string" },
+        "activitypointer.activitytypecode": { DisplayName: "Activity Type", Type: "picklist" },
       },
       entities: { activitypointer: { primaryIdAttribute: "activityid" } },
       activityTypes: [
@@ -1872,7 +2034,7 @@ describe("SmartViewGrid (read-only view grid)", () => {
 
   it("activity invoke errors readably when activitytypecode is absent", async () => {
     const { context, calls } = createFakeViewModelContext({
-      attributes: { "activitypointer.subject": { displayName: "Subject", kind: "text" } },
+      attributes: { "activitypointer.subject": { DisplayName: "Subject", Type: "string" } },
       entities: { activitypointer: { primaryIdAttribute: "activityid" } },
       views: {
         "default:activitypointer": {

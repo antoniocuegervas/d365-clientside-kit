@@ -23,7 +23,8 @@ flowchart TB
         Reactivity["Observable · ObservableArray · ObservableEvent · SubscriptionTracker"]
         Smart["Smart controls (entity + attribute → metadata)"]
         Pres["Presentational controls (values in, events out)"]
-        Meta["MetadataService (cached OData metadata)"]
+        NativeMeta["utils.getEntityMetadata (standard EntityMetadata shape, host-native)"]
+        Meta["MetadataService (view / currency / icon / activity helpers)"]
         Cds["cds-client (XHR OData)"]
         Theme["d365Theme (single Fluent v9 module)"]
         Utils["LibraryUtils · EntityModel · queries"]
@@ -46,9 +47,21 @@ flowchart TB
     kit --> Hooks
     kit --> PCFs
     Smart --> Pres
+    Smart --> NativeMeta
     Smart --> Meta
+    NativeMeta -.->|"OData synthesis: V8 + fallback"| Cds
     Meta --> Cds
 ```
+
+Entity and attribute metadata mirrors the standard client API:
+`context.utils.getEntityMetadata(entityName, attributes)` resolves the
+platform's EntityMetadata shape, passed through untouched from the native
+store on modern and PCF hosts (offline-capable) and synthesized from OData on
+pre-v9. The under-documented `attributeDescriptor` members are decoded in one
+place, `shared/metadata/attributeMetadataReads.ts`. `MetadataService` holds
+only the kit helpers with no standard equivalent (saved views, currency,
+entity icons, activity types); views and currency are data reads riding each
+host's own Web API.
 
 ## The three-layer contract (non-negotiable)
 
@@ -115,7 +128,10 @@ adapted area threads every native parameter through to the host call:
   `executeAction`/`executeClassicWorkflow`, and the generic `execute`/`executeMultiple`
   request-object contract.
 - **client / device / utility**: `isNetworkAvailable`, the native device option
-  fields, and optional `getAllowedStatusTransitions` state code.
+  fields, optional `getAllowedStatusTransitions` state code, and
+  `getEntityMetadata` mirrored 1:1 from where the platform puts it
+  (`Xrm.Utility` / PCF `context.utils`), resolving the standard EntityMetadata
+  shape on every host.
 - **globalContext**: organization and user settings, version, `prependOrgName`,
   and current-app metadata.
 - **formContext**: the full form object model (`data`, `ui`, attributes,

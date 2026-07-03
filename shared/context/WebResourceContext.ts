@@ -1,5 +1,8 @@
 import { CdsClient, makeExecuteResponse, type IRetrieveMultipleResult } from "../data/CdsClient";
 import { buildFormContext, type IHostFormContext } from "./formContextSurface";
+import { CdsEntityMetadataProvider } from "../metadata/CdsEntityMetadataProvider";
+import { KitMetadataSource } from "../metadata/KitMetadataSource";
+import { createGetEntityMetadata } from "../metadata/createGetEntityMetadata";
 import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
@@ -98,23 +101,48 @@ export class WebResourceContext implements IViewModelContext {
       "modern webresource"
     );
 
-    // One same-origin cds-client backs both metadata and execute*/executeClassicWorkflow
-    // so custom actions never touch Xrm.WebApi.execute's request-object API.
+    // The same-origin cds-client backs execute*/executeClassicWorkflow (so
+    // custom actions never touch Xrm.WebApi.execute's request-object API) and
+    // the OData metadata reads the native store cannot serve.
     const client = new CdsClient({ clientUrl: this.clientUrl });
     this.cdsClient = client;
     this.webAPI = new ModernWebApi(xrm.WebApi, client);
-    this.metadata = new MetadataService(client);
+    // The kit metadata helpers: views and currency are data reads and ride
+    // the native Xrm.WebApi (offline-capable) through this.webAPI; activity
+    // types and icons are EntityDefinitions queries and stay on cds-client.
+    // Entity/attribute metadata mirrors the standard API below.
+    const metadataProvider = new CdsEntityMetadataProvider(client);
+    this.metadata = new MetadataService(
+      new KitMetadataSource({ dataReads: this.webAPI, client }),
+      [metadataProvider]
+    );
     this.navigation = new ModernNavigation(
       xrm.Navigation,
       (xrm as unknown as { Utility?: IXrmUtilityLookup }).Utility
     );
     // Platform mirror: client/device/utility extras off the
     // global context. Smart tier only.
-    this.utils = utilsFromXrm(
-      (message: string) => void this.navigation.openAlertDialog(message),
-      xrm.Utility as unknown as IXrmUtilityExtras,
-      "modern webresource"
-    );
+    this.utils = {
+      ...utilsFromXrm(
+        (message: string) => void this.navigation.openAlertDialog(message),
+        xrm.Utility as unknown as IXrmUtilityExtras,
+        "modern webresource"
+      ),
+      // Standard-mirrored metadata: Xrm.Utility.getEntityMetadata passes
+      // through untouched (platform-cached, offline-capable); the OData
+      // synthesis is the fallback, and the whole path when a host (a test
+      // harness) lacks the native surface.
+      getEntityMetadata: createGetEntityMetadata({
+        native:
+          typeof xrm.Utility.getEntityMetadata === "function"
+            ? // Async wrapper: the Xrm typings' PromiseLike is not structurally
+              // assignable to the standard one; await normalizes the thenable.
+              async (entityName, attributes) =>
+                xrm.Utility.getEntityMetadata(entityName, attributes)
+            : undefined,
+        provider: metadataProvider,
+      }),
+    };
     this.client = clientFromSource(
       (globalContext as unknown as { client?: IXrmClientLike }).client
     );

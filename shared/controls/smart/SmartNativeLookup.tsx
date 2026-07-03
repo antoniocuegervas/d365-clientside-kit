@@ -6,6 +6,7 @@ import type {
   ILookupOptions,
   IViewDefinition,
 } from "../../context/IViewModelContext";
+import { attributeDisplayName, attributeTargets } from "../../metadata/attributeMetadataReads";
 import { Observable } from "../../reactivity/Observable";
 import { normalizeGuid, type IEntityReference } from "../../utils/EntityModel";
 import { LibraryUtils } from "../../utils/LibraryUtils";
@@ -80,24 +81,11 @@ export class SmartNativeLookup extends SmartFieldBase<
   private readonly targetContexts = new Map<string, Promise<ITargetContext>>();
   private debounceHandle: ReturnType<typeof setTimeout> | undefined;
   private searchSequence = 0;
-  private initialized = false;
 
   protected override onUnmount(): void {
     if (this.debounceHandle !== undefined) {
       clearTimeout(this.debounceHandle);
     }
-  }
-
-  /**
-   * Reset the per-target state when the binding changes on a reused instance
-   * (a form branch or wizard step swaps entity, attribute, or targetEntity). The
-   * base class reloads metadata; the initialized flag, active target, switcher
-   * list, and result caches are this subclass's own, so it clears them here,
-   * otherwise the flyout would keep searching the previous target.
-   */
-  override componentDidMount(): void {
-    super.componentDidMount();
-    this.syncTargetState();
   }
 
   override componentDidUpdate(prevProps: ISmartNativeLookupProps): void {
@@ -108,20 +96,55 @@ export class SmartNativeLookup extends SmartFieldBase<
     if (attributeChanged || targetChanged) {
       this.resetTargetState();
     }
-    // Target and icon state syncs AFTER every commit, never during render:
-    // initTargets and ensureSelectedIcon write observables, and a state write
-    // from render is one Fluent update away from an update-depth loop. The
-    // reset above cleared currentMetadata, so a stale binding cannot re-init
-    // until renderField has run with the new metadata.
-    this.syncTargetState();
+    // The selected value's icon syncs AFTER every commit, never during render:
+    // ensureSelectedIcon writes an observable, and a state write from render
+    // is one Fluent update away from an update-depth loop. Gated on the
+    // metadata having rendered: the FIRST resolution rides loadExtras, this
+    // covers the value changing later (a pick of another target's record).
+    if (this.currentMetadata) {
+      this.ensureSelectedIcon();
+    }
   }
 
-  /** (Re)initializes the target set and the selected value's icon, post-commit. */
-  private syncTargetState(): void {
-    if (this.currentMetadata) {
-      this.initTargets(this.currentMetadata);
-    }
-    this.ensureSelectedIcon();
+  /**
+   * Everything the resting control's first paint needs beyond the attribute
+   * metadata, resolved BEFORE the single commit (see
+   * SmartFieldBase.loadExtras): the initial target, the switcher labels for
+   * a polymorphic lookup, and the selected value's entity icon. Each write
+   * lands in the apply step, so form load paints once with all of it instead
+   * of once per resolution.
+   */
+  protected override async loadExtras(
+    metadata: IAttributeMetadata
+  ): Promise<(() => void) | undefined> {
+    const targets = attributeTargets(metadata);
+    const switcher =
+      targets.length > 1
+        ? await Promise.all(
+            targets.map(async (entity) => ({
+              entity,
+              label: await this.vmContext.utils
+                .getEntityMetadata(entity, [])
+                .then((m) => m.DisplayName || entity)
+                .catch(() => entity),
+            }))
+          )
+        : undefined;
+    const valueEntity =
+      this.props.showIcons === false ? undefined : this.props.value.value?.logicalName;
+    const icon = valueEntity
+      ? await this.vmContext.metadata.getEntityIconUrl(valueEntity).catch(() => undefined)
+      : undefined;
+    return () => {
+      this.activeTarget.value = this.props.targetEntity ?? targets[0];
+      if (switcher) {
+        this.switcherTargets.value = switcher;
+      }
+      if (valueEntity) {
+        this.selectedIconEntity = valueEntity;
+        this.selectedIcon.value = icon;
+      }
+    };
   }
 
   /** Clears every per-target field so the next binding starts clean. */
@@ -130,10 +153,10 @@ export class SmartNativeLookup extends SmartFieldBase<
     // binding, and without the bump its late response would pass the
     // stale-response guard and fill the flyout with cross-target rows.
     this.searchSequence++;
-    // Cleared so syncTargetState cannot re-init from the previous binding's
-    // metadata; renderField repopulates it when the new metadata renders.
+    // Cleared so the icon sync cannot run against the previous binding's
+    // metadata; renderField repopulates it when the new metadata renders,
+    // and the new binding's loadExtras re-initializes the target state.
     this.currentMetadata = undefined;
-    this.initialized = false;
     this.activeTarget.value = undefined;
     this.switcherTargets.value = undefined;
     this.results.value = [];
@@ -144,33 +167,6 @@ export class SmartNativeLookup extends SmartFieldBase<
     if (this.debounceHandle !== undefined) {
       clearTimeout(this.debounceHandle);
       this.debounceHandle = undefined;
-    }
-  }
-
-  /** Picks the initial target and, for a polymorphic lookup, resolves the switcher labels. */
-  private initTargets(metadata: IAttributeMetadata): void {
-    if (this.initialized) {
-      return;
-    }
-    this.initialized = true;
-    const targets = metadata.targets ?? [];
-    const initial = this.props.targetEntity ?? targets[0];
-    this.activeTarget.value = initial;
-    if (targets.length > 1) {
-      // Resolve each target's display name for the switcher, then publish the list.
-      void Promise.all(
-        targets.map(async (entity) => ({
-          entity,
-          label: await this.vmContext.metadata
-            .getEntityMetadata(entity)
-            .then((m) => m.displayName)
-            .catch(() => entity),
-        }))
-      ).then((resolved) => {
-        if (!this.isDisposed) {
-          this.switcherTargets.value = resolved;
-        }
-      });
     }
   }
 
@@ -192,7 +188,7 @@ export class SmartNativeLookup extends SmartFieldBase<
     if (!pending) {
       pending = (async () => {
         const [entityMetadata, view, iconUrl] = await Promise.all([
-          this.vmContext.metadata.getEntityMetadata(target),
+          this.vmContext.utils.getEntityMetadata(target, []),
           this.resolveView(target),
           this.props.showIcons === false
             ? Promise.resolve(undefined)
@@ -237,9 +233,9 @@ export class SmartNativeLookup extends SmartFieldBase<
     try {
       const context = await this.resolveTargetContext(target);
       if (!this.isDisposed && sequence === this.searchSequence) {
-        this.tableLabel.value = context.entityMetadata.displayName;
+        this.tableLabel.value = context.entityMetadata.DisplayName || target;
       }
-      const nameAttribute = context.entityMetadata.primaryNameAttribute;
+      const nameAttribute = context.entityMetadata.PrimaryNameAttribute ?? "name";
       // Begins-with, matching the native lookup's default match behavior.
       const clauses = [
         searchText
@@ -288,8 +284,8 @@ export class SmartNativeLookup extends SmartFieldBase<
     target: string,
     context: ITargetContext
   ): INativeLookupResult {
-    const idAttribute = context.entityMetadata.primaryIdAttribute;
-    const nameAttribute = context.entityMetadata.primaryNameAttribute;
+    const idAttribute = context.entityMetadata.PrimaryIdAttribute ?? `${target}id`;
+    const nameAttribute = context.entityMetadata.PrimaryNameAttribute ?? "name";
     const columns = context.view.columns
       .filter((column) => column.name !== nameAttribute)
       .map((column) => ({ value: cellValue(record, column.name) }))
@@ -399,7 +395,8 @@ export class SmartNativeLookup extends SmartFieldBase<
 
   protected renderField(metadata: IAttributeMetadata): React.ReactNode {
     // Render only records the metadata; the observable writes that depend on
-    // it (initTargets, ensureSelectedIcon) run post-commit in syncTargetState.
+    // it ride loadExtras (first paint) and the post-commit icon sync in
+    // componentDidUpdate (value changes), never render itself.
     this.currentMetadata = metadata;
     return (
       <NativeLookupField
@@ -413,7 +410,9 @@ export class SmartNativeLookup extends SmartFieldBase<
         // The placeholder uses the metadata display name even when the label is
         // suppressed (label="", e.g. a PCF inside a form field that already shows
         // the label), so it stays meaningful rather than "Look for ".
-        placeholder={kitStrings().lookFor(this.props.label || metadata.displayName)}
+        placeholder={kitStrings().lookFor(
+          this.props.label || attributeDisplayName(metadata) || this.props.attribute
+        )}
         selected={this.props.value}
         results={this.results}
         searching={this.searching}

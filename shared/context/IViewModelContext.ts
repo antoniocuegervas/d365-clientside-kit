@@ -1,6 +1,6 @@
 import type { IRetrieveMultipleResult } from "../data/CdsClient";
 import type { IFormContext } from "./formContextSurface";
-import type { IEntityReference, IOptionItem, IXrmLookupValue } from "../utils/EntityModel";
+import type { IEntityReference, IXrmLookupValue } from "../utils/EntityModel";
 
 /**
  * IViewModelContext, everything shared React code may need from its host.
@@ -15,9 +15,12 @@ import type { IEntityReference, IOptionItem, IXrmLookupValue } from "../utils/En
  * like the Xrm docs while the fake context stays cast-free and compiler-
  * checked. Reads lean Xrm-faithful (annotated entities + `{ entities,
  * nextLink }`); callers extract values with the LibraryUtils helpers they
- * already know. The normalized MetadataService and execute-over-
- * cds-client are kept regardless of host. V8 fidelity is a per-method
- * dial, the cheap, familiar methods are mirrored cheaply.
+ * already know. Entity and attribute metadata mirrors the standard API too:
+ * `utils.getEntityMetadata` resolves the platform EntityMetadata shape on
+ * every host, and `metadata` holds only the session-cached kit helpers with
+ * no standard equivalent (views, currency, icons, activity types).
+ * execute-over-cds-client is kept regardless of host. V8 fidelity is a
+ * per-method dial, the cheap, familiar methods are mirrored cheaply.
  */
 export interface IViewModelContext {
   /** Org root URL, e.g. "https://org.crm.dynamics.com". */
@@ -802,6 +805,17 @@ export interface IContextUtils {
   /** Fire-and-forget alert, same as openAlertDialog without awaiting. */
   alert(message: string): void;
   /**
+   * The standard metadata read, mirrored 1:1 from where the platform puts it
+   * (`Xrm.Utility.getEntityMetadata` on the modern host, the PCF
+   * `context.utils.getEntityMetadata`): resolves the entity's metadata, with
+   * `attributes` limiting which attribute metadata rides along. On modern and
+   * PCF the native object passes through untouched (client-cached by the
+   * platform, offline-capable); on pre-v9 hosts, and as runtime fallback, the
+   * same shape is synthesized from the OData endpoints. Read per-attribute
+   * facets through the shared/metadata/attributeMetadataReads helpers.
+   */
+  getEntityMetadata(entityName: string, attributes?: string[]): Promise<IEntityMetadata>;
+  /**
    * Localized UI string from a RESX webresource, mirroring
    * `Xrm.Utility.getResourceString`, the platform's string-localization
    * mechanism. Returns undefined on hosts without resx access.
@@ -874,43 +888,77 @@ export type AttributeKind =
   | "boolean"
   | "other";
 
-export interface IAttributeMetadata {
-  logicalName: string;
-  displayName: string;
-  /** Attribute description label, when authored, tooltips surface this. */
-  description?: string;
-  kind: AttributeKind;
-  /** True for ApplicationRequired/SystemRequired. */
-  required: boolean;
-  /**
-   * True when the column has field-level (column) security enabled. The kit
-   * renders a secured column read-only by default; it cannot resolve this user's
-   * effective column access off a form (see docs/gotchas.md). A host that knows
-   * the user may edit it can override with `readOnly={false}`.
-   */
-  isSecured?: boolean;
-  /** Option list for optionset / multioptionset / boolean kinds. */
-  options?: IOptionItem[];
-  /** Lookup target entity logical names. */
-  targets?: string[];
-  maxLength?: number;
-  precision?: number;
-  /**
-   * Money PrecisionSource: 0 = use the attribute `precision`, 1 = use the record
-   * currency's precision, 2 = use the org pricing precision. Only set for money
-   * attributes; undefined elsewhere.
-   */
-  precisionSource?: number;
-  minValue?: number;
-  maxValue?: number;
+/**
+ * The standard client-API entity metadata, the shape
+ * `Xrm.Utility.getEntityMetadata` and the PCF `context.utils.getEntityMetadata`
+ * resolve. On modern and PCF hosts the platform's object passes through the
+ * kit untouched; on pre-v9 hosts (and as runtime fallback) the same shape is
+ * synthesized from the OData endpoints. The members typed here are the
+ * documented/verified surface the kit relies on; hosts return richer objects,
+ * hence the open index signature.
+ */
+export interface IEntityMetadata {
+  [member: string]: unknown;
+  LogicalName?: string;
+  DisplayName?: string;
+  EntitySetName?: string;
+  PrimaryIdAttribute?: string;
+  PrimaryNameAttribute?: string;
+  ObjectTypeCode?: number;
+  Attributes?: IAttributeMetadataCollection;
 }
 
-export interface IEntityMetadata {
-  logicalName: string;
-  displayName: string;
-  entitySetName: string;
-  primaryIdAttribute: string;
-  primaryNameAttribute: string;
+/** The standard ItemCollection idiom the metadata store uses for attributes. */
+export interface IAttributeMetadataCollection {
+  get(name: string): IAttributeMetadata | null | undefined;
+  getAll(): IAttributeMetadata[];
+  forEach?(callback: (item: IAttributeMetadata, index: number) => void): void;
+  getLength?(): number;
+}
+
+/**
+ * One attribute from the standard entity metadata. The store wraps the rich
+ * PascalCase payload in `attributeDescriptor` (undocumented but stable in
+ * practice: the platform's own controls rely on it). Read facets through the
+ * helpers in shared/metadata/attributeMetadataReads rather than navigating
+ * this shape by hand; those helpers are the one sanctioned reader of the
+ * under-documented members.
+ */
+export interface IAttributeMetadata {
+  [member: string]: unknown;
+  LogicalName?: string;
+  attributeDescriptor?: IAttributeDescriptor;
+}
+
+/**
+ * The PascalCase attribute payload. Members are typed unknown on purpose: the
+ * exact encodings are not contractual (a label arrives as a plain string or
+ * an OData label object, an enum as a number, a string, or `{ Value }`-wrapped),
+ * so the attributeMetadataReads helpers own the decoding. The members listed
+ * are the ones verified present on a live v9 org.
+ */
+export interface IAttributeDescriptor {
+  [member: string]: unknown;
+  LogicalName?: string;
+  DisplayName?: unknown;
+  Description?: unknown;
+  Type?: unknown;
+  AttributeType?: unknown;
+  AttributeTypeName?: unknown;
+  RequiredLevel?: unknown;
+  IsSecured?: unknown;
+  CanBeSecuredForCreate?: unknown;
+  CanBeSecuredForRead?: unknown;
+  CanBeSecuredForUpdate?: unknown;
+  MaxLength?: unknown;
+  Precision?: unknown;
+  PrecisionSource?: unknown;
+  MinValue?: unknown;
+  MaxValue?: unknown;
+  Format?: unknown;
+  Behavior?: unknown;
+  Targets?: unknown;
+  OptionSet?: unknown;
 }
 
 /** One activity-enabled entity type, for a "create new activity" picker. */
@@ -957,12 +1005,13 @@ export interface IViewDefinition {
   columns: IViewColumn[];
 }
 
+/**
+ * Kit metadata helpers with NO standard-API equivalent: saved-view resolution,
+ * activity-type listing, currency info, entity icons. Entity and attribute
+ * metadata itself is NOT here, it lives where the standard puts it:
+ * `context.utils.getEntityMetadata`, mirroring Xrm.Utility and the PCF utils.
+ */
 export interface IMetadataApi {
-  getEntityMetadata(entityLogicalName: string): Promise<IEntityMetadata>;
-  getAttributeMetadata(
-    entityLogicalName: string,
-    attributeLogicalName: string
-  ): Promise<IAttributeMetadata>;
   /** Loads a saved view by id, or the entity's default grid view when omitted. */
   getView(entityLogicalName: string, savedQueryId?: string): Promise<IViewDefinition>;
   /**
@@ -995,17 +1044,25 @@ export interface IMetadataApi {
    */
   getCurrencySymbol(transactionCurrencyId: string): Promise<ICurrencyInfo>;
   /**
+   * The org's pricing decimal precision (organization.pricingdecimalprecision),
+   * cached for the session. A money attribute whose PrecisionSource is 2 rounds
+   * to THIS precision, not its own; the smart money control reads it for that
+   * case. Undefined when the read yields nothing.
+   */
+  getPricingDecimalPrecision(): Promise<number | undefined>;
+  /**
    * Resolves an entity's icon URL: custom entities → their vector
    * webresource; OOTB entities → the platform `svg_<objecttypecode>.svg`.
    * Returns undefined when no icon can be resolved. Cached per entity.
    */
   getEntityIconUrl(entityLogicalName: string): Promise<string | undefined>;
   /**
-   * Drops every cached metadata read (entities, attributes, views, currencies,
-   * icons), so the next read reloads from the server. Metadata is otherwise
-   * cached for the session; call this after a known solution promotion so an
-   * open session picks up changed option sets, labels, or view layouts without
-   * a full reload.
+   * Drops every kit-side cached metadata read (views, currencies, icons,
+   * activity types, and the OData-synthesized entity metadata on hosts that
+   * use it), so the next read reloads from the server. Call this after a known
+   * solution promotion so an open session picks up changed option sets,
+   * labels, or view layouts without a full reload. The native metadata store
+   * on modern and PCF hosts is platform-owned and not affected.
    */
   clearCache(): void;
 }

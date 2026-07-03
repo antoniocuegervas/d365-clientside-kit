@@ -190,12 +190,15 @@ export function deviceFromSource(
  * Builds the kit `utils` surface (alert + Xrm.Utility extras) from a structural
  * `Xrm.Utility`. Members the host lacks degrade: string getters return
  * undefined, void methods do nothing, and `getAllowedStatusTransitions` rejects.
+ * `getEntityMetadata` is deliberately absent: each adapter composes it on top
+ * (createGetEntityMetadata) because it needs the host's native read plus the
+ * OData fallback, which this builder has no access to.
  */
 export function utilsFromXrm(
   alert: (message: string) => void,
   utility: IXrmUtilityExtras | undefined,
   hostLabel: string
-): IContextUtils {
+): Omit<IContextUtils, "getEntityMetadata"> {
   return {
     alert,
     getResourceString: (webResourceName, key) =>

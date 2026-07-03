@@ -80,6 +80,15 @@ export interface IModernXrmMockOptions extends ICommonMockOptions {
   userRoles?: Array<{ id: string; name?: string; entityType: string }>;
   /** Properties returned by getCurrentAppProperties / getCurrentAppName / getCurrentAppUrl. */
   appProperties?: { appId?: string; uniqueName?: string; url?: string; displayName?: string };
+  /**
+   * Scripted native metadata store, keyed by entity logical name:
+   * `Utility.getEntityMetadata` resolves the scripted object (build one with
+   * {@link makeEntityMetadataMock}) and rejects for anything unscripted.
+   * When this option is absent the mock exposes NO getEntityMetadata, so a
+   * context built over it falls back to the OData synthesis, exactly like a
+   * host without the native store.
+   */
+  entityMetadata?: Record<string, unknown>;
 }
 
 export interface IMockWebApi {
@@ -116,6 +125,42 @@ function makePageMock(formRecord: IMockFormRecord | undefined, calls: IXrmMockCa
               : null,
         },
       },
+    },
+  };
+}
+
+/**
+ * Builds a standard-shaped entity metadata object (what `getEntityMetadata`
+ * resolves): entity-level fields as plain PascalCase strings and an
+ * ItemCollection-like `Attributes` whose entries carry the PascalCase payload
+ * under `attributeDescriptor`, the store shape verified on a live v9 org.
+ * Each `attributes` item is one attributeDescriptor, carrying its LogicalName.
+ * Shared by the Xrm mock and the fake ViewModel context, so every test
+ * scripts the same shape a real host serves.
+ */
+export function makeEntityMetadataMock(spec: {
+  logicalName: string;
+  displayName?: string;
+  entitySetName?: string;
+  primaryIdAttribute?: string;
+  primaryNameAttribute?: string;
+  attributes?: Array<Record<string, unknown>>;
+}) {
+  const entries = (spec.attributes ?? []).map((descriptor) => ({
+    attributeDescriptor: descriptor,
+  }));
+  return {
+    LogicalName: spec.logicalName,
+    DisplayName: spec.displayName ?? spec.logicalName,
+    EntitySetName: spec.entitySetName ?? `${spec.logicalName}s`,
+    PrimaryIdAttribute: spec.primaryIdAttribute ?? `${spec.logicalName}id`,
+    PrimaryNameAttribute: spec.primaryNameAttribute ?? "name",
+    Attributes: {
+      get: (name: string) =>
+        entries.find((entry) => entry.attributeDescriptor.LogicalName === name) ?? null,
+      getAll: () => entries,
+      forEach: (callback: (item: unknown, index: number) => void) => entries.forEach(callback),
+      getLength: () => entries.length,
     },
   };
 }
@@ -204,6 +249,19 @@ export function createModernXrmMock(options: IModernXrmMockOptions = {}) {
       },
     },
     Utility: {
+      ...(options.entityMetadata
+        ? {
+            getEntityMetadata: async (entityName: string, attributes?: string[]) => {
+              record("Utility.getEntityMetadata", entityName, attributes);
+              const scripted = options.entityMetadata![entityName];
+              if (!scripted) {
+                // The platform rejects an unknown entity; the mock mirrors that.
+                throw new Error(`No native metadata scripted for entity '${entityName}'`);
+              }
+              return scripted;
+            },
+          }
+        : {}),
       getGlobalContext: () => ({
         getClientUrl: () => clientUrl,
         getVersion: () => options.version ?? "9.2.24.100",

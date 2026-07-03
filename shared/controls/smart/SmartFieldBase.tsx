@@ -2,6 +2,13 @@ import * as React from "react";
 import { kitStrings } from "../../localization/kitStrings";
 import { SmartComponent } from "../../context/ViewModelContextProvider";
 import type { IAttributeMetadata, IFormattingInfo } from "../../context/IViewModelContext";
+import {
+  attributeCanBeSecuredForUpdate,
+  attributeDisplayName,
+  attributeIsSecured,
+  attributeRequired,
+  findAttributeMetadata,
+} from "../../metadata/attributeMetadataReads";
 import { isObservable, type Observable, type OrObservable } from "../../reactivity/Observable";
 import { WaitingMessage } from "../presentational/WaitingMessage";
 import { FieldShell } from "../presentational/FieldShell";
@@ -33,10 +40,12 @@ export interface ISmartFieldProps<TValue> {
   readOnly?: boolean;
   errorMessage?: OrObservable<string | undefined>;
   /**
-   * Description shown as a hover tooltip on the label (native UCI behavior).
-   * Defaults to the attribute's metadata Description; pass to override, or "" to
-   * suppress. A free-form `placeholder` is deliberately not offered: what a smart
-   * field shows comes from metadata.
+   * Always-visible helper text under the label (Fluent Field hint). OPT-IN:
+   * renders only when passed; there is no metadata default (the attribute's
+   * Dataverse Description deliberately does not leak in, see the tooltip
+   * direction in the roadmap). A free-form `placeholder` is still not
+   * offered: what a smart field shows comes from metadata or an explicit
+   * authoring decision like this one.
    */
   hint?: string;
   /** Label placement: "top" (default) or "start" (beside the field, RTL-aware). */
@@ -109,9 +118,6 @@ export abstract class SmartFieldBase<
 
   override componentDidMount(): void {
     void this.loadMetadata();
-    if (this.usesFormatting()) {
-      void this.loadFormatting();
-    }
   }
 
   /**
@@ -126,9 +132,6 @@ export abstract class SmartFieldBase<
     if (prevProps.entity !== this.props.entity || prevProps.attribute !== this.props.attribute) {
       this.setState({ metadata: undefined, loadError: undefined });
       void this.loadMetadata();
-      if (this.usesFormatting()) {
-        void this.loadFormatting();
-      }
     }
     if (prevProps.value !== this.props.value || prevProps.errorMessage !== this.props.errorMessage) {
       this.reobserve(this.props.value, this.props.errorMessage);
@@ -144,26 +147,52 @@ export abstract class SmartFieldBase<
     return false;
   }
 
-  private async loadFormatting(): Promise<void> {
-    try {
-      const formatting = await this.vmContext.getFormatting();
-      if (!this.isDisposed) {
-        this.setState({ formatting });
-      }
-    } catch {
-      // Non-fatal, controls fall back to default formatting.
-    }
+  /**
+   * Subclass hook: resolve everything ELSE the first render needs (the
+   * record currency, the org pricing precision, switcher labels, icons) and
+   * return a synchronous apply step. The base awaits it after the metadata
+   * arrives and runs the apply right before the single state commit, so a
+   * control's form-load render count stays in the platform's own band (one
+   * loading paint, one content paint) instead of one repaint per resolved
+   * piece. Failures must be handled inside: an extra is presentation sugar
+   * and must never take the field down. The base's stale-load guard covers
+   * the whole ride, so a rebind discards the previous binding's extras
+   * together with its metadata.
+   */
+  protected async loadExtras(_metadata: IAttributeMetadata): Promise<(() => void) | undefined> {
+    return undefined;
   }
 
   private async loadMetadata(): Promise<void> {
     const { entity, attribute } = this.props;
     const sequence = ++this.metadataSequence;
     try {
-      const metadata = await this.vmContext.metadata.getAttributeMetadata(entity, attribute);
+      // Resolve EVERYTHING the first paint needs, then commit once. The
+      // standard idiom for the metadata itself: ask the host for the entity's
+      // metadata scoped to this one attribute, then pick the attribute off
+      // the collection. Formatting resolves in parallel (it does not depend
+      // on the metadata and is non-fatal); subclass extras resolve after,
+      // because they read the metadata.
+      const [entityMetadata, formatting] = await Promise.all([
+        this.vmContext.utils.getEntityMetadata(entity, [attribute]),
+        this.usesFormatting()
+          ? this.vmContext.getFormatting().catch(() => undefined)
+          : Promise.resolve(undefined),
+      ]);
+      const metadata = findAttributeMetadata(entityMetadata, attribute);
+      if (!metadata) {
+        throw new Error(`Entity metadata for '${entity}' carries no attribute '${attribute}'`);
+      }
+      const applyExtras = await this.loadExtras(metadata);
       // Stale-response guard: only the latest load may write, so a slow earlier
       // load (a previous attribute) cannot overwrite a newer rebind.
       if (!this.isDisposed && sequence === this.metadataSequence) {
-        this.setState({ metadata });
+        // The apply step and the state commit share one synchronous block:
+        // observable writes land before the presentational child mounts (it
+        // subscribes in its constructor), so the child's first render already
+        // sees them and nothing repaints twice.
+        applyExtras?.();
+        this.setState({ metadata, formatting });
       }
     } catch (error) {
       if (!this.isDisposed && sequence === this.metadataSequence) {
@@ -178,31 +207,43 @@ export abstract class SmartFieldBase<
 
   /** Effective label: prop override, else metadata display name. */
   protected resolveLabel(metadata: IAttributeMetadata): string {
-    return this.props.label ?? metadata.displayName;
+    return this.props.label ?? attributeDisplayName(metadata) ?? this.props.attribute;
   }
 
   /** Effective required flag: prop override, else metadata requirement. */
   protected resolveRequired(metadata: IAttributeMetadata): boolean {
-    return this.props.required ?? metadata.required;
+    return this.props.required ?? attributeRequired(metadata);
   }
 
   /**
-   * Effective hint: prop override, else the attribute's metadata Description.
-   * Pass `hint=""` to suppress (the nullish check keeps an explicit empty string).
+   * Effective hint: the prop, or nothing. Always-visible helper text is
+   * OPT-IN: the earlier default (falling back to the attribute's Dataverse
+   * Description) made every described field grow permanent text under its
+   * label whether the author wanted it or not, which is not what a
+   * description usually means (the common affordance is an on-demand
+   * tooltip). The Description stays readable via attributeDescription for
+   * surfaces that opt in, the way the tooltip control does.
    */
-  protected resolveHint(metadata: IAttributeMetadata): string | undefined {
-    return this.props.hint ?? metadata.description;
+  protected resolveHint(_metadata: IAttributeMetadata): string | undefined {
+    return this.props.hint;
   }
 
   /**
    * Effective read-only: an explicit `readOnly` prop wins; otherwise a
-   * column-secured field defaults to read-only. The kit cannot resolve this
-   * user's effective column access off a form, so it fails safe rather than
-   * render an editable control whose save the platform would reject. A host that
-   * knows the user can edit the secured column passes `readOnly={false}`.
+   * column-secured field defaults to read-only, but only when the column's
+   * UPDATE can actually be restricted (CanBeSecuredForUpdate). A column
+   * secured for read only can never have its update denied by a profile, so
+   * locking it would be pure friction. The kit cannot resolve this user's
+   * effective column access off a form, so within that boundary it fails
+   * safe rather than render an editable control whose save the platform
+   * would reject. A host that knows the user can edit the secured column
+   * passes `readOnly={false}`.
    */
   protected resolveReadOnly(metadata: IAttributeMetadata): boolean {
-    return this.props.readOnly ?? metadata.isSecured ?? false;
+    return (
+      this.props.readOnly ??
+      (attributeIsSecured(metadata) && attributeCanBeSecuredForUpdate(metadata) !== false)
+    );
   }
 
   /** Standard change plumbing: write host-owned observable, raise event. */

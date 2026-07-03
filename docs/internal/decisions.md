@@ -43,6 +43,17 @@ This keeps the root flat config simple and avoids fighting generated configs.
 
 ## D-007, One OData-based MetadataService for all three hosts
 
+**REVERSED by D-057 (2026-07-03), do not build on this entry.** The owner
+recorded this decision as a mistake made by the agent on wrong information it
+produced about the native API's completeness, and the "one normalized shape"
+argument below inverted a core kit goal: APIs stay close to the standard so
+people trained on the standard client API can use the kit without learning a
+bespoke model. The metadata surface now mirrors the standard
+`getEntityMetadata` (native pass-through on modern and PCF, the same shape
+synthesized from OData on pre-v9), and `IAttributeMetadata` is retired. The
+spec's per-host allowance, which this entry deviated from, was the right
+call. Kept below as the historical record.
+
 The spec allows per-host metadata access (Xrm.Utility.getEntityMetadata,
 PCF context.utils.getEntityMetadata, raw OData on legacy). We instead read
 metadata uniformly through the same-origin OData metadata endpoints via
@@ -773,6 +784,13 @@ can't express; until then, the shared seeded contexts cover it.
 
 ## D-042, smart fields take a metadata-sourced hint, amending the earlier no-hint decline
 
+**REVISED by D-057 (2026-07-03): the Description default did not stand.** The
+`hint` prop survives but is opt-in, rendering only when passed; the attribute
+Description no longer leaks in as always-on helper text (it stays readable via
+`attributeDescription` for on-demand surfaces, the tooltip direction). The
+reversal entry records the reasoning: this entry conflated where the text
+comes from with when it should show. Kept below as the historical record.
+
 Smart field controls now expose a `hint` that defaults to the attribute's
 Dataverse Description and can be overridden by a prop (or suppressed with `""`).
 This amends the earlier decision to offer neither `placeholder` nor `hint` on the
@@ -801,6 +819,10 @@ Field chrome, which would forfeit its accessibility and spacing. A host that tru
 needs an end-placed label composes that layout itself.
 
 ## D-044, date picker first day of week is overridable, default matched to native
+
+*(Deferral note, 2026-07-04: the metadata rework this entry defers to shipped
+as D-057 WITHOUT the format-localeid derive; the `firstDayOfWeek` override
+remains the supported path and the automatic derive stays open.)*
 
 The calendar's first day of week defaults to what the host reports, which
 Dataverse derives from the user's Language (en-US is the only English that ships),
@@ -1414,10 +1436,13 @@ Deliberate non-fixes, each with its reason:
 - **The change-set parser keeps its live-org regression protocol** (D-045)
   instead of a CI-gated integration test: a public portfolio repo does not
   get a dev-org secret in CI. The protocol is recorded where the code is.
-- **Metadata fan-out is deferred INTO the native-first metadata rework** (see
-  the roadmap direction, which now records the deferred scope). Its two cheap
-  sub-findings (XHR timeout, 429 Retry-After) were pulled forward and
-  shipped.
+- **Metadata fan-out is deferred INTO the native-first metadata rework.** Its
+  two cheap sub-findings (XHR timeout, 429 Retry-After) were pulled forward
+  and shipped. *(Resolved 2026-07: the rework shipped as D-057; the roadmap's
+  Shipped entry records where the fan-out landed. The native store is
+  client-cached with one call per attribute, the grid batches a whole
+  entity's columns into one call, and the two-requests-per-attribute shape
+  survives only on the pre-v9/fallback OData synthesis, by choice.)*
 
 Reviewer claims checked and found wrong, recorded so the next round does not
 re-raise them:
@@ -1505,3 +1530,109 @@ and its reasoning are auditable and none is re-litigated from the same finding.
   binding, so a rebind remounts a fresh child. Presentational controls keep
   the identity-stable-props contract (observe once, in the constructor)
   instead of growing per-control reobserve plumbing.
+
+## D-057, metadata goes native-first and standard-shaped; the hint default reverses
+
+The native-first metadata rework shipped (feature/native-first-metadata,
+2026-07-03), and mid-build the owner corrected its direction in a way that
+reverses D-007 outright, so both the what and the why are recorded here.
+
+**D-007 is reversed, and not only on transport.** The original decision built a
+custom metadata provider over raw EntityDefinitions OData and normalized
+everything into a kit-private shape (`IAttributeMetadata`). Two things were
+wrong with it. The transport half was already recorded by the roadmap: the
+native `getEntityMetadata` store returns a strict superset of what the OData
+path hand-fetched, offline-capable and client-cached, so raw OData bought
+nothing and cost offline (the original choice was made by the agent on wrong
+information it produced about the native API's completeness). The rework's
+first cut fixed only that half, adapting the native shape INTO the kit's
+custom contract; the owner stopped it: a core goal of the kit is to keep its
+APIs as close to the standard client API as possible, because a bespoke data
+model is a barrier of entry for people trained on the standard, and the kit's
+other surfaces (IWebApi, INavigation, utils) already mirror the native
+signatures. The metadata contract was the odd one out, so the CONTRACT moved,
+not just the transport.
+
+**The shipped shape.** `context.utils.getEntityMetadata(entityName,
+attributes?)` resolves the platform's EntityMetadata shape, sitting exactly
+where both hosts put the native call (Xrm.Utility on the modern host, the PCF
+context.utils). On modern and PCF the native object passes through untouched,
+with a runtime fallback to OData (console-warned) should the native read
+fail. Pre-v9, and that fallback, synthesize the SAME standard shape from the
+OData endpoints (`CdsEntityMetadataProvider`: entity strings and an
+ItemCollection of `attributeDescriptor` items, labels resolved to strings the
+way the store serves them, OData encodings kept where the store's encoding is
+unverified). `getAttributeMetadata` and the bespoke `IAttributeMetadata`
+model retired with no sugar accessor: the kit-wide idiom is the standard one,
+`getEntityMetadata(entity, [attr])` then `Attributes.get(attr)`. The risk the
+roadmap wanted isolated (the descriptor shape is undocumented PascalCase and
+not contractual) still lives in exactly one file, but the direction inverted:
+`attributeMetadataReads` is the single sanctioned reader of the
+under-documented members, tolerant across every observed encoding (plain
+string or label object, numeric or string or Value-wrapped enums, array or
+keyed or Options-wrapped option lists), and the OData path adapts TOWARD the
+standard rather than everyone adapting away from it.
+
+**Views, currency, and the org read are data, not metadata.** savedquery,
+transactioncurrency, and organization.pricingdecimalprecision rows ride the
+adapter's own IWebApi (native Xrm.WebApi on modern, the PCF webAPI there, the
+cds emulation on pre-v9), which makes them offline-capable on the modern
+hosts for free. `KitMetadataSource` is the one IMetadataSource left, holding
+the kit value-add helpers with no standard equivalent; only the activity-type
+listing and entity icons stay on cds-client on every host, being
+EntityDefinitions queries only OData can express. `MetadataService` is now
+the session cache for those helpers, and `clearCache` chains the OData
+synthesis cache so the one documented escape hatch still clears everything
+kit-side (the native store is platform-owned).
+
+**Fold-ins.** EntitySetName teaches the LibraryUtils pluralizer cache on
+every native read and synthesis (the proposed async cds entity-set resolver
+stays unbuilt, superseded per the roadmap). PrecisionSource 2 money rounds by
+the real org pricing precision via `getPricingDecimalPrecision`. Column
+security: the synthesis carries `CanBeSecuredForCreate/Read/Update` beside
+`IsSecured` (the native store already has them), and the webresource
+read-only default is now scoped by capability: a secured column defaults to
+read-only only when its update can actually be restricted, so a
+read-only-securable column stops locking for everyone (gotchas.md updated).
+
+**The hint default reverses (revises D-042).** `hint` is opt-in: it renders
+only when the prop is passed, and the attribute's Dataverse Description no
+longer leaks in as always-on helper text. D-042's reasoning (metadata-driven,
+so it fits the smart tier) conflated where the text COMES FROM with when it
+should SHOW: an authored description is on-demand help, which belongs to a
+tooltip affordance, not permanent text under every described field. The
+Description stays mapped and readable (`attributeDescription`), which is what
+the roadmap's tooltip direction will opt into; this branch delivers that
+direction's first half only, the tooltip control itself stays open.
+
+**Render batching.** Each async resolution used to land in its own write and
+each write was a render (the perf monitor showed the lookup PCF at five
+form-load renders versus three native). SmartFieldBase now resolves the
+metadata, the formatting, and a subclass's `loadExtras` before ONE commit,
+with the extras applied synchronously just before it (the presentational
+child is not mounted yet, so its constructor-time subscriptions see final
+values). Contract tests pin the heaviest field and the polymorphic lookup at
+two Profiler commits: one loading paint, one content paint.
+
+**Deliberately not built, with reasons:**
+
+- The async cds entity-set resolver (superseded by native EntitySetName, per
+  the roadmap's own note).
+- Native-store sourcing for entity icons and the activity-type listing: both
+  need EntityDefinitions queries (IsActivity filter, IconVectorName), which
+  the per-entity native store does not answer, and the icon members were
+  never live-verified on the store. They stay online-only.
+- Folding the synthesis's two-requests-per-attribute into one $batch: the
+  OData path is now the pre-v9 primary and everyone else's cold fallback, so
+  the fan-out D-055 deferred here is dissolved on the hosts that mattered
+  (the native store is client-cached, one call per attribute, and
+  SmartViewGrid batches a whole entity's columns into one call); a $batch
+  fold would optimize only the niche path.
+- `IsValidForCreate/Read/Update`-based read-only detection: available on the
+  store, unconsumed; the FLS capability scoping was this round's posture
+  change, and stacking a second inferred-read-only source without a concrete
+  consumer invites false locks.
+- Custom metadata persistence (IndexedDB): the platform cache IS the
+  offline persistence on the hosts that go offline, per the roadmap.
+- Per-user column-access resolution in webresources: unchanged D-051-era
+  posture, the form runtime owns that; gotchas.md still says so.

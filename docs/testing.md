@@ -24,12 +24,17 @@ PCFs: `cd pcfs/<Control> && npm run build`.
 ## Test infrastructure (reuse, don't reinvent)
 
 - `tests/mocks/XrmMock.ts`, `createModernXrmMock` / `createV8XrmMock`,
-  recording mocks shared by unit and smoke tests.
-- `tests/mocks/FakeXhr.ts`, scriptable XMLHttpRequest server for cds-client
-  and MetadataService tests.
+  recording mocks shared by unit and smoke tests, plus
+  `makeEntityMetadataMock`, the builder for standard-shaped entity metadata
+  (PascalCase members, ItemCollection `Attributes`, `attributeDescriptor`
+  payloads), the shape every host serves.
+- `tests/mocks/FakeXhr.ts`, scriptable XMLHttpRequest server for cds-client,
+  MetadataService, and CdsEntityMetadataProvider tests.
 - `tests/mocks/fakeViewModelContext.ts`, in-memory `IViewModelContext` with
-  scriptable attribute metadata, views, and query results; use for smart
-  controls and ViewModels.
+  scriptable attribute metadata (script the PascalCase `attributeDescriptor`
+  payload per "entity.attribute" key, e.g. `Type: "picklist"`, `MaxLength`,
+  `OptionSet`), views, and query results; use for smart controls and
+  ViewModels.
 
 ## Conventions
 

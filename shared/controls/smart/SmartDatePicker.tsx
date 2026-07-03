@@ -1,6 +1,7 @@
 import * as React from "react";
 import type { DatePickerProps } from "@fluentui/react-datepicker-compat";
 import type { IAttributeMetadata } from "../../context/IViewModelContext";
+import { attributeKind } from "../../metadata/attributeMetadataReads";
 import { DateTimeField } from "../presentational/DateTimeField";
 import { SmartFieldBase, type ISmartFieldProps } from "./SmartFieldBase";
 import {
@@ -43,7 +44,7 @@ export class SmartDatePicker extends SmartFieldBase<Date | null, ISmartDatePicke
         errorMessage={this.props.errorMessage}
         value={this.props.value}
         onChange={this.commitChange}
-        includeTime={metadata.kind === "datetime"}
+        includeTime={attributeKind(metadata) === "datetime"}
         strings={dateFormatInfo ? buildDatePickerStrings(dateFormatInfo) : undefined}
         firstDayOfWeek={
           this.props.firstDayOfWeek ??

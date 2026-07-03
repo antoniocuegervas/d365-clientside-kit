@@ -251,10 +251,11 @@ The cds-client paths (the V8 write methods, `fetchPage`, bound `executeAction`,
 and `@odata.bind` via `LibraryUtils.odataBind`) need an entity SET name, not a
 logical name. `LibraryUtils.entitySetName` derives it by Dataverse pluralization,
 which is right for the vast majority of entities. For the rare custom entity whose
-set name breaks the convention, the guess would be wrong, so `MetadataService`
-teaches the pluralizer the real `EntitySetName` whenever it loads an entity's
-metadata: any later resolution for that entity returns the authoritative name.
-This is opportunistic, an entity whose metadata has never been loaded still uses
+set name breaks the convention, the guess would be wrong, so every
+`utils.getEntityMetadata` ride (native pass-through and OData synthesis alike)
+teaches the pluralizer the real `EntitySetName` off the resolved payload: any
+later resolution for that entity returns the authoritative name. This is
+opportunistic, an entity whose metadata has never been loaded still uses
 the convention. Where you know the convention is wrong and no metadata has been
 loaded, pass the explicit set name: the `entitySet` argument on `odataBind`, and
 the optional `entitySet` on each `IChangeSetRequest` (inside a change set a
@@ -390,10 +391,15 @@ update. Whether a kit control can match that depends on where it runs.
 **Webresources** have no per-user access signal (that resolution lives in the
 form runtime), so the kit takes the safe, honest path:
 
-- A column-secured attribute (`IAttributeMetadata.isSecured`) renders **read-only
-  by default** in the smart controls, so a field the current user may not be allowed
-  to update never appears editable (which would only fail at save). A host that
-  knows the user can edit it passes `readOnly={false}`.
+- A column-secured attribute (metadata `IsSecured`, read via
+  `attributeIsSecured`) renders **read-only by default** in the smart controls,
+  so a field the current user may not be allowed to update never appears
+  editable (which would only fail at save). The default is scoped by the
+  column's capability flags: when `CanBeSecuredForUpdate` is false, no FLS
+  profile can ever deny update on that column, so the field stays editable
+  (a read-only-securable column would otherwise be locked for everyone, pure
+  friction). A host that knows the user can edit a secured column passes
+  `readOnly={false}`.
 - Read-denied values still show as empty: the Web API returns a secured column the
   user cannot read as null, and the kit cannot tell that apart from a genuinely
   empty value without the form runtime.

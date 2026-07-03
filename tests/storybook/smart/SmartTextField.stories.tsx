@@ -124,25 +124,27 @@ export const ReadOnly: Story = {
 };
 
 export const HintOverride: Story = {
-  name: "Hint (from metadata, overridable)",
+  name: "Hint (opt-in helper text)",
   render: () => (
     <SmartTextField
       entity="contact"
       attribute="firstname"
       value={firstName}
-      hint="Override: enter the preferred first name."
+      hint="Enter the preferred first name."
     />
   ),
   parameters: sample(
-    `// contact.firstname carries a Description in metadata, shown as a hint by
-// default. Pass hint to override it, or hint="" to suppress.
+    `// Always-visible helper text is opt-in: it renders only when the hint
+// prop is passed. contact.firstname carries an authored Description in
+// metadata, and it deliberately does NOT show here by default; on-demand
+// description surfaces (the tooltip pattern) opt into it instead.
 <SmartTextField
   entity="contact"
   attribute="firstname"
   value={firstName}
-  hint="Override: enter the preferred first name."
+  hint="Enter the preferred first name."
 />`,
-    "The hint defaults to the attribute's Dataverse Description; the hint prop overrides it, and an empty hint suppresses it. A free-form placeholder is still not offered."
+    "The hint is opt-in: no prop, no helper text, even when the attribute has a Dataverse Description (that stays available to surfaces that opt in, like the tooltip pattern). A free-form placeholder is still not offered."
   ),
 };
 

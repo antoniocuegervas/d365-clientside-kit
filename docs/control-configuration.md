@@ -41,7 +41,8 @@ Every smart control lives under `shared/controls/smart/<Name>.tsx`;
 | `value` (Observable) | ✔ | (host-owned; control writes changes into it and raises `onChange`) |
 | `label` | | Attribute display name |
 | `required` | | Attribute requirement level (Application/System required) |
-| `disabled` / `readOnly` | | off |
+| `disabled` / `readOnly` | | off (a column-secured attribute defaults to read-only when its update can be restricted) |
+| `hint` | | none; opt-in helper text under the label. The attribute Description is deliberately NOT a default (on-demand description belongs to a tooltip surface) |
 | `errorMessage` | | none |
 | `onChange` | | none (value Observable still updated) |
 

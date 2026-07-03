@@ -48,19 +48,19 @@ function makeSeededContext() {
     attributes: {
       // One entry per entity.attribute a smart control binds in the View.
       "account.name": {
-        displayName: "Account Name",
-        kind: "text",
-        required: true,
-        maxLength: 160,
+        DisplayName: "Account Name",
+        Type: "string",
+        RequiredLevel: 2,
+        MaxLength: 160,
       },
       "account.industrycode": {
-        displayName: "Industry",
-        kind: "optionset",
-        options: [
-          { value: 1, label: "Accounting" },
-          { value: 6, label: "Consulting" },
-          { value: 34, label: "Retail" },
-        ],
+        DisplayName: "Industry",
+        Type: "picklist",
+        OptionSet: { Options: [
+          { Value: 1, Label: "Accounting" },
+          { Value: 6, Label: "Consulting" },
+          { Value: 34, Label: "Retail" },
+        ] },
       },
     },
   });

@@ -1,5 +1,8 @@
 import { CdsClient, type IRetrieveMultipleResult } from "../data/CdsClient";
 import { buildFormContext, type IHostFormContext } from "./formContextSurface";
+import { CdsEntityMetadataProvider } from "../metadata/CdsEntityMetadataProvider";
+import { KitMetadataSource } from "../metadata/KitMetadataSource";
+import { createGetEntityMetadata } from "../metadata/createGetEntityMetadata";
 import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
@@ -138,15 +141,26 @@ export class WebResourceContextV8 implements IViewModelContext {
     const client = new CdsClient({ clientUrl: this.clientUrl, apiVersion });
     this.cdsClient = client;
     this.webAPI = new CdsWebApi(client);
-    this.metadata = new MetadataService(client);
+    // The kit metadata helpers ride cds-client, the only path this host has
+    // (this.webAPI is itself the cds-backed emulation here).
+    const metadataProvider = new CdsEntityMetadataProvider(client);
+    this.metadata = new MetadataService(
+      new KitMetadataSource({ dataReads: this.webAPI, client }),
+      [metadataProvider]
+    );
     this.navigation = new V8Navigation(xrm.Utility);
     // Platform-mirror surface; V8 fidelity is a per-method dial: utility extras degrade
     // (undefined / do nothing / reject) and device capture throws "not supported".
-    this.utils = utilsFromXrm(
-      (message: string) => void this.navigation.openAlertDialog(message),
-      xrm.Utility as unknown as IXrmUtilityExtras,
-      "CRM 8.x webresource"
-    );
+    this.utils = {
+      ...utilsFromXrm(
+        (message: string) => void this.navigation.openAlertDialog(message),
+        xrm.Utility as unknown as IXrmUtilityExtras,
+        "CRM 8.x webresource"
+      ),
+      // Pre-v9 has no native metadata store, so the OData synthesis is not a
+      // fallback here, it is the whole standard-shaped surface for this host.
+      getEntityMetadata: createGetEntityMetadata({ provider: metadataProvider }),
+    };
     this.client = clientFromSource(
       (pageContext as unknown as { client?: Parameters<typeof clientFromSource>[0] }).client
     );

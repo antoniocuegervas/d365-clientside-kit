@@ -1,99 +1,10 @@
 # Roadmap and open ideas
 
 The original forward-looking items here have shipped (recorded under "Shipped").
-Five directions are open: an offline-capable metadata rework (native-first),
-in-app release communication, an offline paging demo, a real tooltip with the
-hint made opt-in, and an inline record-preview capability for lookups. One idea
+Four directions are open: in-app release communication, an offline paging demo,
+a real tooltip (its hint-opt-in half shipped with the metadata rework; the
+control is open), and an inline record-preview capability for lookups. One idea
 stays parked for lack of a v8 environment.
-
-## Direction: native-first, offline-capable metadata (scheduled)
-
-### The gap
-
-`MetadataService` reads ALL metadata through `CdsClient`, which is raw same-origin
-XMLHttpRequest to the Web API. That path is online-only and caches in-memory per
-session, so the entire smart tier (label, option, view, currency, icon
-resolution) cannot run offline and loses its cache on reload. Offline is a goal
-for the kit, so this is a real flaw, not a style preference.
-
-### What we verified (live v9 org, 2026-06-20)
-
-The native `Xrm.Utility.getEntityMetadata(entityName, attributes)` (and the PCF
-`context.utils.getEntityMetadata`) is offline-capable AND returns the complete
-attribute metadata at runtime, a strict superset of what the cds-client path
-hand-fetches. The Xrm typings understate it: the rich data sits in PascalCase
-under each attribute's `attributeDescriptor`, reached via `.Attributes.getAll()`.
-Confirmed present on the live org (account):
-
-- Everything the kit needs: `Description`, `RequiredLevel`, `MaxLength`,
-  `MinValue`/`MaxValue`, `Precision`, `PrecisionSource`, `Format`/`Behavior`
-  (DateOnly), lookup `Targets`, `OptionSet`.
-- Extras the cds-client path never had: `IsSecured` +
-  `CanBeSecuredForCreate/Read/Update` (field-level security) and
-  `IsValidForCreate/Read/Update` (read-only detection).
-
-So the original raw-EntityDefinitions choice bought nothing over native and cost
-offline support.
-
-### The decision
-
-Native-first with a cds-client fallback. Route entity and attribute metadata
-through native `getEntityMetadata` on the modern and PCF hosts; keep the
-cds-client `EntityDefinitions` path only for the legacy V8 host (pre-v9, no native
-API, never an offline scenario). Views and currency are data, not metadata, so
-their offline-capable path is native `Xrm.WebApi`, not cds-client.
-
-### Pieces to build (when picked up)
-
-1. A host-provided native metadata source injected into `MetadataService`
-   (`Xrm.Utility` on modern, `context.utils` on PCF), with the cds-client path as
-   the V8 fallback. The smart controls already know their attribute, which fits
-   the `attributes` parameter `getEntityMetadata` wants.
-2. ONE isolated mapper from the native `attributeDescriptor` shape to the kit's
-   `IAttributeMetadata`. The shape is undocumented PascalCase and not contractual
-   (the platform's own controls rely on it, so it is stable in practice), so
-   isolating the mapping contains the risk.
-3. Route views (`savedqueries`) and currency (`transactioncurrency`) through
-   native `Xrm.WebApi` so they are offline-capable too.
-4. Persisting metadata across reloads can ride the platform cache rather than a
-   custom IndexedDB store, since native metadata is already offline-cached.
-
-### Items this folds in or enables
-
-- Item 17 (money `PrecisionSource`): already shipped over cds-client; the
-  consumer logic in `SmartNumberField` is reusable, the rework just changes the
-  source. The live org shows `revenue` is `PrecisionSource = 2` (org pricing
-  precision), which still needs the org `pricingdecimalprecision` value to render
-  exactly, a separate org-settings read.
-- Item 20 (smart `hint` from attribute `Description`): native supplies
-  `Description`; the presentational wiring is architecture-agnostic.
-- Item 25 (FLS awareness): upgrades from "gotcha only" to real, since native
-  exposes `IsSecured` and the `CanBeSecuredFor*` flags.
-- Item 18 (entity set name): `EntitySetName` comes back offline-capable from
-  native metadata and feeds the same `LibraryUtils` cache. This SUPERSEDES the
-  proposed async cds-client entity-set resolver, which should NOT be built. The
-  shipped cache-aware pluralizer stays as the sync fast path and fallback.
-- Load-time render count (observed live, 2026-07): the UCI perf monitor shows
-  the native lookup PCF rendering 5 times during form load versus 3 for its
-  native twin, because each async metadata resolution (attribute, switcher
-  target labels, icon, lookup view) lands in its own Observable write and each
-  write is a render. Correct but chatty. When this rework changes how those
-  resolutions arrive, batch the post-resolution writes (resolve everything,
-  then write once) and use the perf monitor's render count as an acceptance
-  check: a smart control during form load should render in the same 2-3 band
-  as the platform's own controls. Also flagged once: "control initialized more
-  than once during form load" on that PCF; likely the platform's own
-  measure-pass re-init, worth one targeted DevTools look next org session.
-- Metadata fan-out (deferred here from the 2026-07 adversarial round, D-055):
-  the OData path costs two sequential requests per attribute and each context
-  (each PCF on a form) holds its own disjoint cache, so a metadata-heavy form
-  re-downloads what the native store already holds. The native-first source
-  dissolves most of this (native metadata is client-cached and one call per
-  attribute); whatever remains on the cds path should fold the kind-specific
-  cast into one round trip (or a $batch), consider one shared service per
-  page, and publish the per-form request math in deployment.md next to the
-  bundle budget. The cheap sub-findings (XHR timeout, 429 Retry-After
-  handling) were pulled forward and already shipped in that round.
 
 ## Direction: in-app "what's new" for a release
 
@@ -258,42 +169,37 @@ get awkward.
 
 More than a demo: the real work is the `SmartViewGrid` pager refactor above, with
 the two sample apps as its proof. It folds in none of the other roadmap items, but
-leans on the native-first metadata direction insofar as the offline data reads go
-through native `Xrm.WebApi`, so it is naturally picked up after, or alongside,
-that work.
+leans on the native-first metadata rework (now shipped) insofar as the offline
+data reads go through native `Xrm.WebApi`, so the ground under it is in place.
 
-## Direction: a real tooltip, and the hint made opt-in
+## Direction: a real tooltip (the hint half shipped)
 
 ### The gap
 
-The `hint` prop (item 20) renders as always-visible helper text under the label
-(Fluent `Field` hint). That is not what an info affordance usually means: the
-common pattern is a small info icon beside the label whose text appears in a
-tooltip on hover or focus, shown only on demand. The kit has no such tooltip
-control today, and `hint` got conflated with it.
+An info affordance usually means a small info icon beside the label whose text
+appears in a tooltip on hover or focus, shown only on demand. The kit has no
+such shared tooltip control today; the `hint` prop (always-visible Fluent
+`Field` helper text) got conflated with it.
 
-### The correction (two parts)
+### Status
 
-1. Stop defaulting `hint` from metadata. Today `SmartFieldBase.resolveHint` falls
-   back to the attribute's Dataverse `Description`, so any field with a Description
-   shows always-on helper text whether the author wanted it or not. Make `hint`
-   opt-in: render it only when a `hint` prop is passed, and drop the
-   metadata-`Description` default. This revises the item-20 decision (and the note
-   under the native-first metadata direction that lists item 20 as folding in
-   `Description`).
-2. Add a proper tooltip affordance. A presentational info control (an info icon by
-   the label whose text shows in a Fluent `Tooltip` on hover or focus, dismissible
-   and keyboard accessible) for on-demand help, distinct from the always-visible
-   `hint`. The smart tier may optionally source its content from the attribute
-   `Description` (the original intent), now behind an explicit opt-in rather than
-   an always-on default.
+The first half SHIPPED with the native-first metadata rework (2026-07-03,
+decision log): `hint` is opt-in, rendering only when the prop is passed, and
+the attribute's Dataverse `Description` no longer leaks in as an always-on
+default. The `fieldContractNote`, the smart-field story, and
+control-configuration.md document the opt-in posture. The Description stays
+readable through `attributeDescription`, which is exactly the seam the second
+half consumes.
 
-### Why later
+### Still open: the tooltip control
 
-Both are behavior changes to a shipped prop plus a new control. Batch them with
-the docs pass that is already revisiting the smart-field stories, and update the
-shared `fieldContractNote`, which currently tells readers the hint defaults to the
-attribute Description.
+A presentational info control (an info icon by the label whose text shows in a
+Fluent `Tooltip` on hover or focus, dismissible and keyboard accessible) for
+on-demand help, distinct from the always-visible `hint`. The smart tier may
+optionally source its content from the attribute `Description`, behind an
+explicit opt-in. The KitTooltip PCF sample already demonstrates the pattern
+(it reads the Description through the standard metadata surface); the open
+work is promoting a shared presentational control out of it.
 
 ## Direction: inline record preview for any record reference
 
@@ -367,6 +273,48 @@ here so it is not lost with the round's working notes.
   publishes (see gotchas.md).
 
 ## Shipped (were roadmap items)
+
+- **Native-first, standard-shaped, offline-capable metadata.** SHIPPED
+  (2026-07-03, feature/native-first-metadata; the decision log's newest entry
+  records the full posture). Mid-build the owner corrected the direction: the
+  kit's metadata surface now MIRRORS the standard client API instead of
+  adapting native metadata into a bespoke model. `context.utils.
+  getEntityMetadata(entityName, attributes)` resolves the platform
+  EntityMetadata shape (native pass-through on modern and PCF with an OData
+  fallback; the same shape synthesized from OData on pre-v9),
+  `getAttributeMetadata` is retired, the bespoke `IAttributeMetadata` MODEL
+  is retired (the name survives, deliberately reused to type the standard
+  store item), and one helpers file (`attributeMetadataReads`) owns the
+  under-documented attributeDescriptor decoding. Views, currency, and the org pricing precision ride the host
+  Web API (offline-capable on modern and PCF); activity types and entity
+  icons stay on cds-client (EntityDefinitions-only queries). Fold-ins landed:
+  EntitySetName teaches the pluralizer cache from every native read (the
+  proposed async cds resolver stays unbuilt, superseded), PrecisionSource 2
+  money rounds by the real org pricing precision, FLS capability flags scope
+  the webresource read-only default, the hint went opt-in (see the tooltip
+  direction), and the post-resolution writes are batched (one loading paint,
+  one content paint, Profiler-pinned in tests).
+  Live-verified on the dev org (2026-07-04): the store's encodings match the
+  reads helpers on every probed kind (strings, numeric RequiredLevel and
+  Behavior, array OptionSets, Targets, FLS booleans, revenue PrecisionSource
+  2); the master-detail sample resolves labels, options, formats, currency
+  symbol, and polymorphic lookup targets with the kit's only raw XHRs being
+  the usersettings formatting read and the entity-icon EntityDefinitions
+  read; no hint text on Description-only fields; no console errors. The five
+  PCFs were rebuilt (bumped manifests) and imported; on the sample Contact
+  form with `&perf=true`, no kit control is flagged for excessive rendering
+  while the native lookup twin flags at 3 and native section containers at 2,
+  so the kit sits inside the platform's own 2-3 band (it was 5 before the
+  batching). Remaining checks: offline behavior itself (not verifiable from a
+  desktop session), FLS behavior against real column-security profiles (org
+  security deliberately not reconfigured), the V8 synthesis path (no v8
+  environment), and the pre-existing "control initialized more than once
+  during form load" platform note on the lookup PCF (still present, still
+  init-count only, still worth one targeted DevTools look). On the cds
+  synthesis path the two-requests-per-attribute shape remains by choice; it
+  is now the pre-v9-primary/fallback-only path, so the D-055 fan-out concern
+  is dissolved where it mattered (the native store is client-cached, and
+  SmartViewGrid batches a whole entity's columns into one call).
 
 - **Platform-provided libraries for the PCF tier (virtual controls).** SHIPPED
   (2026-07-02, the decision log's migration entry): all five kit PCFs migrated
