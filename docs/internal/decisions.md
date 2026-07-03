@@ -1636,3 +1636,36 @@ two Profiler commits: one loading paint, one content paint.
   offline persistence on the hosts that go offline, per the roadmap.
 - Per-user column-access resolution in webresources: unchanged D-051-era
   posture, the form runtime owns that; gotchas.md still says so.
+
+## D-058, in-app "what's new" moves out of the kit: a product built on the kit, not a sample inside it
+
+The in-app release-communication direction is retired from the kit's roadmap.
+Two of the kit's own rules decide this, and the feature crosses both. First,
+samples must run on out-of-box entities, and contributions that need custom
+schema to run are excluded; a release-notes digest cannot exist without its
+schema (the notes table and the per-user acknowledgement store ARE the
+feature). The planned compromise, schema shipped as documentation with the
+app rendering a readable "not installed" state on a plain org, kept the
+letter of that rule while breaking its spirit: it would have been the only
+sample in clientui/apps that cannot actually run on a fresh org. Second,
+CONTRIBUTING's own line says a sample that grows into a full product is
+outside the kit's scope, and a versioned changelog with acknowledgement
+tracking and authoring aids is a product trajectory, not an illustration of
+one idea.
+
+So it ships as a standalone managed solution built ON the kit: its own
+project, consuming the kit the way any downstream consumer would, with real
+solution files for the schema instead of documentation, and the degrade path
+demoted from load-bearing workaround to ordinary robustness. That packaging
+is also better for its users: the deliverable becomes "import this solution",
+not "create these tables per a doc". The kit gains a true downstream
+consumer, which validates the delivery claim better than an eleventh sample
+would, and the repo stays schema-free and precedent-clean: nobody can point
+at a what's-new sample to argue the next custom-schema sample in.
+
+Deliberately, nothing lands kit-side ahead of need: no presentational digest
+control enters shared/ without an in-kit consumer (the earn-their-place bar,
+D-010), and the proposed README "when to reach for it" row goes with the
+product. Revisit trigger: a genuinely schema-free slice of the surface with a
+real in-kit consumer, or the product generalizing a control worth
+contributing back.

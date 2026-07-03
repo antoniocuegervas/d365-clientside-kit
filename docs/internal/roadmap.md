@@ -1,77 +1,13 @@
 # Roadmap and open ideas
 
 The original forward-looking items here have shipped (recorded under "Shipped").
-Four directions are open: in-app release communication, an offline paging demo,
-a real tooltip (its hint-opt-in half shipped with the metadata rework; the
-control is open), and an inline record-preview capability for lookups. One idea
-stays parked for lack of a v8 environment.
-
-## Direction: in-app "what's new" for a release
-
-### The gap
-
-When a team ships a release (new forms, fields, custom UI from this kit), end
-users rarely learn what changed. The usual channels each miss in a different way:
-email and Teams are push, out of context, and easy to ignore; a SharePoint or
-wiki page lives outside the app the change is in. Model-driven **in-app
-notifications** (the `appnotification` table) are real, but they are per-event,
-transient toasts in the notification center, not a curated, versioned "here is
-what changed since you were last here" digest that a product owner controls per
-release, with read-state and a browsable history.
-
-### Why this kit fits
-
-- It is custom UI over the Web API, so a "What's new" panel renders in Fluent v9
-  and reads as native, not a foreign page.
-- It already owns the launch surface: `openClientUI` opens an app as a centered
-  dialog or a side pane from a command-bar button, the two shapes this wants.
-- The note list is exactly the host-owned collection `ObservableArray` was built
-  for: a View binds it, the ViewModel loads and gates it.
-- Per-user "seen" gating is ordinary ViewModel logic over the Web API: compare
-  the latest published release against what this user last acknowledged.
-
-### Framing (keep this honest)
-
-This renders product-owner-authored content; it is not a CMS. The PO authors
-release notes on a **standard model-driven form** over a Dataverse table, the
-same boundary the wizard keeps: the kit renders and gates, the platform authors.
-Out of scope: a rich WYSIWYG authoring UI, scheduling or campaign targeting, A/B
-audiences. It is complementary to in-app notifications, not a replacement: use
-notifications for transient, per-event pings; use this for the release-scoped,
-revisitable changelog.
-
-### Pieces to build (when picked up)
-
-1. A **release-notes data model**: a Dataverse table (version or semver,
-   published date, title, summary, body, a New/Improved/Fixed category, and an
-   optional audience by security role or team). Authored through a normal form,
-   so no custom authoring UI is in scope.
-2. A **presentational "What's new" surface**: a dialog or side-pane list of
-   entries (newest first), category badges, and a per-entry expand. CRM-agnostic,
-   so it renders in Storybook from fixtures with zero mocks.
-3. A **seen/acknowledged strategy**: store each user's last-seen release so the
-   surface shows only what is new and marks it read on dismiss. Cross-device
-   means Dataverse-backed (a per-user acknowledgement row, or a user setting),
-   not browser storage. This is the main open design question.
-4. A **launch pattern**: auto-open once per user when the latest published
-   release is newer than their last-seen, plus a manual "What's new" entry point
-   on the command bar. Both reuse `openClientUI` (dialog or side pane).
-5. A **smart variant (optional)**: resolve the category option-set labels and the
-   published-date format from metadata, so a metadata-aware entry looks native
-   for free, consistent with the rest of the smart tier.
-
-### Possible avenue, not planned
-
-Sourcing notes from outside Dataverse (a CI release pipeline writing entries on
-deploy, or a markdown file in the solution) would let engineering, not only the
-PO, append "what changed." Noted as a nice-to-have; the Dataverse-authored path
-is the honest default because it needs no extra infrastructure.
-
-### README follow-up
-
-When this is picked up, consider a "When to reach for it" row for in-app release
-communication, where in-app notifications are too transient and email is out of
-context.
+Three directions are open: an offline paging demo, a real tooltip (its
+hint-opt-in half shipped with the metadata rework; the control is open), and an
+inline record-preview capability for lookups. One idea stays parked for lack of
+a v8 environment. One former direction, in-app release communication, is
+retired from the kit entirely: it needs custom schema to run and is a product,
+not a sample, so it ships as a standalone solution built on the kit (the
+decision log records the reasoning, D-058).
 
 ## Direction: offline paging demo (PCF and webresource grid)
 
