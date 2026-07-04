@@ -1841,3 +1841,29 @@ already validated the literal zip up to the identity check in the second
 pass. The technique is recorded in deployment.md for consumers whose only
 org already runs the kit. Remaining open on the release: the Package
 stage's first real pipeline run.)*
+
+## D-062, the release stays 1.2.0: the repo version is a milestone marker until a package is published
+
+A review agent proposed versioning this release 2.0.0 because the metadata
+rework retires public surface, which strict semver reads as a major. The
+letter of that reading is correct, and the number still stays 1.2.0, for a
+reason worth recording once so it is not re-argued per release: semver's
+major signal exists to protect consumers whose tooling resolves versions
+automatically, and the kit has none by design. It is consumed source-first
+through template copies that pull nothing automatically; every upgrade is a
+human merge made with the decision log open. The one machine-read version,
+the solution version, only needs to increase. A 2.0.0 weeks after 1.0.0
+would spend the number's signal on an audience it cannot protect, and read
+as churn to the audience that actually sees it.
+
+The policy now stated in deployment.md: until the kit publishes a package,
+the repo version is a release milestone marker, not a semver API contract.
+What a breaking change obligates is disclosure, whatever the number says:
+a prominent breaking-changes section in the release notes, and the decision
+entry recording the change (for this release, the metadata contract and the
+hint default). Strict semver begins where machine consumption begins: the
+first published package (the roadmap's presentational npm package
+direction) versions its own line under real semver from its first release,
+and this policy hands over to it there. Revisit trigger: that first
+published package, or the first external consumer who demonstrates an
+automated-upgrade path the policy wrongly assumes away.

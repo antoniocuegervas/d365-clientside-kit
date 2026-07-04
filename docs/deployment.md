@@ -453,6 +453,20 @@ code component:
   definition itself has its own client-side cache (the IndexedDB note in
   gotchas).
 
+### What the version number means (versioning policy)
+
+Until the kit publishes a package, the repo version is a release milestone
+marker, not a semver API contract. The kit is consumed source-first, through
+template copies that pull nothing automatically, so there are no
+version-range consumers for a major bump to protect; the one machine-read
+version, the solution version, only needs to increase for updates to apply.
+What a breaking change obligates is disclosure, whatever the number says: the
+release notes carry a prominent breaking-changes section and the decision log
+records the change and its reasoning. Strict semver begins where machine
+consumption begins: a published package (the roadmap holds a direction for
+packaging the presentational tier) versions its own line under real semver
+from its first release.
+
 The repo's own pipeline (below) covers the build, verify, and package half of
 this; the import promotion half lives with your fork, since it is bound to
 your environments and connections.
