@@ -1669,3 +1669,46 @@ D-010), and the proposed README "when to reach for it" row goes with the
 product. Revisit trigger: a genuinely schema-free slice of the surface with a
 real in-kit consumer, or the product generalizing a control worth
 contributing back.
+
+## D-060, the code-app adapter is parked: a complete spike on its reference branch, not a v1.2.0 host
+
+(Numbering note: D-059 is the adapter's own decision entry and lives with the
+work on the reference branch `spike/code-app-adapter`; the number stays
+reserved for it so a future revival merges without a collision. This entry
+records the parking on the release line.)
+
+The v1.2.0 wave's second feature built the code-app context adapter end to
+end and to the kit's bar short of one step: a spike design doc before any
+code, CodeAppContext over the code-apps SDK, a sample app under its own
+toolchain, a host guide, unit suites over a scripted SDK fake, and the verify
+gate green at the tip. It was merged to the wave branch and then UNMERGED by
+owner decision the same day: the wave branch was rewound, and the work now
+lives, complete, on `spike/code-app-adapter` (five commits ending e9c4b0f).
+
+Why parked rather than shipped. The build itself surfaced the host's
+capability ceiling, and the honest reading is that the ceiling caps exactly
+the tiers that differentiate the kit. The SDK executes no FetchXML, which
+rules out SmartViewGrid and the native lookup's search (the flagship
+surfaces); its metadata read stops at the base attribute types, so choice
+options had to be rescued from stringmap reads and lookup targets
+reconstructed from relationships; there is no $batch or change set, no
+platform dialog surface, no form surface; and every table needs design-time
+registration. What remains viable (CRUD, OData list queries, thin smart
+fields) is real but small, and it does not justify carrying a fourth shipped
+host adapter, with its docs, its sample, and its maintenance weight, for the
+marginal consumer it would serve. Treating the work as a paid-for spike is
+the better account: the design doc plus the working adapter is a complete,
+tested answer to "what would this cost and what would it buy", kept warm on
+its branch.
+
+What the spike buys the roadmap. The presentational tier needed NO adapter
+anywhere in this work, which sharpened the real build-beside opportunity:
+package the presentational controls (with the theme and the reactivity
+primitives) as an npm package any standalone React app can consume, code
+apps included. That is now a roadmap direction; it supersedes "run the whole
+kit inside a code app" as the build-beside story.
+
+Mechanics, so the history reads honestly: the squash merge (a5a0e0c) existed
+briefly on the wave branch and was removed by a reset before anything was
+pushed, so no published history was rewritten. Revisit triggers live with the
+parked entry in the roadmap.

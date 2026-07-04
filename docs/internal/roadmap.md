@@ -1,13 +1,14 @@
 # Roadmap and open ideas
 
 The original forward-looking items here have shipped (recorded under "Shipped").
-Three directions are open: an offline paging demo, a real tooltip (its
-hint-opt-in half shipped with the metadata rework; the control is open), and an
-inline record-preview capability for lookups. One idea stays parked for lack of
-a v8 environment. One former direction, in-app release communication, is
-retired from the kit entirely: it needs custom schema to run and is a product,
-not a sample, so it ships as a standalone solution built on the kit (the
-decision log records the reasoning, D-058).
+Four directions are open: an offline paging demo, a real tooltip (its
+hint-opt-in half shipped with the metadata rework; the control is open), an
+inline record-preview capability for lookups, and the presentational tier as
+an npm package for build-beside consumption. Two ideas are parked, each with
+its reason recorded there. One former direction, in-app release communication,
+is retired from the kit entirely: it needs custom schema to run and is a
+product, not a sample, so it ships as a standalone solution built on the kit
+(the decision log records the reasoning, D-058).
 
 ## Direction: offline paging demo (PCF and webresource grid)
 
@@ -172,6 +173,37 @@ Generalizing it into a shared preview surface (and the hover card) is the broade
 follow-up, picked up naturally alongside the native-first metadata direction,
 since the column values are offline-capable Web API reads.
 
+## Direction: the presentational tier as an npm package (build-beside consumption)
+
+### The gap
+
+The code-app adapter spike (parked below) established the shape of that host:
+the CRM-aware tiers hit a capability ceiling (no FetchXML, base-type-only
+metadata), but the presentational tier needs no adapter at all, it is
+CRM-agnostic by design and already runs in any React app. What is missing is a
+consumable form: today the only way to use the presentational controls outside
+this repo is cloning or template-copying the whole kit, which is wrong-shaped
+for a code-app team that just wants native-looking D365 components in a
+standalone React app.
+
+### The idea
+
+Publish the presentational tier as a versioned npm package: the presentational
+controls, the theme module, and the reactivity primitives their props accept
+(Observable, ObservableArray, the OrObservable types). Nothing CRM-aware goes
+in: no context adapters, no metadata, no cds-client. Peer dependencies on
+React and Fluent v9; ESM plus type declarations. The kit itself stays
+source-first (the spec's no-registry stance was about the kit's own
+consumption model; packaging the CRM-agnostic tier for OTHER apps revises
+that deliberately, to be recorded when picked up).
+
+### Why later
+
+It leans on the release-engineering machinery this wave builds (versioned
+artifacts, a publish step), and the package boundary wants deciding calmly
+(what of the reactivity surface is public API, how the theme tokens ship).
+Picked up after v1.2.0; a decision entry records the boundary when it lands.
+
 ## Smaller follow-ups (carried out of the 2026-07 hardening round)
 
 Bounded items, not directions. Each was deliberately deferred from a resolved
@@ -286,8 +318,27 @@ here so it is not lost with the round's working notes.
   than showing it statically (the presentational field stories under
   `tests/storybook/controls/presentational`).
 
-## Parked (needs an environment we do not have)
+## Parked
 
+Each entry names its own reason; these are ideas kept warm, not commitments.
+
+- **The code-app context adapter (built, parked before release).** The v1.2.0
+  wave built a complete CodeAppContext adapter over the code-apps SDK, spike
+  doc first, then the adapter, a sample app, and a host guide, verify-green
+  at the tip; it lives UNMERGED on the reference branch
+  `spike/code-app-adapter` (five commits ending e9c4b0f, its own decision
+  entry recorded on the branch). Parked because the host's capability ceiling
+  caps exactly the tiers that differentiate the kit: the SDK executes no
+  FetchXML (so SmartViewGrid and the native lookup's search cannot run) and
+  its metadata read stops at base types (choice options need stringmap reads,
+  lookup targets reconstruction), leaving CRUD, OData queries, and thin smart
+  fields, too little to justify a fourth shipped host. One finding worth
+  keeping: a code-app grid, if ever wanted, is an OData query mode for the
+  grid, not an IGridPager implementation (the gap is the query language, not
+  paging). Revisit triggers: the SDK gains FetchXML or a full metadata read,
+  or a real consumer needs the smart field tier in a code app. The fresher
+  forward path is the presentational npm package direction above; the parking
+  decision is D-060.
 - **Classic dialog XML -> generated wizard.** Classic dialog definitions are XML
   with a defined schema (pages, typed prompts, responses, conditions, query and
   set-value steps), close to a formal spec of a wizard. A transform from that XML
