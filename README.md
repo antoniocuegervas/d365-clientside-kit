@@ -309,6 +309,12 @@ webresource apps run on standard account, contact, and activity data. It is mana
 so it installs and uninstalls cleanly and changes nothing else in the environment.
 (The repo source ships under the `new_` publisher; change it to your own in
 `kit.config.json`. The sample solution is a separate, ready-to-try build.)
+Releases also carry the **kit solution**, the managed zip of the five PCF
+controls and the shell webresources that CI builds from this repo with no org
+in the loop (`dotnet build deployment/solution -c Release`); that one is the
+importable shape of the kit's own artifacts, and the shape a fork rebuilds
+under its own publisher. The ALM chapter in
+[docs/deployment.md](docs/deployment.md) walks both zips.
 
 Sample apps live in `clientui/apps/`. Start with `template` (the scaffold to copy),
 `sample-company-search` (the flagship 90%-native case: a saved-view grid and editable

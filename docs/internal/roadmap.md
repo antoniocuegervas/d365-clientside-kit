@@ -199,10 +199,12 @@ that deliberately, to be recorded when picked up).
 
 ### Why later
 
-It leans on the release-engineering machinery this wave builds (versioned
-artifacts, a publish step), and the package boundary wants deciding calmly
-(what of the reactivity surface is public API, how the theme tokens ship).
-Picked up after v1.2.0; a decision entry records the boundary when it lands.
+The release-engineering half it leaned on now exists (versioned artifacts
+build from the repo and CI publishes the managed zip, shipped with v1.2.0);
+what remains is the npm side, a publish step and the package boundary, which
+wants deciding calmly (what of the reactivity surface is public API, how the
+theme tokens ship). Picked up after v1.2.0; a decision entry records the
+boundary when it lands.
 
 ## Smaller follow-ups (carried out of the 2026-07 hardening round)
 
@@ -241,6 +243,34 @@ here so it is not lost with the round's working notes.
   publishes (see gotchas.md).
 
 ## Shipped (were roadmap items)
+
+- **Release engineering: the managed kit solution builds from the repo.**
+  SHIPPED (2026-07-04, feature/release-engineering, closing the block the
+  decision log deferred to "the next time a release is cut"; its newest
+  entry records the decisions). `deployment/solution` packs the five PCF
+  controls (Release builds) and the three shell webresources into a managed
+  zip via `npm run build` plus `dotnet build -c Release`, publisher and
+  prefix rendered from `kit.config.json` and the solution version from
+  `package.json` at build time; CI gained a Package stage that publishes the
+  zip as the `managed-solution` artifact with no org credential; the version
+  pass moved the kit and every control manifest to 1.2.0 (control versions
+  track the kit release from here). Pending: the packaging stage's first
+  real pipeline run (yaml is only proven by execution), and the
+  clean-org import verification (install, exercise, uninstall cleanly)
+  before the zip is published as a release artifact. The import verification
+  is DONE (2026-07-04, on the third pass): the first two attempts were
+  rejected instructively (the solution-name collision with the unmanaged
+  SPKL deploy target, then the org-global custom-control identity that
+  ignores publisher prefixes), and the third verified the machinery end to
+  end on the dev org with a verification-only build differing from the
+  release zip by the manifest namespace string alone: managed import,
+  webresources carrying their deterministic ids, a control bound and
+  committing values on a live form with no console errors, the shell
+  booting the samples hub with a sample loading live data, and a first-try
+  clean uninstall back to the org's exact baseline. The decision log's
+  entry carries the full record; deployment.md states the three-check
+  clean criterion and the verification-only-build technique. Still
+  pending: the Package stage's first real pipeline run.
 
 - **Native-first, standard-shaped, offline-capable metadata.** SHIPPED
   (2026-07-03, feature/native-first-metadata; the decision log's newest entry

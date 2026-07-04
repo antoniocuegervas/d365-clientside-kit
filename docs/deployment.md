@@ -12,7 +12,7 @@ Storybook and the full verify gate, you just cannot see the controls on a real f
 | `dist/clientui/<prefix>clientui.html` | HTML webresource, the single shell entry |
 | `dist/clientui/<prefix>clientui.js` | Script webresource the shell loads |
 | `dist/clienthooks/<prefix>clienthooks.js` | Library webresource for form/ribbon/grid registration |
-| `pcfs/<Control>/out/controls` | PCF, pack into a solution (`pac solution`) |
+| `pcfs/<Control>/out/controls` | PCF, packed into the kit solution by `deployment/solution` |
 
 The publisher prefix lives in one place, `kit.config.json` at the repo root
 (default `new_`). Change `publisherPrefix` there once and both the build and the
@@ -164,10 +164,13 @@ The field and grid PCFs (`pcfs/`) do not go through SPKL. Build a Release bundle
 import it in a solution:
 
 - Build Release (production, minified), never `pac pcf push`, which ships a debug bundle.
-  Wrap the controls in a solution project once (`pac solution init` plus a
-  `pac solution add-reference` per control), then
-  `dotnet build -c Release -p:SolutionPackageType=Unmanaged` and
-  `pac solution import --force-overwrite --publish-changes`.
+  The repo carries the solution wrapper: `deployment/solution` references all five kit
+  controls (and stages the shell webresources), so a dev import is
+  `dotnet build deployment/solution -c Release -p:SolutionPackageType=Unmanaged` and
+  `pac solution import --path deployment/solution/bin/Release/D365UIKit.zip
+  --force-overwrite --publish-changes`. For your own controls, scaffold the same shape
+  once with `pac solution init` plus a `pac solution add-reference` per control
+  ([adding-a-pcf.md](adding-a-pcf.md) walks it).
 - Bump the control version in `ControlManifest.Input.xml` on every redeploy. Reimporting
   the same version publishes, but the form keeps serving the cached previous bundle, so a
   fix looks like it did not deploy.
@@ -277,27 +280,165 @@ host, not a headline load-time delta.
 
 ## ALM: shipping the controls to customers, not just trying the samples
 
-The managed **sample solution** on the Releases page is a demo artifact: it
-exists so someone can try the kit on a trial org and uninstall it cleanly. It is
-not the shape a customer deployment ships in. When your fork goes to a real
-customer, own the ALM like any other Dataverse code component:
+Releases carry two managed zips, deliberately different things:
 
-- **Your solution, your publisher.** Create a solution under your own publisher
-  prefix (set it once in `kit.config.json`), and put the shell webresources, the
-  hook library, and your PCF controls in it. Nothing from the sample solution
-  should reach a customer environment.
+- the **kit solution** (`D365UIKit`), built from the repo by `deployment/solution`:
+  the five PCF controls and the three shell webresources, nothing else. This is the
+  shape a consumer imports to get the kit's artifacts, and the shape your fork
+  rebuilds under its own publisher.
+- the **sample solution**, a demo exported from a dev org (the sample app, forms,
+  and views): it exists so someone can try the kit on a trial org and uninstall it
+  cleanly. Nothing from it should reach a customer environment.
+
+### Inside the zip: what the org normally writes, and why this repo writes it instead
+
+You can have customized Dataverse for years, imported and exported solutions
+weekly, and never once looked inside one. That is normal, and it is exactly why
+`deployment/solution` deserves five minutes of orientation before the commands:
+the folder hand-writes things the platform otherwise writes for you invisibly.
+
+**A solution zip is three things.** First, `solution.xml`, the manifest: the
+solution's unique name and version, the publisher with its customization
+prefix, and the list of components the solution claims as its own (the format
+calls them root components).
+
+Second, `customizations.xml`, the component definitions: one entry per
+component recording its name, type, and id, and where its file lives in the
+zip. This is what import actually walks to create or update components.
+
+Third, the payload, the actual files: here, one folder per PCF control
+(production `bundle.js` plus its manifest) and the three webresource files.
+
+**Normally the org writes all three.** When you click export, the platform
+assembles the manifest, the definitions, and the payload from what lives in
+the org and hands you the finished zip; import reads the same three parts back
+in. Nothing in the everyday customizer loop ever shows you the files, which is
+why almost nobody knows them by sight.
+
+**This repo writes them itself because two constraints leave no alternative.**
+CI holds no org credential (a public repo does not get a dev-org secret), so
+no export can happen there. And a release artifact must be buildable from the
+commit that claims it, not exported from whatever state a dev org has
+accumulated. Hold both, and someone other than an org must write what the org
+normally writes. That someone is this folder: the payload is the repo's own
+build output, and the manifest and definitions are rendered from the repo's
+config at build time.
+
+**The folder, file by file.**
+
+| File | Committed or rendered | What it contributes to the zip |
+|---|---|---|
+| `D365UIKit.cdsproj` | committed | The stock `pac solution init` wrapper, the same shape [adding-a-pcf.md](adding-a-pcf.md) scaffolds, referencing the five PCF projects, plus one addition: a build target that runs `render-src.mjs` before packing |
+| `Solution.template.xml` | committed | `solution.xml` with placeholders where identity lives: publisher, prefix, solution name, version |
+| `render-src.mjs` | committed | Writes everything the rendered rows below describe |
+| `src/Other/Customizations.xml` | committed | The near-empty definitions skeleton. Its empty `<WebResources />` node is load-bearing: it is the insertion point SolutionPackager fills with the staged webresource definitions, and without it the packer ships the files but registers no component, so an import would create nothing |
+| `src/Other/Relationships.xml` | committed | Empty, part of the expected source shape |
+| `src/Other/Solution.xml` | rendered, gitignored | The manifest, `Solution.template.xml` filled in from `kit.config.json` (publisher, prefix, names) and `package.json` (version) |
+| `src/WebResources/*` | rendered, gitignored | The three shell webresources copied from `dist/`, each beside a small `.data.xml` carrying its component definition (name, type, id) |
+| `bin/`, `obj/` | build output, gitignored | `bin/Release/D365UIKit.zip` is the artifact |
+
+Why the webresources need staging at all: `pac solution add-reference` wires a
+PCF project into the wrapper, and the build then compiles it and writes its
+component entry with no further help. There is no equivalent command for loose
+webresource files, so `render-src.mjs` plays the role the org would play at
+export: it copies the built files in and writes each one's definition.
+
+**What each moving part buys.**
+
+- **A reproducible release zip.** The wrapper plus the renderer build the zip
+  from the commit alone, in CI, with no org in the loop.
+- **A fork ships under its own publisher by editing `kit.config.json` alone.**
+  The template is rendered from the same file that names the built artifacts,
+  so the webresource names, the registered control names, and the solution
+  publisher follow one value with no second edit.
+- **A rebuilt zip UPDATES a prior import instead of colliding.** Component ids
+  derive from component names, so they are identical on every rebuild, which
+  is what lets a v1.3 import upgrade a v1.2 install.
+- **Controls promote separately from app customizations.** The zip carries
+  only the controls and the shell; the forms and views that bind them belong
+  in your app solution (the fork guidance below), or in the demo sample
+  solution.
+
+### Building the kit solution from the repo
+
+The project needs nothing beyond the repo toolchain (Node plus the .NET SDK),
+and in particular no org connection and no secrets:
+
+```powershell
+npm ci                                         # once, fresh workspace
+npm run build                                  # webresource artifacts into dist/
+dotnet build deployment/solution -c Release    # managed zip in deployment/solution/bin/Release/D365UIKit.zip
+```
+
+`dotnet build` compiles each referenced PCF in Release (production bundles by
+construction), renders the manifest and stages the webresources as the tour
+above describes, and packs the zip. `SolutionPackageType` defaults to
+`Managed`; pass `-p:SolutionPackageType=Unmanaged` for the dev-import variant
+(the PCF section above). CI's Package stage runs exactly these commands and
+publishes the zip as the `managed-solution` artifact.
+
+Verify a release zip before shipping it: import the managed zip on an org that
+is **clean for this zip**, exercise a control on a form and the shell in an
+app, then uninstall and confirm it removes cleanly. Clean is three checks, not
+a feeling:
+
+- **no custom control shares the kit controls' namespace, under ANY
+  publisher.** Custom-control identity is the unprefixed
+  `namespace.constructor` pair (`D365Kit.*` here) and it is org-global: the
+  platform rejects the import of a control that exists under another
+  publisher ("already created by another publisher", observed live). The
+  prefix decorates the registered name; it does not make controls from two
+  publishers a disjoint set. An org that ever took the kit's PCFs, under any
+  prefix, fails this check while they remain.
+- **no components carry the zip's publisher prefix.** Webresources are
+  genuinely prefix-scoped, so an org running the kit under a different
+  publisher passes this one.
+- **no solution already uses the zip's unique name**, managed or unmanaged.
+  Solution unique names are org-global too, and a managed import cannot layer
+  over an unmanaged solution with the same name. The SPKL deploy target
+  defaults to the same `D365UIKit` name the zip carries (one `solutionName`
+  in `kit.config.json` drives both), so any org that ever took the dev deploy
+  with defaults already owns the name.
+
+In practice: a fresh trial org passes all three; an org already running the
+kit fails the first check no matter whose publisher it runs under.
+
+If the only org available fails the first check because it already runs the
+kit (the kit's own dev org does), the machinery can still be verified end to
+end with a **verification-only build**: temporarily give the five control
+manifests a throwaway namespace, rebuild the zip, then import, exercise, and
+uninstall that. Revert the manifests and discard that zip afterwards, it must
+never ship; the namespace string is the only thing it changes, so the result
+carries to the real artifact. The kit's own v1.2.0 release was verified
+exactly this way (import, a control committing values on a live form, the
+shell booting the samples hub, and a first-try clean uninstall that put the
+org back on its exact baseline).
+
+### Owning the ALM in a fork
+
+When your fork goes to a real customer, own the ALM like any other Dataverse
+code component:
+
+- **Your solution, your publisher.** Set `publisherPrefix` (and optionally
+  `solutionName`, `publisherName`, `optionValuePrefix`) once in `kit.config.json`;
+  the build and the solution packaging read the same file, so the webresources,
+  the registered control names, and the solution publisher all follow. Nothing
+  from the sample solution should reach a customer environment.
 - **Two solutions when forms are involved.** Keep the kit artifacts
-  (webresources, PCF controls) in their own solution, separate from the app
-  customizations that reference them (the forms and views a PCF is bound to).
-  Controls then promote independently of form changes, and the import order is
-  always controls first, then the app solution that depends on them.
-- **Unmanaged in dev, managed everywhere else.** Develop and iterate against an
-  unmanaged solution in dev, export managed, and promote the managed artifact
-  through test to prod, via `pac solution export`/`import` in a pipeline or
-  Power Platform pipelines. Never hand-edit customizations in test or prod.
-- **Version on every promotion.** Bump the solution version each export, and
-  bump each changed PCF's `<control version>` in its manifest (the cache rule
-  above applies in every environment, not just dev). The shell webresource
+  (webresources, PCF controls) in their own solution, exactly what
+  `deployment/solution` packs, separate from the app customizations that
+  reference them (the forms and views a PCF is bound to). Controls then promote
+  independently of form changes, and the import order is always controls first,
+  then the app solution that depends on them.
+- **Unmanaged in dev, managed everywhere else.** Iterate against dev with the
+  unmanaged build (or SPKL for webresources alone), and promote the managed zip
+  through test to prod. The managed artifact builds from source here, so
+  promotion means "import the zip this commit builds", not "export whatever dev
+  accumulated". Never hand-edit customizations in test or prod.
+- **Version on every promotion.** Bump `package.json` (the solution version
+  follows it) and each changed PCF's `<control version>` in its manifest (the
+  cache rule above applies in every environment, not just dev; the kit's own
+  controls carry the kit release version since 1.2.0). The shell webresource
   needs no rename: the cache-busted HTML entry handles it.
 - **Uninstall behavior.** A managed uninstall removes the webresources and
   controls, but only after nothing references them: forms still binding a kit
@@ -312,13 +453,20 @@ customer, own the ALM like any other Dataverse code component:
   definition itself has its own client-side cache (the IndexedDB note in
   gotchas).
 
-The repo's own pipeline (below) covers the build-and-verify half of this; the
-export/import promotion half lives with your fork, since it is bound to your
-environments and connections.
+The repo's own pipeline (below) covers the build, verify, and package half of
+this; the import promotion half lives with your fork, since it is bound to
+your environments and connections.
 
 ## CI
 
-`azure-pipelines.yml` runs the full local gate (lint → typecheck → build →
-unit → smoke → storybook) plus conditional PCF builds when `shared/` or
-`pcfs/` changed, and publishes `dist/` as a pipeline artifact for release
-stages to pick up.
+`azure-pipelines.yml` runs two stages, neither holding any org credential:
+
+- **Verify** (ubuntu) mirrors the local gate (floor check → lint → typecheck →
+  build → unit → smoke → storybook) plus conditional production PCF builds when
+  `shared/`, `pcfs/`, or the root dependencies changed, and publishes `dist/`
+  as the `webresources` artifact.
+- **Package** (windows, where the PowerApps MSBuild targets are exercised and
+  the artifact matches a local Release build) rebuilds `dist/` and runs
+  `dotnet build deployment/solution -c Release`, publishing the managed zip as
+  the `managed-solution` artifact. Importing it anywhere stays a human step
+  with human credentials, on purpose.

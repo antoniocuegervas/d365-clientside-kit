@@ -100,11 +100,13 @@ A small control pushes straight to a dev org with
 `pac pcf push --publisher-prefix <prefix without trailing underscore, e.g. new>` (the `kit.config.json` `publisherPrefix`
 without the trailing underscore, see the prefix section below) as a debug build. A control whose
 debug bundle exceeds the 5 MB webresource ceiling cannot (`pac pcf push` has
-no production switch); deploy those through a solution wrapper. The wrapper is
-a one-time setup per control set. Worked example, start to finish, run from a
-NEW folder outside the PCF projects (for example `pcfs/_myDeploy/`, the
-underscore keeps the floor checker and CI out of it; the kit's own local
-wrappers follow that convention and stay untracked):
+no production switch); deploy those through a solution wrapper. The kit's own
+five controls already have a committed wrapper, `deployment/solution` (it also
+stages the shell webresources; see deployment.md), so for THEM use that. For
+your own control set the wrapper is a one-time setup. Worked example, start to
+finish, run from a NEW folder outside the PCF projects (for example
+`pcfs/_myDeploy/`, the underscore keeps the floor checker and CI out of it;
+scratch wrappers under `pcfs/_*` stay untracked):
 
 ```powershell
 mkdir pcfs/_myDeploy; cd pcfs/_myDeploy
@@ -152,7 +154,15 @@ A PCF's manifest `namespace` (here `D365Kit`) is its stable identity and never
 changes. The publisher prefix is applied at push/import time, not in the manifest:
 `pac pcf push --publisher-prefix new` registers the control as
 `new_D365Kit.KitOptionSet`. So the repo shows `D365Kit` while an org shows
-`<prefix>_D365Kit`, that is expected, not a mismatch. Drive the prefix from the same
+`<prefix>_D365Kit`, that is expected, not a mismatch.
+
+One hard consequence, learned from a live import rejection: the
+`namespace.constructor` pair is the control's org-wide identity ACROSS
+publishers. Two publishers cannot both register `D365Kit.KitOptionSet`; the
+platform refuses the second with "already created by another publisher". The
+prefix decorates the registered name, it does not create a second identity,
+so a fork whose controls must coexist in one org with another deployment of
+the kit needs its own manifest namespace, not just its own publisher. Drive the prefix from the same
 `kit.config.json` the webresources use (pass its `publisherPrefix` without the
 trailing underscore to `--publisher-prefix`) so one value names everything. The
 manifest itself stays untouched, which matters if you bring your own PCFs: nothing in

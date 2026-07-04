@@ -19,6 +19,12 @@ deployment/connection*.json
 deployment/packages/
 deployment/spkl.json
 deployment/solution/*.zip
+
+# Solution project build output and rendered sources (render-src.mjs)
+deployment/solution/bin/
+deployment/solution/obj/
+deployment/solution/src/WebResources/
+deployment/solution/src/Other/Solution.xml
 *.log
 spkl-log*
 Log[0-9]*.txt

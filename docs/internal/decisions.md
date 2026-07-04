@@ -1712,3 +1712,132 @@ Mechanics, so the history reads honestly: the squash merge (a5a0e0c) existed
 briefly on the wave branch and was removed by a reset before anything was
 pushed, so no published history was rewritten. Revisit triggers live with the
 parked entry in the roadmap.
+
+## D-061, the release is executable from the repo: the committed solution project and the packaging stage
+
+The ALM block D-055 deferred ("a committed wrapper for the five PCFs plus
+webresources, a pipeline stage emitting a managed zip, an import
+verification") is closed on its recorded trigger, the v1.2.0 release being
+cut. What shipped:
+
+- **A committed solution project, `deployment/solution/D365UIKit.cdsproj`.**
+  It references the five PCF projects (built in Release, so production
+  bundles by construction) and stages the three shell webresources from
+  `dist/`, so `npm run build` plus `dotnet build -c Release` produce the
+  managed zip from the repo alone, no org connection, no secrets.
+  `SolutionPackageType` defaults to Managed; the unmanaged override is the
+  dev-import variant. It lives under `deployment/`, not `pcfs/`, because CI
+  and the floor checker iterate `pcfs/*/` as npm PCF projects (the untracked
+  `pcfs/_*` scratch wrappers remain local conveniences, not the pattern).
+- **Nothing org-specific is hardcoded.** `render-src.mjs` renders
+  `src/Other/Solution.xml` and the webresource metadata at build time from
+  `kit.config.json` (publisher, prefix, optional solution and publisher
+  names) and the root `package.json` (the solution version), the same
+  single-source pattern `spkl.template.json` set. A static Solution.xml was
+  rejected because the prefix is configuration, not source: the committed
+  config says `new_`, a fork says its own, and the packed component names
+  must follow the same value that named the built artifacts.
+- **Webresource component ids are deterministic** (name-derived UUIDs), so a
+  rebuilt zip carries the same ids and a managed update upgrades a previous
+  import instead of colliding with it; a renamed resource (a different
+  prefix) is honestly a different component.
+- **The version pass is one rule now.** package.json carries the release
+  version, the rendered solution version reads it, and each control manifest
+  aligns to it (all five moved to 1.2.0, the counterparty grid up from its
+  0.1.x line). Shared code changed under every control this wave and the
+  platform serves a cached bundle when the manifest version does not move,
+  so the bump is load-bearing, not cosmetic.
+- **CI packages in a second stage** after the existing gate: a Windows agent
+  (the documented local path is dotnet build on the project, and the
+  PowerApps MSBuild targets are exercised on Windows; the artifact matches a
+  local Release build) rebuilds `dist/`, builds the solution, and publishes
+  the `managed-solution` artifact. No org credential enters CI, the same
+  posture D-055 recorded for the change-set parser: a public portfolio repo
+  does not get a dev-org secret. Import verification therefore stays a human
+  step, and on a CLEAN org: the dev org already carries these webresources
+  and controls unmanaged, so a managed import there would conflict with or
+  layer under them and prove nothing.
+
+One packing mechanic worth recording so nobody "simplifies" it away: the
+committed `src/Other/Customizations.xml` must carry the empty
+`<WebResources />` placeholder node. SolutionPackager only reassembles the
+webresource metadata (the `.data.xml` files) into customizations.xml when
+that node exists; without it the packer copies the staged files into the zip
+verbatim, emits no component metadata, and the import would create nothing.
+Found empirically against the org-exported solution as ground truth.
+
+Verified at the branch tip: the managed zip builds locally via the
+documented commands and unpacks with the five virtual controls, the three
+webresources, and root components for all eight; the unmanaged override
+builds; the full local gate is green. Pending, recorded in the roadmap's
+shipped entry: the packaging stage's first real pipeline run (yaml can only
+be proven by execution), and the clean-org import verification (install,
+exercise, uninstall) before the v1.2.0 zip is published as a release
+artifact.
+
+*(2026-07-04, the import verification was attempted against the dev org and
+remains pending; the attempt is worth its record because it sharpened the
+clean-org criterion. The idea was prefix disjointness: the org runs the kit
+under its own publisher prefix, so the release zip's components (the default
+prefix throughout) exist nowhere there, and the read-only pre-checks agreed,
+no webresource and no custom control carrying the zip's prefix. The third
+pre-check stopped the run: the org already carries an UNMANAGED solution
+named D365UIKit, the SPKL webresource deploy target (deploy.ps1 and
+render-src.mjs read the same solutionName default, so the dev deploy and the
+release zip share a unique name by construction), holding the org's three
+live shell webresources. Solution unique names are org-global and prefix
+independent, a managed import cannot layer over an unmanaged solution with
+the same name, and the deploy target is live infrastructure, so nothing was
+imported and the org was left untouched. Conclusion, folded into
+deployment.md: clean-for-this-zip is two checks, no components with the
+zip's prefix AND no existing solution with the zip's unique name; an org
+running the kit under a different publisher passes the first and can still
+fail the second exactly this way. The verification still needs a genuinely
+clean org, or a release built with a solutionName the target org has never
+used.)*
+
+*(Same day, second attempt, after the owner deleted the unmanaged
+deploy-target solution: all three pre-checks came back empty, the import ran
+(pac, the browser upload being unavailable to the session), and the platform
+rejected it on an identity the criterion had not counted: "Custom Control
+with name D365Kit.KitCounterpartyGrid already created by another publisher.
+Please change your control's name and try importing again." Custom-control
+identity is the UNPREFIXED namespace.constructor pair and it is org-global
+across publishers; webresources are prefix-scoped, PCF controls are not. So
+prefix disjointness cannot make an org clean for the zip's controls: an org
+that carries the kit's PCFs under any publisher can never import the release
+zip's, under any solution name. The failed import rolled back clean,
+verified: no D365UIKit solution, no zip-prefix components, the org's own
+D365Kit controls and webresources untouched. The criterion in deployment.md
+is now three checks (control namespace under any publisher, zip-prefix
+components, solution unique name), adding-a-pcf.md records the
+cross-publisher identity rule for forks, and the "solutionName the org has
+never used" alternative above is withdrawn, it would not get past the
+controls. The import verification needs a genuinely clean trial org,
+nothing less.)*
+
+*(Third pass, same day, and the verification is DONE. The owner challenged
+the clean-trial-org conclusion on the right ground: the repo must be able to
+verify its own artifact with repo means, because a consumer in the same spot
+needs the same path. The answer is a verification-only build, identical to
+the release zip in everything except the five manifest namespaces (a
+throwaway one in place of D365Kit), which steps around the org-global
+control identity without touching what ships. That zip imported cleanly
+into the dev org (pac; the browser upload was unavailable to the session);
+the three webresources landed carrying the renderer's deterministic ids
+verbatim; the KitOptionSet control was bound to a samples-form choice
+column and, on the live form, rendered, resolved its options from metadata,
+and committed a value the Web API confirmed persisted, with no console
+errors; the shell webresource booted the samples hub inside the app and the
+company-search sample loaded live rows, also error-free; the binding was
+then removed (the one deliberate exception to hide-don't-remove, because a
+lingering binding is a dependency and the uninstall IS the test) and the
+solution deleted on the first try, after which every pre-check query
+returned to baseline and the org's own controls, webresources, and
+publishers were confirmed untouched. What this proves: the entire release
+machinery, import through uninstall; the literal release zip differs from
+the exercised artifact by the namespace string alone, and the platform had
+already validated the literal zip up to the identity check in the second
+pass. The technique is recorded in deployment.md for consumers whose only
+org already runs the kit. Remaining open on the release: the Package
+stage's first real pipeline run.)*

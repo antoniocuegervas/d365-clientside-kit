@@ -9,7 +9,9 @@ export default tseslint.config(
   {
     ignores: [
       "node_modules/**",
-      "dist/**",
+      // Build output is never lint material, wherever it sits: the root
+      // bundles, and any untracked local folder that carries its own build.
+      "**/dist/**",
       "coverage/**",
       "storybook-static/**",
       "pcfs/**",

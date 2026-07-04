@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    Solution wrapper for the kit's shippable artifacts: the five PCF controls
+    (referenced below, built in Release by this project) and the three shell
+    webresources (staged from dist/ by render-src.mjs before packaging).
+
+    Build a managed zip from the repo alone, no org connection:
+
+      npm run build                 (webresource artifacts into dist/)
+      dotnet build -c Release      (this project; managed zip in bin/Release)
+
+    The publisher, prefix, solution name, and version are rendered into
+    src/Other/Solution.xml at build time from kit.config.json and the root
+    package.json, so the packed component names always match the built
+    artifacts. See render-src.mjs and docs/deployment.md (the ALM chapter).
+  -->
+  <PropertyGroup>
+    <PowerAppsTargetsPath>$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\PowerApps</PowerAppsTargetsPath>
+  </PropertyGroup>
+
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <Import Project="$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Solution.props" Condition="Exists('$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Solution.props')" />
+
+  <PropertyGroup>
+    <ProjectGuid>e40d83cc-947b-4c78-ba0f-a8614434540a</ProjectGuid>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <!--Remove TargetFramework when this is available in 16.1-->
+    <TargetFramework>net462</TargetFramework>
+    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
+    <SolutionRootPath>src</SolutionRootPath>
+  </PropertyGroup>
+
+  <!-- Managed by default: the release artifact. Override per build for a dev
+       import, e.g. dotnet build -c Release -p:SolutionPackageType=Unmanaged -->
+  <PropertyGroup>
+    <SolutionPackageType Condition="'$(SolutionPackageType)' == ''">Managed</SolutionPackageType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.PowerApps.MSBuild.Solution" Version="1.*" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ExcludeDirectories Include="$(MSBuildThisFileDirectory)\.gitignore" />
+    <ExcludeDirectories Include="$(MSBuildThisFileDirectory)\bin\**" />
+    <ExcludeDirectories Include="$(MSBuildThisFileDirectory)\obj\**" />
+    <ExcludeDirectories Include="$(MSBuildThisFileDirectory)\*.cdsproj" />
+    <ExcludeDirectories Include="$(MSBuildThisFileDirectory)\*.cdsproj.user" />
+    <ExcludeDirectories Include="$(MSBuildThisFileDirectory)\*.sln" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)\**" Exclude="@(ExcludeDirectories)" />
+    <Content Include="$(SolutionPackageZipFilePath)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\pcfs\KitCounterpartyGrid\KitCounterpartyGrid.pcfproj" />
+    <ProjectReference Include="..\..\pcfs\KitDatePicker\KitDatePicker.pcfproj" />
+    <ProjectReference Include="..\..\pcfs\KitNativeLookup\KitNativeLookup.pcfproj" />
+    <ProjectReference Include="..\..\pcfs\KitOptionSet\KitOptionSet.pcfproj" />
+    <ProjectReference Include="..\..\pcfs\KitTooltip\KitTooltip.pcfproj" />
+  </ItemGroup>
+
+  <!-- Render src/Other/Solution.xml and stage the webresources from dist/
+       before the packager reads the src tree. Fails with a clear message when
+       dist/ is missing (run npm run build first). -->
+  <Target Name="RenderSolutionSrc" BeforeTargets="PrepareForBuild">
+    <Exec Command="node &quot;$(MSBuildThisFileDirectory)render-src.mjs&quot;" WorkingDirectory="$(MSBuildThisFileDirectory)" />
+  </Target>
+
+  <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
+  <Import Project="$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Solution.targets" Condition="Exists('$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Solution.targets')" />
+
+</Project>
