@@ -280,15 +280,20 @@ host, not a headline load-time delta.
 
 ## ALM: shipping the controls to customers, not just trying the samples
 
-Releases carry two managed zips, deliberately different things:
+Releases carry one managed zip, the **sample solution**, a demo exported from
+a dev org (the sample app, forms, and views): it exists so someone can try
+the kit on a trial org and uninstall it cleanly. Nothing from it should reach
+a customer environment.
 
-- the **kit solution** (`D365UIKit`), built from the repo by `deployment/solution`:
-  the five PCF controls and the three shell webresources, nothing else. This is the
-  shape a consumer imports to get the kit's artifacts, and the shape your fork
-  rebuilds under its own publisher.
-- the **sample solution**, a demo exported from a dev org (the sample app, forms,
-  and views): it exists so someone can try the kit on a trial org and uninstall it
-  cleanly. Nothing from it should reach a customer environment.
+The **kit solution** (`D365UIKit`), built from the repo by
+`deployment/solution` (the five PCF controls and the three shell
+webresources, nothing else), is deliberately not a release download. The kit
+is consumed as source, so the zip's purpose is to be built, not downloaded:
+your fork produces it under its own publisher, and that build is the shape a
+customer imports. Publishing a reference build would invite importing it
+as-is, which pins the controls' org-global namespace against any fork later
+stood up in the same org (the cross-publisher identity rule in
+[adding-a-pcf.md](adding-a-pcf.md)).
 
 ### Inside the zip: what the org normally writes, and why this repo writes it instead
 

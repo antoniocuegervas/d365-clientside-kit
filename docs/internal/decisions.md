@@ -1842,6 +1842,15 @@ pass. The technique is recorded in deployment.md for consumers whose only
 org already runs the kit. Remaining open on the release: the Package
 stage's first real pipeline run.)*
 
+*(2026-07-05, distribution decision: the kit zip is deliberately NOT
+published as a release download after all. The kit is consumed as source; a
+fork builds the zip under its own publisher, and publishing a reference
+build would invite importing it as-is, which pins the controls' org-global
+namespace (the identity rule above) against any later fork in the same org.
+Releases carry the sample solution only, and the README and the ALM chapter
+now say so. The solution project itself is unchanged: it remains the fork's
+importable build shape, proven end to end by the verification above.)*
+
 ## D-062, the release stays 1.2.0: the repo version is a milestone marker until a package is published
 
 A review agent proposed versioning this release 2.0.0 because the metadata
