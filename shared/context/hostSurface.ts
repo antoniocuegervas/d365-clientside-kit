@@ -10,7 +10,7 @@
  */
 
 import type { CdsClient } from "../data/CdsClient";
-import type { IFormContext } from "./formContextSurface";
+import { buildFormContext, type IFormContext, type IHostFormContext } from "./formContextSurface";
 import {
   normalizeGuid,
   toLookupValue,
@@ -105,6 +105,50 @@ export class XrmPageFormAccess implements IFormAccess {
     // a form attribute without hand-rolling the conversion.
     const resolved = isEntityReference(value) ? [toLookupValue(value)] : value;
     this.formContext.getAttribute(attributeLogicalName)?.setValue(resolved);
+  }
+}
+
+/** A live read of the hosting form page; called again until a form appears. */
+export type FormPageSource = () => IXrmPageLike | undefined;
+
+/**
+ * The lazy form binding shared by the webresource adapters. The form page is
+ * a SOURCE, not a boot-time snapshot: the clienthooks injection arrives
+ * through getContentWindow's promise on the form's own schedule, so it can
+ * land after the context was already built from the frame walk. The binding
+ * re-reads the source on every access until a page with a real form appears,
+ * then caches, so formContext/formAccess keep stable identities once
+ * resolved. Consumers that poll form access (RecordReady) pick the form up
+ * whenever the injection lands; hosts that never receive one just keep
+ * reading undefined, exactly as before.
+ */
+export class LazyFormBinding {
+  private binding?: { formContext: IFormContext; formAccess: IFormAccess };
+  private readonly source: FormPageSource;
+  private readonly hostLabel: string;
+
+  constructor(source: FormPageSource, hostLabel: string) {
+    this.source = source;
+    this.hostLabel = hostLabel;
+  }
+
+  get formContext(): IFormContext | undefined {
+    return this.resolve()?.formContext;
+  }
+
+  get formAccess(): IFormAccess | undefined {
+    return this.resolve()?.formAccess;
+  }
+
+  private resolve(): { formContext: IFormContext; formAccess: IFormAccess } | undefined {
+    if (!this.binding) {
+      const page = this.source();
+      if (XrmPageFormAccess.hasForm(page)) {
+        const formContext = buildFormContext(page as unknown as IHostFormContext, this.hostLabel);
+        this.binding = { formContext, formAccess: new XrmPageFormAccess(formContext, page) };
+      }
+    }
+    return this.binding;
   }
 }
 

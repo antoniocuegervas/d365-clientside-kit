@@ -1,5 +1,4 @@
 import { CdsClient, makeExecuteResponse, type IRetrieveMultipleResult } from "../data/CdsClient";
-import { buildFormContext, type IHostFormContext } from "./formContextSurface";
 import { CdsEntityMetadataProvider } from "../metadata/CdsEntityMetadataProvider";
 import { KitMetadataSource } from "../metadata/KitMetadataSource";
 import { createGetEntityMetadata } from "../metadata/createGetEntityMetadata";
@@ -53,7 +52,7 @@ import type {
   IWebApiRequest,
   IWindowOptions,
 } from "./IViewModelContext";
-import { XrmPageFormAccess, type IXrmPageLike } from "./hostSurface";
+import { LazyFormBinding, type FormPageSource, type IXrmPageLike } from "./hostSurface";
 
 /**
  * WebResourceContext, IViewModelContext over a modern (v9.2+/UCI) host.
@@ -71,14 +70,12 @@ export class WebResourceContext implements IViewModelContext {
   readonly globalContext: IGlobalContext;
   readonly client: IClientContext;
   readonly device: IDeviceContext;
-  readonly formContext?: IFormContext;
-  readonly formAccess?: IFormAccess;
-
   private readonly cdsClient: CdsClient;
   private readonly rawDateFormat: Record<string, unknown> | undefined;
+  private readonly formBinding: LazyFormBinding;
   private formattingPromise?: Promise<IFormattingInfo>;
 
-  constructor(xrm: Xrm.XrmStatic, formPage?: IXrmPageLike) {
+  constructor(xrm: Xrm.XrmStatic, formPage?: IXrmPageLike | FormPageSource) {
     const globalContext = xrm.Utility.getGlobalContext();
     this.clientUrl = globalContext.getClientUrl();
     const userSettings = globalContext.userSettings as typeof globalContext.userSettings & {
@@ -152,16 +149,23 @@ export class WebResourceContext implements IViewModelContext {
     );
 
     // Webresources hosted on a form can reach the record through Xrm.Page
-    // (deprecated but functional in UCI). `formPage` is the deepest ancestor
-    // form resolved by the factory; fall back to this Xrm's own Page.
-    const page = formPage ?? (xrm as unknown as { Page?: IXrmPageLike }).Page;
-    if (XrmPageFormAccess.hasForm(page)) {
-      this.formContext = buildFormContext(
-        page as unknown as IHostFormContext,
-        "modern webresource"
-      );
-      this.formAccess = new XrmPageFormAccess(this.formContext, page);
-    }
+    // (deprecated but functional in UCI). `formPage` names the form the
+    // factory resolved (injected or deepest ancestor); this Xrm's own Page is
+    // the fallback. A function form is read again on every access until a
+    // form appears, because the clienthooks injection can land after this
+    // constructor already ran; form access then adopts it late instead of
+    // staying empty for the page's whole life.
+    const suppliedPage = typeof formPage === "function" ? formPage : () => formPage;
+    const ownPage = (xrm as unknown as { Page?: IXrmPageLike }).Page;
+    this.formBinding = new LazyFormBinding(() => suppliedPage() ?? ownPage, "modern webresource");
+  }
+
+  get formContext(): IFormContext | undefined {
+    return this.formBinding.formContext;
+  }
+
+  get formAccess(): IFormAccess | undefined {
+    return this.formBinding.formAccess;
   }
 
   getFormatting(): Promise<IFormattingInfo> {

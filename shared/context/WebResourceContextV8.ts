@@ -1,5 +1,4 @@
 import { CdsClient, type IRetrieveMultipleResult } from "../data/CdsClient";
-import { buildFormContext, type IHostFormContext } from "./formContextSurface";
 import { CdsEntityMetadataProvider } from "../metadata/CdsEntityMetadataProvider";
 import { KitMetadataSource } from "../metadata/KitMetadataSource";
 import { createGetEntityMetadata } from "../metadata/createGetEntityMetadata";
@@ -55,7 +54,7 @@ import type {
   IDeviceContext,
   IFormattingInfo,
 } from "./IViewModelContext";
-import { XrmPageFormAccess, type IXrmPageLike } from "./hostSurface";
+import { LazyFormBinding, type FormPageSource, type IXrmPageLike } from "./hostSurface";
 
 /**
  * Structural shape of the CRM 8.x client API surface this adapter relies on.
@@ -99,13 +98,11 @@ export class WebResourceContextV8 implements IViewModelContext {
   readonly globalContext: IGlobalContext;
   readonly client: IClientContext;
   readonly device: IDeviceContext;
-  readonly formContext?: IFormContext;
-  readonly formAccess?: IFormAccess;
-
   private readonly cdsClient: CdsClient;
+  private readonly formBinding: LazyFormBinding;
   private formattingPromise?: Promise<IFormattingInfo>;
 
-  constructor(xrm: IXrmV8Like, formPage?: IXrmPageLike) {
+  constructor(xrm: IXrmV8Like, formPage?: IXrmPageLike | FormPageSource) {
     const pageContext = xrm.Page.context;
     this.clientUrl = pageContext.getClientUrl();
     this.user = {
@@ -167,15 +164,20 @@ export class WebResourceContextV8 implements IViewModelContext {
     this.device = deviceFromSource(undefined, "CRM 8.x webresource");
 
     // Form access binds to the deepest ancestor form when the factory found
-    // one; otherwise this host's own Page.
-    const page = formPage ?? xrm.Page;
-    if (XrmPageFormAccess.hasForm(page)) {
-      this.formContext = buildFormContext(
-        page as unknown as IHostFormContext,
-        "CRM 8.x webresource"
-      );
-      this.formAccess = new XrmPageFormAccess(this.formContext, page);
-    }
+    // one; otherwise this host's own Page. A function form is read again on
+    // every access until a form appears, because the clienthooks injection
+    // can land after this constructor already ran; form access then adopts
+    // it late instead of staying empty for the page's whole life.
+    const suppliedPage = typeof formPage === "function" ? formPage : () => formPage;
+    this.formBinding = new LazyFormBinding(() => suppliedPage() ?? xrm.Page, "CRM 8.x webresource");
+  }
+
+  get formContext(): IFormContext | undefined {
+    return this.formBinding.formContext;
+  }
+
+  get formAccess(): IFormAccess | undefined {
+    return this.formBinding.formAccess;
   }
 
   getFormatting(): Promise<IFormattingInfo> {

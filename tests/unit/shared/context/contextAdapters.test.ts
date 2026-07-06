@@ -82,6 +82,60 @@ describe("createWebResourceContext factory", () => {
     expect(createWebResourceContext(self)).toBeInstanceOf(WebResourceContext);
   });
 
+  it("adopts a form page the live source produces only AFTER context creation", () => {
+    // The clienthooks injection lands through getContentWindow's promise, so
+    // it can arrive after the context was built from the walk. A function
+    // form page is re-read until a form appears; form access adopts it then.
+    const { xrm } = createModernXrmMock();
+    let injectedPage: unknown;
+    const context = createContextFromXrm(xrm, () => injectedPage as never);
+
+    expect(context.formAccess).toBeUndefined();
+    expect(context.formContext).toBeUndefined();
+
+    injectedPage = (
+      createModernXrmMock({
+        formRecord: {
+          id: "ee000000-0000-0000-0000-000000000005",
+          entityName: "contact",
+          attributes: { fullname: "Late Arrival" },
+        },
+      }).xrm as unknown as { Page: unknown }
+    ).Page;
+
+    expect(context.formAccess).toBeDefined();
+    expect(context.formAccess!.getEntityName()).toBe("contact");
+    expect(context.formAccess!.getAttributeValue("fullname")).toBe("Late Arrival");
+
+    // Once resolved the binding is cached: identities stay stable even if the
+    // source stops producing the page.
+    const resolved = context.formAccess;
+    injectedPage = undefined;
+    expect(context.formAccess).toBe(resolved);
+    expect(context.formContext).toBe(context.formContext);
+  });
+
+  it("adopts a late form page on the V8 adapter too", () => {
+    const { xrm } = createV8XrmMock();
+    let injectedPage: unknown = undefined;
+    const context = createContextFromXrm(xrm, () => injectedPage as never);
+
+    expect(context.formAccess).toBeUndefined();
+
+    injectedPage = (
+      createV8XrmMock({
+        formRecord: {
+          id: "ee000000-0000-0000-0000-000000000006",
+          entityName: "account",
+          attributes: {},
+        },
+      }).xrm as unknown as { Page: unknown }
+    ).Page;
+
+    expect(context.formAccess).toBeDefined();
+    expect(context.formAccess!.getEntityName()).toBe("account");
+  });
+
   it("binds formAccess to the deepest ancestor form", () => {
     // The hosting form is two frames up; the standalone Xrm in between has none.
     const formHost = createModernXrmMock({

@@ -1876,3 +1876,79 @@ direction) versions its own line under real semver from its first release,
 and this policy hands over to it there. Revisit trigger: that first
 published package, or the first external consumer who demonstrates an
 automated-upgrade path the policy wrongly assumes away.
+
+## D-063, the injected form page is a live source: the boot race a downstream consumer reported
+
+A downstream form-embedded consumer of the injected-host contract reported a
+design-level boot race, and the mechanism held up on inspection: the shell
+polls findXrm from bootstrap, findXrm prefers the injected globals and falls
+back to the ancestor-frame walk, and the injected FORM PAGE was captured
+exactly once, at context creation. KitShell.connect injects asynchronously,
+through getContentWindow's promise, from the form's OnLoad. When the embedded
+page's first poll found a walked Xrm before the injection landed (a warm
+boot: cached bundle, fast first poll), the context was built from the walk
+with no form page, and the injection arriving milliseconds later was never
+adopted. The walked and the injected Xrm are typically the same same-origin
+object; the real casualty of losing the race is the form page, the record
+identity, which is exactly what a form-embedded consumer needs. With the
+hook correctly registered, formAccess and formContext could stay undefined
+for the page's whole life, and deployment.md's claim that the shell prefers
+the injected path held only when injection won the race.
+
+**What shipped.** The form page parameter of the webresource adapters now
+also takes a FUNCTION, re-read on every formAccess/formContext access until
+a page with a real form appears, then cached so identities stay stable once
+resolved (LazyFormBinding in hostSurface, shared by the modern and V8
+adapters; this Xrm's own Page stays the last fallback). The bootstrap and
+createWebResourceContext pass live sources, so a late-landing injection is
+adopted the moment a polling consumer looks again; RecordReady needed no
+change, polling form access was already its contract. The samples hub grew
+one line of chrome, the hosting entity and record id, so the injected-host
+path finally has a surface visible to the naked eye; standalone hostings
+render nothing there. Boot itself never waits on anything: sitemap, quick
+test, dialogs, and the V8 popup boot exactly as before, and PCF is
+untouched.
+
+**Alternatives rejected.**
+
+- A grace window before accepting a walk-only resolution. It fixes the form
+  page by delaying everyone: sitemap-hosted and quick-test shells never
+  receive an injection and would eat the full window on every boot, and any
+  window length is a guess a slow form load can outlast.
+- A handshake in the injected-host contract (the hook invokes a well-known
+  callback when it injects, the page adopts deterministically). It closes
+  the race but moves the contract: KitShell.connect and the bootstrap would
+  have to version together, and pages predating the callback would need the
+  compat path anyway. The live source gets the same adoption with no new
+  surface.
+- Documenting the race and moving on. With the hook correctly registered
+  the outcome depended on cache temperature; that is not a contract anyone
+  can build on.
+
+**Verification.** Unit tests pin all three orders at bootstrap level
+(injection before the first poll, injection after context creation, never
+injected) plus the walked own-form fallback and the source semantics on
+both adapters; the after-creation case fails on the pre-fix code, which is
+the reproduction. Live, on the dev org (2026-07-06): the shell was embedded
+in a section of the sample Contact form with KitShell.connect on OnLoad,
+which also closes the v1.2.0 gap that shipped the hook's injection path
+"accepted untested". Observed: on every boot where the platform mounted the
+control (cold and warm), the injection had already landed by first poll and
+form access resolved, hub line included; the LOSING order never occurred
+naturally there because current UCI still serves a functional deprecated
+Xrm.Page through the walk, which masks the race today. It was therefore
+staged deterministically on the live form against the deployed fixed
+bundle: a shell booted with no injection and no usable walked Page showed
+no form access, and adopted the injected form page seconds after it was
+supplied post-boot, resolving the correct record id. A sitemap-hosted shell
+booted over the walk with no injection, no hosted-record line, and no added
+delay. The webresource control stays on the form HIDDEN per the house
+convention; the OnLoad registration stays for retests.
+
+**Recorded for the next visitor.** Two host behaviors observed during the
+live pass, kit-independent: UCI mounts a below-the-fold webresource control
+lazily and on some warm or soft navigations not at all until a cold
+hydration, and a burst of rapid publishes can leave the form definition
+serving empty sections until a full publish plus a cleared service worker
+cache settles it (the gotchas cache guidance, plus Cache Storage, which
+sits beside the IndexedDB store it already names).

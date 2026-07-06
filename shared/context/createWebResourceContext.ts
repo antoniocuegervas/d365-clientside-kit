@@ -1,5 +1,5 @@
 import type { IViewModelContext } from "./IViewModelContext";
-import type { IXrmPageLike } from "./hostSurface";
+import type { FormPageSource, IXrmPageLike } from "./hostSurface";
 import { XrmPageFormAccess } from "./hostSurface";
 import { WebResourceContext } from "./WebResourceContext";
 import { WebResourceContextV8, type IXrmV8Like } from "./WebResourceContextV8";
@@ -93,6 +93,12 @@ export function findDeepestFormPage(candidates: unknown[]): IXrmPageLike | undef
  * the shell boots from these and never touches the deprecated `parent.Xrm`
  * walk; when absent (no hook registered, or a sitemap-hosted shell with no
  * form to register it on), the walk remains the fallback.
+ *
+ * The injection is asynchronous (getContentWindow resolves on the form's own
+ * schedule), so a fast-booting shell can build its context from the walk
+ * BEFORE these globals land. The kit therefore reads the injected form page
+ * through a live source, not a boot-time capture: form access adopts the
+ * injected page whenever it appears.
  */
 export interface IKitInjectedHost {
   __kitInjectedXrm?: unknown;
@@ -127,27 +133,34 @@ export function findXrm(win: Window = window): unknown {
  * Web API.
  */
 export function createWebResourceContext(win: Window = window): IViewModelContext {
-  const injected = findInjectedHost(win);
-  if (injected) {
-    return createContextFromXrm(injected.xrm, injected.formPage);
-  }
   const candidates = collectAncestorXrms(win);
-  const xrm = chooseXrm(candidates);
+  const xrm = findInjectedHost(win)?.xrm ?? chooseXrm(candidates);
   if (!xrm) {
     throw new Error(
       "Xrm is not available in this window or any ancestor frame. " +
         "Host this page as a Dynamics 365 webresource, or provide an Xrm mock in tests."
     );
   }
-  return createContextFromXrm(xrm, findDeepestFormPage(candidates));
+  // The form page is a live source: the injected page wins whenever it lands
+  // (including after this factory ran), the deepest walked form remains the
+  // fallback.
+  return createContextFromXrm(
+    xrm,
+    () => findInjectedHost(win)?.formPage ?? findDeepestFormPage(candidates)
+  );
 }
 
 /**
  * Adapter selection given an already-located Xrm root. `formPage` overrides the
  * record-form source (the deepest ancestor Page); omit it to use the Xrm's own
- * Page.
+ * Page. Pass a function to keep the source LIVE: it is read again on every
+ * form access until a form appears, which is how a late-landing injection
+ * (the clienthooks hook racing a fast boot) still gets adopted.
  */
-export function createContextFromXrm(xrm: unknown, formPage?: IXrmPageLike): IViewModelContext {
+export function createContextFromXrm(
+  xrm: unknown,
+  formPage?: IXrmPageLike | FormPageSource
+): IViewModelContext {
   if (isModernXrm(xrm)) {
     return new WebResourceContext(xrm as Xrm.XrmStatic, formPage);
   }

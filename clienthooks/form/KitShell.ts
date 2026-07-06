@@ -9,6 +9,12 @@ import type { IKitInjectedHost } from "../../shared/context/createWebResourceCon
  * sitemap-hosted shell, which has no form to register it on) the walk remains
  * the boot path.
  *
+ * Timing: getContentWindow resolves on the form's own schedule, so the
+ * injection can land after a fast-booting shell already found a walked Xrm.
+ * That is fine, the shell reads the injected form page through a live source
+ * and adopts it whenever it lands; registering this hook is enough, no
+ * ordering care needed.
+ *
  * Register on the form's OnLoad with "pass execution context as first
  * parameter" checked:
  *

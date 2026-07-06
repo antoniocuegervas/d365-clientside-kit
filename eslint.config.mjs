@@ -12,6 +12,8 @@ export default tseslint.config(
       // Build output is never lint material, wherever it sits: the root
       // bundles, and any untracked local folder that carries its own build.
       "**/dist/**",
+      // SolutionPackager staging carries built webresource bundles.
+      "**/solution/src/**",
       "coverage/**",
       "storybook-static/**",
       "pcfs/**",

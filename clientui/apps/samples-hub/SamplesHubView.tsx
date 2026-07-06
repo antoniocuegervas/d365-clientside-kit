@@ -11,6 +11,7 @@ import { ObserverComponent } from "../../../shared/reactivity/ObserverComponent"
 import { Observable } from "../../../shared/reactivity/Observable";
 import { getApp, listApps } from "../../registry";
 import type { IAppHost } from "../../AppContract";
+import { HostedRecordLine } from "./HostedRecordLine";
 
 /**
  * Samples hub: ONE deployed webresource that swaps between sample
@@ -81,6 +82,8 @@ const Body: React.FC<ISamplesHubProps & { selectedKey: Observable<string | null>
         View and ViewModel, built from the shared controls, live against this org. Each one
         targets standard Dataverse entities, so it works on any environment.
       </div>
+      {/* Names the hosting record on a form-embedded hub; renders nothing standalone. */}
+      <HostedRecordLine />
       <div className={styles.picker}>
         <Dropdown
           placeholder="Pick a sample to run"

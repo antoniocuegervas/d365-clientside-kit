@@ -120,12 +120,27 @@ register the clienthooks handler `CrmClientSide.KitShell.connect` on the
 form's OnLoad (pass execution context; optionally the webresource control's
 name as the string parameter). It pushes the form's `Xrm` and form context
 into the shell through the web resource control's `getContentWindow`, the
-mechanism the deprecation guidance points to, and the shell prefers that over
-the walk. Sitemap-hosted and quick-test-URL shells have no form to register
-the hook on, so they continue to boot over the walk; that residual exposure
-is the platform's to resolve (there is no supported alternative for a
-standalone webresource today), and if `parent.Xrm` is ever removed, those
-hosting shapes stop booting until one exists.
+mechanism the deprecation guidance points to, and the shell prefers that
+over the walk whenever it is present.
+
+The injection is asynchronous (getContentWindow resolves on the form's own
+schedule), so a fast-booting shell can find a walked Xrm before the
+injection lands. That ordering is handled: the injected form page is read
+through a live source, not captured once at boot, so form access adopts the
+injected form context whenever it arrives, and consumers that poll form
+access (RecordReady, the samples hub's hosted-record line) resolve without
+any ordering care on the registering form's side. One residual is
+deliberate: the Xrm ROOT keeps whichever source resolved first. On a
+same-origin form embed the walked and the injected Xrm are the same
+platform object, so nothing is lost; where they would differ (a cross-origin
+ancestry), the walk finds nothing and the boot simply waits for the
+injection, which then wins outright.
+
+Sitemap-hosted and quick-test-URL shells have no form to register
+the hook on, so they continue to boot over the walk with no added delay;
+that residual exposure is the platform's to resolve (there is no supported
+alternative for a standalone webresource today), and if `parent.Xrm` is ever
+removed, those hosting shapes stop booting until one exists.
 
 The shell reads the app key from `?app=` or from the `data` JSON payload, so the
 subarea and the navigateTo paths both select the right app.

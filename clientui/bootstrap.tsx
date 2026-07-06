@@ -50,8 +50,14 @@ export async function bootstrap(options: IBootstrapOptions = {}): Promise<Root |
     const xrm = await waitForXrm(win, options.xrmTimeoutMs ?? 10_000);
 
     // 4. Create the host context (modern vs legacy auto-detected). The
-    //    injected form context, when present, is the form-access source.
-    const context = createContextFromXrm(xrm, findInjectedHost(win)?.formPage);
+    //    injected form context is the form-access source, read LIVE rather
+    //    than captured once: KitShell.connect injects through
+    //    getContentWindow's promise, which can land after a fast boot has
+    //    already found a walked Xrm. Form access adopts the injected page
+    //    whenever it appears, so form-embedded consumers that poll form
+    //    access resolve either way, and no hosting shape waits on an
+    //    injection that may never come.
+    const context = createContextFromXrm(xrm, () => findInjectedHost(win)?.formPage);
 
     // 5. Look the app up in the registry.
     if (!params.app) {
