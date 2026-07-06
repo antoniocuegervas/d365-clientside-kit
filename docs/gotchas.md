@@ -284,10 +284,11 @@ the platform's on the PCF path.
 A money attribute's own `Precision` is not always the precision the platform
 shows. `PrecisionSource` decides which one applies: 0 uses the attribute
 `Precision`, 1 uses the record currency's precision, 2 uses the org pricing
-precision. `SmartNumberField` resolves 0 and 1 exactly (the currency precision
-rides in on `getCurrencySymbol`). Source 2 (org pricing precision) is uncommon
-and is not fetched: those fields fall back to the attribute precision, so treat
-their displayed decimals as best-effort.
+precision. `SmartNumberField` resolves all three: the currency precision rides
+in on `getCurrencySymbol`, and source 2 reads the org's real pricing precision
+via `getPricingDecimalPrecision` (the organization row's
+`pricingdecimalprecision`, fetched once and cached for the session). Only if
+that org read fails does the field fall back to the attribute precision.
 
 ## The date picker's first day of week follows Language, not the Format locale
 
