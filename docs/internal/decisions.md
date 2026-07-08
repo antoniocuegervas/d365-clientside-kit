@@ -2047,3 +2047,47 @@ product already verified live).
 reflow (then "auto" could stop diverging and full-page becomes opt-in), or if a
 real V8/PCF narrow-launch need appears (then the popup-for-every-mode choice
 reopens).
+
+## D-065, the solution packer is pinned to 2.x: the retired 1.x SolutionPackager silently drops AI models
+
+`deployment/solution/D365UIKit.cdsproj` referenced
+`Microsoft.PowerApps.MSBuild.Solution` at `1.*`, which resolves to 1.52.1.
+Packing from unpacked source, that packer silently drops an `msdyn_aimodel`
+(an AI Builder prompt): it prints only a `Following root components are not
+defined in customizations: Type='AIModel'` warning, no error, and writes the
+zip without the component. The pac CLI's own SolutionPackager (2.8.1) packs the
+same source correctly. The package's 2.x line tops out at 2.8.1, the same
+version as the installed pac CLI; the 1.x line caps at 1.52.1. This surfaced
+while fixing a product built on the kit, one that ships an AI model and hit the
+drop (2026-07-08).
+
+The pin is now `2.8.1` exactly, matching the pac CLI this kit's lifecycle
+already uses to export, unpack, and import, so the build packer and the CLI
+packer agree. This is a preventive fix to the reference pattern, not a repair
+of a broken kit artifact: the kit's own solution ships only PCF controls and
+webresources, no AI model, so its managed zip was never affected. Products copy
+this cdsproj, so the stale pin would have propagated; pinning it current here
+stops that. It is the only tracked cdsproj that references this package, so
+nothing else changed. deployment.md's ALM chapter now records the
+packer-version requirement and, for a fork that adds an AI model, the staging
+rule: customizations.xml needs the childless `<AIModels />` node as the
+insertion point plus an `aimodel.xml` staged beside it (`pac solution unpack`
+writes `aimodel.yml`, which SolutionPackager does not read back when it packs).
+No AI-model staging code was added to the kit; it ships no AI model.
+
+**Verification.** The kit's managed and unmanaged zips were built both before
+(1.52.1) and after (2.8.1) the bump, from the same `dist/`. All four zips carry
+the five PCF CustomControls and the three shell webresources in both the
+manifest and the definitions, with the correct Managed flag (1 managed, 0
+unmanaged) and zero packer warnings and zero errors. The 2.8.1 managed zip and
+the 1.52.1 managed zip carry the same entries, and their `solution.xml`,
+`customizations.xml`, and `[Content_Types].xml` are byte-identical (SHA256), so
+the bump does not regress the kit artifact. Full `npm run verify` is green
+(floor check, lint, typecheck, build, 506 unit tests, 12 smoke tests, Storybook
+build). The 1.x silent drop of `msdyn_aimodel` was observed in a product built
+on the kit, not re-staged here, since the kit ships nothing that would exercise
+it.
+
+Revisit trigger: pac ships a SolutionPackager past 2.8.1 that the kit's
+lifecycle adopts (keep the cdsproj pin matched to the pac CLI the lifecycle
+runs).

@@ -37,8 +37,20 @@
     <SolutionPackageType Condition="'$(SolutionPackageType)' == ''">Managed</SolutionPackageType>
   </PropertyGroup>
 
+  <!--
+    Microsoft.PowerApps.MSBuild.Solution carries the SolutionPackager that packs
+    the zip. Pin it to 2.x (2.8.1 matches the pac CLI this kit's lifecycle
+    already uses to export, unpack, and import), never the old 1.x line. The 1.x
+    packer (which caps at 1.52.1) silently DROPS component types it does not
+    recognize when it packs from unpacked source: an AI Builder prompt
+    (msdyn_aimodel) packs away with only a "root components are not defined in
+    customizations" warning and no error, so the zip ships without it. This
+    kit's own artifact carries only PCF controls and webresources, so it is not
+    itself exposed, but products copy this wrapper, so the packer stays current
+    here. See docs/deployment.md (the ALM chapter) for the AI-model staging rule.
+  -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.PowerApps.MSBuild.Solution" Version="1.*" />
+    <PackageReference Include="Microsoft.PowerApps.MSBuild.Solution" Version="2.8.1" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.0" PrivateAssets="All" />
   </ItemGroup>
 

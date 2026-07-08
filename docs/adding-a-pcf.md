@@ -122,6 +122,12 @@ uses, WITHOUT the trailing underscore. One wrapper can `add-reference`
 several controls; `dotnet build` compiles each referenced control in Release
 and packs the zip.
 
+That scaffolded wrapper pins an old 1.x SolutionPackager, fine for controls and
+webresources. If your solution ever grows to carry another component type (an AI
+Builder prompt, say), bump its `Microsoft.PowerApps.MSBuild.Solution` reference
+to 2.x first, or the 1.x packer silently drops what it does not recognize (see
+[deployment.md](deployment.md), the ALM chapter).
+
 ### Bind it in the form designer
 
 After the import, the control still has to be placed on a form. In the maker

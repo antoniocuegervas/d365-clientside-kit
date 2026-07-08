@@ -348,7 +348,7 @@ config at build time.
 
 | File | Committed or rendered | What it contributes to the zip |
 |---|---|---|
-| `D365UIKit.cdsproj` | committed | The stock `pac solution init` wrapper, the same shape [adding-a-pcf.md](adding-a-pcf.md) scaffolds, referencing the five PCF projects, plus one addition: a build target that runs `render-src.mjs` before packing |
+| `D365UIKit.cdsproj` | committed | The `pac solution init` wrapper, close to the shape [adding-a-pcf.md](adding-a-pcf.md) scaffolds, referencing the five PCF projects, with two changes from that scaffold: a build target that runs `render-src.mjs` before packing, and the SolutionPackager pinned to 2.x (see below) |
 | `Solution.template.xml` | committed | `solution.xml` with placeholders where identity lives: publisher, prefix, solution name, version |
 | `render-src.mjs` | committed | Writes everything the rendered rows below describe |
 | `src/Other/Customizations.xml` | committed | The near-empty definitions skeleton. Its empty `<WebResources />` node is load-bearing: it is the insertion point SolutionPackager fills with the staged webresource definitions, and without it the packer ships the files but registers no component, so an import would create nothing |
@@ -362,6 +362,28 @@ PCF project into the wrapper, and the build then compiles it and writes its
 component entry with no further help. There is no equivalent command for loose
 webresource files, so `render-src.mjs` plays the role the org would play at
 export: it copies the built files in and writes each one's definition.
+
+**The packer must be a 2.x SolutionPackager.** The
+`Microsoft.PowerApps.MSBuild.Solution` reference in the cdsproj is pinned to 2.x
+on purpose: it is the SolutionPackager the pac CLI ships, the same one this
+kit's lifecycle already uses to export, unpack, and import. The retired 1.x line
+still installs and packs the kit's controls and webresources without complaint,
+but when it packs from unpacked source it silently drops component types it does
+not recognize. An AI Builder prompt (`msdyn_aimodel`) is the case that caught a
+product built on the kit: the 1.x packer wrote the zip with only a `Following
+root components are not defined in customizations: Type='AIModel'` warning, no
+error, and the prompt was simply missing from the result. A 2.x packer packs the
+same source correctly.
+
+The kit ships no AI model, so its own zip is fine under either packer; this
+matters for a fork that adds one. A prompt, like any component the platform
+keeps in its own file instead of inline in customizations.xml, stages the way
+the webresources do: customizations.xml needs the matching childless node as the
+insertion point (`<AIModels />` for a prompt), and the component's own file has
+to be staged beside it. One trap: `pac solution unpack` writes the prompt as
+`aimodel.yml`, and SolutionPackager does not read the `.yml` back when it packs.
+It wants `aimodel.xml`. Stage the `.xml` (the way `render-src.mjs` stages the
+webresource files) or the prompt drops out again with the same quiet warning.
 
 **What each moving part buys.**
 
