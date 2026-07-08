@@ -18,6 +18,7 @@ import {
   makeEntityMetadataMock,
 } from "../../../mocks/XrmMock";
 import { EntityReference } from "../../../../shared/utils/EntityModel";
+import { LibraryUtils } from "../../../../shared/utils/LibraryUtils";
 
 describe("createWebResourceContext factory", () => {
   it("selects the modern adapter when Xrm.WebApi exists", () => {
@@ -222,8 +223,58 @@ describe("WebResourceContext (modern)", () => {
       webresourceName: "new_clientui.html",
       data: JSON.stringify({ app: "template", recordId: "1" }),
     });
-    // Default launch is a centered modal at 80% with no custom title.
+    // Default mode is auto; jsdom has no matchMedia so it is not narrow and auto
+    // resolves to the centered modal at 80% with no custom title.
     expect(call!.args[1]).toMatchObject({ target: 2, position: 1 });
+  });
+
+  it("openClientUI fullpage mode launches a full page, payload on the webresource query string, target 1", async () => {
+    const { xrm, calls } = createModernXrmMock();
+    const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    await context.navigation.openClientUI("new_clientui.html", "template", { recordId: "1" }, {
+      mode: "fullpage",
+    });
+    const call = calls.find((c) => c.api === "Navigation.navigateTo");
+    expect(call).toBeDefined();
+    // The payload rides the webresource's OWN query string (the narrow reflow
+    // renders a separate-`data` webresource page empty), marked fullPage so the
+    // launched app can offer its own back affordance.
+    const expected = LibraryUtils.buildClientUIDataParam("template", { recordId: "1", fullPage: true });
+    expect(call!.args[0]).toEqual({
+      pageType: "webresource",
+      webresourceName: `new_clientui.html?data=${encodeURIComponent(expected)}`,
+    });
+    expect((call!.args[0] as { data?: string }).data).toBeUndefined();
+    expect(call!.args[1]).toEqual({ target: 1 });
+  });
+
+  it("openClientUI auto mode launches a full page on a narrow viewport", async () => {
+    const original = Object.getOwnPropertyDescriptor(window, "matchMedia");
+    (window as unknown as { matchMedia: unknown }).matchMedia = () => ({ matches: true });
+    try {
+      const { xrm, calls } = createModernXrmMock();
+      const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+      await context.navigation.openClientUI("new_clientui.html", "release-notes", { preview: "R1" }, {
+        mode: "auto",
+      });
+      const call = calls.find((c) => c.api === "Navigation.navigateTo");
+      const expected = LibraryUtils.buildClientUIDataParam("release-notes", {
+        preview: "R1",
+        fullPage: true,
+      });
+      expect(call!.args[0]).toEqual({
+        pageType: "webresource",
+        webresourceName: `new_clientui.html?data=${encodeURIComponent(expected)}`,
+      });
+      expect((call!.args[0] as { data?: string }).data).toBeUndefined();
+      expect(call!.args[1]).toEqual({ target: 1 });
+    } finally {
+      if (original) {
+        Object.defineProperty(window, "matchMedia", original);
+      } else {
+        delete (window as { matchMedia?: unknown }).matchMedia;
+      }
+    }
   });
 
   it("openClientUI side mode opens a side-pane dialog sized and titled", async () => {

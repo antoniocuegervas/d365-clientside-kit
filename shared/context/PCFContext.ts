@@ -346,8 +346,11 @@ class PcfNavigation implements INavigation {
     payload?: Record<string, unknown>,
     options?: IClientUILaunchOptions
   ): Promise<void> {
-    // The PCF navigation surface opens a webresource window; mode and title do
-    // not apply, width/height size it.
+    // The PCF navigation surface opens a webresource window; every mode
+    // (including the modern narrow-reflow "fullpage"/"auto") resolves to that
+    // one window, title does not apply, width/height size it. The narrow-dialog
+    // failure "fullpage" works around is a modern-UCI reflow, so the payload is
+    // not marked fullPage here.
     this.navigation.openWebResource(
       webResourceName,
       options ? { width: options.width, height: options.height, openInNewWindow: false } : undefined,

@@ -178,6 +178,25 @@ export class LibraryUtils {
     return JSON.stringify({ app, ...payload });
   }
 
+  /**
+   * True when the app viewport is narrow enough that the platform stops hosting
+   * webresource dialogs. In its narrow (phone) reflow, Xrm.Navigation.navigateTo
+   * to a webresource DIALOG (openClientUI's default dialog launch) opens an
+   * empty "No data available." shell with no iframe, so openClientUI launches
+   * the shell full page instead on a narrow viewport.
+   *
+   * Viewport-driven ON PURPOSE. getFormFactor() reports the DEVICE, not the
+   * reflow: it stays Desktop in a narrow desktop window or browser device
+   * emulation, while the dialog failure tracks viewport width. 768px is the
+   * platform's conventional narrow breakpoint.
+   *
+   * Absent matchMedia (a non-browser host: unit tests, SSR) reads as not narrow,
+   * so those paths keep the default dialog launch.
+   */
+  static isNarrowViewport(win: Window = window): boolean {
+    return typeof win.matchMedia === "function" && win.matchMedia("(max-width: 768px)").matches;
+  }
+
   //#endregion
 
   //#region GUID / $batch boundaries

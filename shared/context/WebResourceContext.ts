@@ -342,6 +342,32 @@ class ModernNavigation implements INavigation {
     payload?: Record<string, unknown>,
     options?: IClientUILaunchOptions
   ): Promise<void> {
+    // Auto is the default launch: a narrow (phone) reflow gets a full page (the
+    // platform will not host a webresource dialog there), every other viewport
+    // gets the dialog. "fullpage" forces the full page, "modal"/"side" force the
+    // dialog.
+    const mode = options?.mode ?? "auto";
+    const fullPage = mode === "fullpage" || (mode === "auto" && LibraryUtils.isNarrowViewport());
+    if (fullPage) {
+      // Narrow (phone) reflow: a webresource DIALOG (target 2) renders empty
+      // ("No data available.", no iframe), and so does a full-page target 1 with
+      // the payload on navigateTo's own `data` property. The shape that renders
+      // is a full page (target 1) with the payload on the webresource's OWN
+      // query string (`<name>?data=<encoded>`), the shape the sitemap subarea
+      // carries; the platform double-encodes it into the final URL, which is
+      // expected. The payload is marked fullPage so the launched app can offer
+      // its own back affordance (a full-page webresource gets no platform back
+      // chrome on the phone client).
+      const data = LibraryUtils.buildClientUIDataParam(app, { ...payload, fullPage: true });
+      await this.navigation.navigateTo(
+        {
+          pageType: "webresource",
+          webresourceName: `${webResourceName}?data=${encodeURIComponent(data)}`,
+        },
+        { target: 1 } // 1 inline (full page)
+      );
+      return;
+    }
     await this.navigation.navigateTo(
       {
         pageType: "webresource",

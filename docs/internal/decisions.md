@@ -70,6 +70,13 @@ explicit pixel size is passed; legacy maps to Xrm.Utility.openWebResource.
 Dialogs are the dominant ribbon-launch UX; full-page navigation remains
 available via a custom call on the raw Xrm if a project needs it.
 
+*(2026-07-08, refined by D-064: full-page launch is now a first-class
+openClientUI mode, and the default became "auto", a dialog on a normal viewport
+and a full page on a narrow phone reflow where the dialog will not render.
+Explicit "modal"/"side" still force the dialog, so this entry's dialog default
+holds for every non-narrow viewport; projects no longer reach for the raw Xrm to
+go full page.)*
+
 ## D-009, ClientHook context is created lazily, not at module load
 
 The spec describes hook context "created at module load" with the
@@ -1952,3 +1959,91 @@ hydration, and a burst of rapid publishes can leave the form definition
 serving empty sections until a full publish plus a cleared service worker
 cache settles it (the gotchas cache guidance, plus Cache Storage, which
 sits beside the IndexedDB store it already names).
+
+## D-064, openClientUI gains a full-page mode and an auto default: the shell launches phone-safe
+
+A downstream product built on the kit (a form-embedded consumer of the shell)
+found that on the model-driven NARROW (phone) reflow, Xrm.Navigation.navigateTo
+to a webresource DIALOG does not render: the platform opens the dialog chrome
+but shows an empty "No data available." with no webresource iframe. openClientUI
+launched exactly that call (target 2), so every shell dialog (preview, paste,
+company search) was dead on a phone. The product shipped a local special case,
+live-verified at phone width, and this entry folds it into the kit so the
+product can drop the special case and call openClientUI directly.
+
+**Platform findings (verified live at phone width, kept here because they are
+non-obvious and cost real probing).**
+
+- A webresource DIALOG (target 2) fails at narrow: empty "No data available.",
+  no iframe.
+- A full page (target 1) with the payload as navigateTo's SEPARATE `data`
+  property ALSO fails the same way. target 1 alone is not enough; this is the
+  trap.
+- What renders at narrow is a full page (target 1) with the payload on the
+  webresource's OWN query string, `<name>?data=<encoded>`, and no `data`
+  property. This is the shape the sitemap subarea carries; the platform
+  double-encodes it into the final URL, which is expected and works.
+- getFormFactor() is device/UA-based: it returns Desktop even at phone width in
+  a narrow window or browser device emulation. "Am I narrow?" is therefore
+  VIEWPORT-driven (matchMedia), never form factor.
+- A full-page webresource gets no platform back chrome on the phone client, so
+  the launcher marks the payload fullPage:true and the APP supplies its own
+  Back. App responsibility, not the kit's.
+
+**What shipped.** IClientUILaunchOptions.mode widened from "modal" | "side" to
+"modal" | "side" | "fullpage" | "auto". On the modern host, "fullpage" (and
+"auto" when the viewport is narrow) launches the tested shape: target 1, payload
+on the webresource query string, payload marked fullPage:true; it returns before
+the dialog path, which is left exactly as it was (the dialog works fine at
+desktop width). "auto" is the DEFAULT when a caller passes no mode (owner
+decision): it resolves to a dialog on a normal viewport and a full page on a
+narrow one, so every consumer, including the kit's own
+AccountRibbon.openCompanySearch, becomes phone-safe with no viewport check of
+its own. The only behavior this changes is on a narrow viewport, where the
+previous dialog was already a dead empty page; explicit "modal"/"side" still
+force the dialog. LibraryUtils.isNarrowViewport(win?) is the one
+matchMedia("(max-width: 768px)") check, exposed so callers that want to branch
+themselves do not hand-roll it (768px is the platform's conventional narrow
+breakpoint; absent matchMedia reads as not narrow, so unit and SSR paths keep
+the dialog).
+
+**The V8 and PCF hosts keep the popup.** Neither has navigateTo's dialog, so
+neither has the narrow-dialog failure; both already opened a popup window and
+ignored mode. "fullpage"/"auto" join "modal"/"side" as modes they accept and
+resolve to that one popup (a quiet degrade, consistent with the per-method
+posture, not a thrown "not supported": launching the shell is a capability they
+have, the launch surface is a refinement they lack). The payload is NOT marked
+fullPage on these hosts: the popup is neither the modern dialog that fails nor a
+chrome-less full page, so the back affordance the marker requests does not apply.
+
+**Alternatives rejected.**
+
+- Keep full-page out of the kit and leave the product's special case. The whole
+  point of a portable kit is that a phone-dead dialog is fixed once, centrally;
+  the product proved the shape, the kit is where it belongs.
+- Explicit "fullpage" only, no "auto", so callers keep their own narrow check.
+  It works but leaves every caller to hand-roll isNarrowViewport and to remember
+  to; auto folds the decision into the one place that knows the platform quirk.
+- Make "auto" opt-in and leave the dialog as the silent default. Considered and
+  put to the owner: rejected because the only viewport where auto differs from
+  today is the narrow one, and there today's default is already broken, so
+  auto-as-default is strictly an improvement where it differs.
+- Drive the narrow decision from getFormFactor(). It reports the device, not the
+  reflow, and returns Desktop in a narrow window, so it would miss exactly the
+  case that fails.
+
+**Verification.** Unit tests (contextAdapters, LibraryUtils): the modern
+"fullpage" branch asserts the query-string webresourceName, `data` undefined,
+and target 1; an "auto" test stubs matchMedia narrow and asserts the same shape;
+the pre-existing default test still asserts the dialog (jsdom has no matchMedia,
+so auto resolves to the dialog there, which also proves the default did not
+regress at desktop); isNarrowViewport is pinned for absent matchMedia and for
+the match both ways. Full local verify green at the tip. Live at phone width is
+the product's, deferred here: the product owner retests on the live org and
+deletes the product special case (the kit change is a superset of the shape the
+product already verified live).
+
+**Revisit** if the platform starts hosting webresource dialogs on the narrow
+reflow (then "auto" could stop diverging and full-page becomes opt-in), or if a
+real V8/PCF narrow-launch need appears (then the popup-for-every-mode choice
+reopens).

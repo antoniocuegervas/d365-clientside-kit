@@ -657,14 +657,24 @@ export interface INavigationOptions {
 }
 
 /**
- * Launch options for opening the clientui shell as a dialog from a ribbon,
- * command bar, or form. `mode` picks a centered modal (default) or a right-hand
- * side pane; `width`/`height` are pixels (omit for the 80% default); `title`
- * sets the dialog header. The legacy (V8) host opens a popup window and honors
- * only width/height.
+ * Launch options for opening the clientui shell from a ribbon, command bar, or
+ * form. `mode` picks the launch surface:
+ *   "auto"     (default) a centered modal dialog on a normal viewport, a full
+ *              page on a narrow (phone) reflow where the platform will not host
+ *              a webresource dialog (it renders an empty "No data available.").
+ *   "modal"    always a centered modal dialog.
+ *   "side"     always a right-hand side pane.
+ *   "fullpage" always a full page, and marks the payload `fullPage: true` so
+ *              the launched app can offer its own back affordance (a full-page
+ *              webresource gets no platform back chrome on the phone client).
+ * `width`/`height` are dialog pixels (omit for the 80% default) and do not
+ * apply to a full page; `title` sets the dialog header. The full-page path and
+ * the narrow auto-adaptation are the modern host's; the legacy (V8) and PCF
+ * hosts open a popup window that honors only width/height, so every `mode`
+ * resolves to that one popup there.
  */
 export interface IClientUILaunchOptions {
-  mode?: "modal" | "side";
+  mode?: "modal" | "side" | "fullpage" | "auto";
   width?: number;
   height?: number;
   title?: string;
@@ -741,11 +751,13 @@ export interface INavigation {
    */
   openForm(options: IEntityFormOptions, formParameters?: IFormParameters): Promise<void>;
   /**
-   * Opens the unified clientui shell webresource with an app key + payload,
-   * as a centered modal dialog (default) or a side pane. Pass the deployed
-   * `webResourceName` explicitly from hooks (the publisher prefix varies).
-   * Modern hosts use Xrm.Navigation.navigateTo (dialog / side pane); the
-   * legacy host falls back to a popup window.
+   * Opens the unified clientui shell webresource with an app key + payload.
+   * The launch surface follows `options.mode` (default "auto": a dialog on a
+   * normal viewport, a full page on a narrow phone reflow where the platform
+   * will not host a webresource dialog). Pass the deployed `webResourceName`
+   * explicitly from hooks (the publisher prefix varies). Modern hosts use
+   * Xrm.Navigation.navigateTo (dialog, side pane, or full page); the legacy
+   * and PCF hosts open a popup window regardless of mode.
    */
   openClientUI(
     webResourceName: string,

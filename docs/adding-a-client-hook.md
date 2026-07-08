@@ -56,11 +56,25 @@ time a handler runs, that ordering is the contract the lazy context relies on.
 
 `context.navigation.openClientUI(webResourceName, appKey, payload?, options?)`
 opens the clientui shell from a ribbon, command bar, or form handler. On modern
-UCI it uses `Xrm.Navigation.navigateTo`: `options.mode` selects a centered modal
-(default) or a side pane (`"side"`), with `width`/`height` in pixels (80% when
-omitted) and an optional `title`. `AccountRibbon` ships both, `openCompanySearch`
-(modal) and `openCompanySearchPane` (side pane). The legacy (V8) platform falls back
-to a popup window and honors only width/height.
+UCI it uses `Xrm.Navigation.navigateTo`, and `options.mode` selects the launch
+surface:
+
+- `"auto"` (the default) opens a centered modal dialog on a normal viewport and
+  a full page on a narrow (phone) reflow, where the platform will not host a
+  webresource dialog (it renders an empty "No data available."). Callers get the
+  phone-safe launch without a viewport check of their own.
+- `"modal"` and `"side"` always open the centered modal or the right-hand side
+  pane, with `width`/`height` in pixels (80% when omitted) and an optional
+  `title`.
+- `"fullpage"` always opens a full page and marks the payload `fullPage: true`
+  so the launched app can offer its own back affordance (a full-page webresource
+  gets no platform back chrome on the phone client).
+
+`AccountRibbon` ships `openCompanySearch` (auto, so a modal on the desktop) and
+`openCompanySearchPane` (side pane); `LibraryUtils.isNarrowViewport()` exposes
+the same viewport check the auto mode uses, if a caller wants to branch itself.
+The legacy (V8) and PCF hosts fall back to a popup window and honor only
+width/height, so every mode resolves to that one popup there.
 
 ## 4. Verify
 

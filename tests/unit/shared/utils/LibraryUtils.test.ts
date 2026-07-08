@@ -136,6 +136,22 @@ describe("LibraryUtils.buildClientUIDataParam", () => {
   });
 });
 
+describe("LibraryUtils.isNarrowViewport", () => {
+  const fakeWindow = (matches: boolean | undefined): Window =>
+    (matches === undefined
+      ? {}
+      : { matchMedia: () => ({ matches }) }) as unknown as Window;
+
+  it("is false when matchMedia is unavailable (non-browser host: tests, SSR)", () => {
+    expect(LibraryUtils.isNarrowViewport(fakeWindow(undefined))).toBe(false);
+  });
+
+  it("reflects the media query match otherwise", () => {
+    expect(LibraryUtils.isNarrowViewport(fakeWindow(true))).toBe(true);
+    expect(LibraryUtils.isNarrowViewport(fakeWindow(false))).toBe(false);
+  });
+});
+
 describe("LibraryUtils GUID / batch boundaries", () => {
   it("newGuid produces a v4-shaped GUID", () => {
     expect(LibraryUtils.newGuid()).toMatch(

@@ -307,8 +307,11 @@ class V8Navigation implements INavigation {
     payload?: Record<string, unknown>,
     options?: IClientUILaunchOptions
   ): Promise<void> {
-    // The legacy host has no navigateTo dialog/side pane, so it opens a popup
-    // window; mode and title do not apply, width/height size the window.
+    // The legacy host has no navigateTo dialog, side pane, or full page, so it
+    // opens a popup window; every mode (including the modern narrow-reflow
+    // "fullpage"/"auto") resolves to that one popup, title does not apply,
+    // width/height size the window. The narrow-dialog failure "fullpage" works
+    // around is a modern-UCI reflow, so the payload is not marked fullPage here.
     this.utility.openWebResource(
       webResourceName,
       encodeURIComponent(LibraryUtils.buildClientUIDataParam(app, payload)),
