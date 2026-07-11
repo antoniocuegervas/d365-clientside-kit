@@ -185,6 +185,16 @@ export class LibraryUtils {
    * empty "No data available." shell with no iframe, so openClientUI launches
    * the shell full page instead on a narrow viewport.
    *
+   * Measured on the top-most same-origin window, not the calling window: UCI
+   * runs ribbon and command-bar handlers inside a hidden iframe (the
+   * ClientApiFrame) whose own viewport is effectively 0x0, where any width
+   * query matches, while the dialog capability tracks the APPLICATION
+   * viewport, the top window's. A cross-origin or absent top falls back to
+   * the calling window. Consequence: an iframe that is itself narrow inside
+   * a desktop app does not read as narrow, and narrow-viewport simulation
+   * must narrow the top window (device emulation or a window resize), not
+   * just an iframe.
+   *
    * Viewport-driven ON PURPOSE. getFormFactor() reports the DEVICE, not the
    * reflow: it stays Desktop in a narrow desktop window or browser device
    * emulation, while the dialog failure tracks viewport width. 768px is the
@@ -194,7 +204,22 @@ export class LibraryUtils {
    * so those paths keep the default dialog launch.
    */
   static isNarrowViewport(win: Window = window): boolean {
-    return typeof win.matchMedia === "function" && win.matchMedia("(max-width: 768px)").matches;
+    let viewport = win;
+    try {
+      const top = win.top;
+      if (top) {
+        // Probing a member here makes a cross-origin top throw inside the
+        // guard, leaving the calling window as the fallback.
+        void top.matchMedia;
+        viewport = top;
+      }
+    } catch {
+      // Cross-origin top: measure the calling window instead.
+    }
+    return (
+      typeof viewport.matchMedia === "function" &&
+      viewport.matchMedia("(max-width: 768px)").matches
+    );
   }
 
   //#endregion

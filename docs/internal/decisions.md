@@ -2048,6 +2048,18 @@ reflow (then "auto" could stop diverging and full-page becomes opt-in), or if a
 real V8/PCF narrow-launch need appears (then the popup-for-every-mode choice
 reopens).
 
+*(2026-07-11: the isNarrowViewport half of this entry shipped with a
+viewport-detection defect: it measured the CALLING window, and modern UCI runs
+ribbon and command-bar handlers in a hidden iframe that always reads narrow,
+so every ribbon-initiated auto launch opened the full page even at desktop
+width, reported by a downstream consumer. Fixed by measuring the top window;
+D-066 records the defect, mechanism, fix, and live verification. A same-day
+observation extends the findings above: the separate-`data` failure applies to
+the URL form too. main.aspx with pagetype=webresource and a separate `data`
+query parameter, the quick-test recipe, renders the same empty "No data
+available." at narrow, while the sitemap's query-string-on-webresourceName
+form renders fine there.)*
+
 ## D-065, the solution packer is pinned to 2.x: the retired 1.x SolutionPackager silently drops AI models
 
 `deployment/solution/D365UIKit.cdsproj` referenced
@@ -2091,3 +2103,80 @@ it.
 Revisit trigger: pac ships a SolutionPackager past 2.8.1 that the kit's
 lifecycle adopts (keep the cdsproj pin matched to the pac CLI the lifecycle
 runs).
+
+## D-066, the narrow check measures the top window: a hidden ribbon frame no longer reads as a phone
+
+A downstream consumer of openClientUI's auto mode reported that two of its
+ribbon commands opened the FULL PAGE on every launch at desktop width, while
+the same call from a visible embedded webresource opened the dialog. The
+mechanism: modern UCI executes ribbon and command-bar handlers inside a hidden
+iframe (the ClientApiFrame) whose own viewport is effectively 0x0, where
+matchMedia("(max-width: 768px)") always matches. LibraryUtils.isNarrowViewport
+measured its default `window`, the calling window, so every ribbon-initiated
+auto launch resolved narrow and went full page. Present since the mode shipped
+(D-064); the kit's own AccountRibbon.openCompanySearch (auto by default) was
+affected identically.
+
+**What shipped.** isNarrowViewport(win?) now resolves the top-most same-origin
+window from the given win and runs the media query there. The question the
+check answers is whether the APPLICATION viewport is in the narrow (phone)
+reflow, because that is what decides whether the platform can host a
+webresource dialog, and that property belongs to the top window, not the
+caller's iframe. The resolution is guarded: a cross-origin top throws on
+member access and falls back to the caller's own window, and a null or absent
+top reads as the caller's window. Kept on purpose: the 768px breakpoint, the
+injectable win parameter (the tests drive it), the viewport-not-getFormFactor
+posture, and absent matchMedia reading as not narrow. The modern adapter's
+auto path (WebResourceContext.openClientUI) is the one caller and needed no
+change; a sweep found no other matchMedia or viewport read in the runtime
+tiers.
+
+**The behavior change.** A visible iframe that is itself narrow inside a
+desktop app no longer reads as narrow. That is the correct semantics (the
+dialog hosts over the app viewport regardless of the caller's own width), and
+it moves narrow-viewport SIMULATION: narrowing an iframe around the shell no
+longer triggers the full page; narrow the top window instead (browser device
+emulation or a window resize). Stated in adding-a-client-hook.md beside the
+launch modes and in the isNarrowViewport JSDoc.
+
+**Alternatives rejected.**
+
+- Each ribbon hook passes an explicit visible window into openClientUI. That
+  spreads the platform quirk to every caller, exactly what auto exists to
+  absorb, and a handler cannot know its frame is hidden without the same
+  top-window resolution.
+- Detect the hidden frame (zero size, visibility) and walk up only then. More
+  moving parts for the same answer; the app viewport is the top window's
+  whether or not the caller is hidden.
+
+**Verification.** Unit pins in LibraryUtils.test.ts, the top-window pin
+failing pre-fix: caller narrow with top wide is not narrow; top narrow is
+narrow (even when the caller has no matchMedia); a throwing top accessor and a
+top whose member access throws (the browser's actual cross-origin shape) both
+fall back to the caller's window; no matchMedia anywhere is not narrow. The
+pre-existing suites, the D-064 auto/fullpage pins included, stay green
+(jsdom's window is its own top). Full verify green at the branch tip. Live on
+the dev org (2026-07-11), with the session's constraints stated plainly: the
+kit ribbon commands are not registered on the org's Account command bar, so
+the ClientApiFrame condition was staged deterministically, the DEPLOYED
+clienthooks bundle loaded inside a hidden 0x0 same-origin iframe on the
+Account form and AccountRibbon.openCompanySearch invoked there; and the
+session's browser tooling pinned the tab to a 400px emulated viewport, so the
+desktop condition was staged by stubbing the TOP window's matchMedia to report
+wide for the synchronous mode resolution only, the frame's own media query
+left real (0x0, matches). Pre-fix bundle: the full page opened (pagetype
+webresource, payload on the webresource query string, fullPage marked) while
+the top read wide, the defect verbatim. Post-fix bundle, same staging: the
+centered dialog opened over the record form and loaded live rows. The
+side-pane variant stayed a side pane (its content showed the platform's "No
+data available." at the real 400px width, the narrow dialog limitation D-064
+records for explicit modes, not a regression). The narrow half ran REAL, no
+stub: with the 400px emulated viewport standing as genuine device emulation of
+the top window, auto resolved to the full page, fullPage marked, and rendered.
+The sitemap-hosted samples hub boots on the fixed bundle, console clean. A
+true desktop-viewport ribbon click remains carried by the unit pins plus the
+consumer's desktop-width report.
+
+Revisit trigger: rides D-064's (if the platform starts hosting webresource
+dialogs on the narrow reflow, auto stops diverging and this check goes dormant
+with it).

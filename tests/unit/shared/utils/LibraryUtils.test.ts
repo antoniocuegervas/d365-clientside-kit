@@ -137,10 +137,11 @@ describe("LibraryUtils.buildClientUIDataParam", () => {
 });
 
 describe("LibraryUtils.isNarrowViewport", () => {
-  const fakeWindow = (matches: boolean | undefined): Window =>
-    (matches === undefined
-      ? {}
-      : { matchMedia: () => ({ matches }) }) as unknown as Window;
+  const fakeWindow = (matches: boolean | undefined, extras?: object): Window =>
+    ({
+      ...(matches === undefined ? {} : { matchMedia: () => ({ matches }) }),
+      ...extras,
+    }) as unknown as Window;
 
   it("is false when matchMedia is unavailable (non-browser host: tests, SSR)", () => {
     expect(LibraryUtils.isNarrowViewport(fakeWindow(undefined))).toBe(false);
@@ -149,6 +150,52 @@ describe("LibraryUtils.isNarrowViewport", () => {
   it("reflects the media query match otherwise", () => {
     expect(LibraryUtils.isNarrowViewport(fakeWindow(true))).toBe(true);
     expect(LibraryUtils.isNarrowViewport(fakeWindow(false))).toBe(false);
+  });
+
+  it("measures the top window, not the calling window (ribbon handlers run in a hidden 0x0 frame)", () => {
+    // A hidden ClientApiFrame is effectively 0x0, so its own media query always
+    // matches; the app viewport is the top window's.
+    expect(
+      LibraryUtils.isNarrowViewport(fakeWindow(true, { top: fakeWindow(false) }))
+    ).toBe(false);
+    expect(
+      LibraryUtils.isNarrowViewport(fakeWindow(false, { top: fakeWindow(true) }))
+    ).toBe(true);
+    // The top window drives even when the caller itself has no matchMedia.
+    expect(
+      LibraryUtils.isNarrowViewport(fakeWindow(undefined, { top: fakeWindow(true) }))
+    ).toBe(true);
+  });
+
+  it("falls back to the caller's window when the top window is cross-origin", () => {
+    // Shape 1: reading win.top itself throws.
+    const throwingTopAccess = (matches: boolean): Window => {
+      const win: Record<string, unknown> = { matchMedia: () => ({ matches }) };
+      Object.defineProperty(win, "top", {
+        get() {
+          throw new Error("SecurityError: cross-origin frame access");
+        },
+      });
+      return win as unknown as Window;
+    };
+    expect(LibraryUtils.isNarrowViewport(throwingTopAccess(true))).toBe(true);
+    expect(LibraryUtils.isNarrowViewport(throwingTopAccess(false))).toBe(false);
+
+    // Shape 2 (what browsers actually do): win.top returns a proxy whose
+    // member access throws.
+    const crossOriginProxy: Record<string, unknown> = {};
+    Object.defineProperty(crossOriginProxy, "matchMedia", {
+      get() {
+        throw new Error("SecurityError: cross-origin frame access");
+      },
+    });
+    expect(
+      LibraryUtils.isNarrowViewport(fakeWindow(true, { top: crossOriginProxy }))
+    ).toBe(true);
+  });
+
+  it("is false when neither the top window nor the caller has matchMedia", () => {
+    expect(LibraryUtils.isNarrowViewport(fakeWindow(undefined, { top: {} }))).toBe(false);
   });
 });
 

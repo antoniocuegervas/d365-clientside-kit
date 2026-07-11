@@ -662,6 +662,9 @@ export interface INavigationOptions {
  *   "auto"     (default) a centered modal dialog on a normal viewport, a full
  *              page on a narrow (phone) reflow where the platform will not host
  *              a webresource dialog (it renders an empty "No data available.").
+ *              Narrowness is measured on the top window, the application
+ *              viewport, never the calling frame: ribbon and command-bar
+ *              handlers run in a hidden iframe that would always read narrow.
  *   "modal"    always a centered modal dialog.
  *   "side"     always a right-hand side pane.
  *   "fullpage" always a full page, and marks the payload `fullPage: true` so

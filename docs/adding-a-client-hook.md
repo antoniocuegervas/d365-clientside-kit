@@ -62,7 +62,10 @@ surface:
 - `"auto"` (the default) opens a centered modal dialog on a normal viewport and
   a full page on a narrow (phone) reflow, where the platform will not host a
   webresource dialog (it renders an empty "No data available."). Callers get the
-  phone-safe launch without a viewport check of their own.
+  phone-safe launch without a viewport check of their own. The narrow check is
+  measured on the top window, the application viewport, never the handler's own
+  window: modern UCI runs ribbon and command-bar handlers inside a hidden
+  iframe whose own viewport would read narrow on any device.
 - `"modal"` and `"side"` always open the centered modal or the right-hand side
   pane, with `width`/`height` in pixels (80% when omitted) and an optional
   `title`.
@@ -73,8 +76,11 @@ surface:
 `AccountRibbon` ships `openCompanySearch` (auto, so a modal on the desktop) and
 `openCompanySearchPane` (side pane); `LibraryUtils.isNarrowViewport()` exposes
 the same viewport check the auto mode uses, if a caller wants to branch itself.
-The legacy (V8) and PCF hosts fall back to a popup window and honor only
-width/height, so every mode resolves to that one popup there.
+Because the check reads the top window, an iframe that is itself narrow inside
+a desktop app does not count as narrow; to simulate the phone reflow, narrow
+the top window (browser device emulation or a window resize), not just an
+iframe. The legacy (V8) and PCF hosts fall back to a popup window and honor
+only width/height, so every mode resolves to that one popup there.
 
 ## 4. Verify
 
