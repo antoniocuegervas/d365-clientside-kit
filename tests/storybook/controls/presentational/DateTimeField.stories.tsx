@@ -87,3 +87,13 @@ export const LocalizedCalendar: Story = {
     />
   ),
 };
+export const NarrowContainer: Story = {
+  name: "Narrow container (360px)",
+  render: () => (
+    // A fixed 360px wrapper shows the date-and-time row wrapping: the time picker
+    // drops onto its own line below the date when the container cannot fit both.
+    <div style={{ width: 360 }}>
+      <DateTimeField label="Scheduled Start" includeTime {...make(sampleDate)} />
+    </div>
+  ),
+};

@@ -15,12 +15,21 @@ export interface ITemplateViewProps {
 }
 
 const useStyles = makeStyles({
+  // The page owns its own scroll: the shell (clientui.html) pins html/body
+  // overflow hidden, so an app taller than the viewport is unreachable unless its
+  // root scrolls. height 100% bounds the page to the shell, overflowY auto scrolls
+  // the overflow, and overflowX hidden keeps a focused field's 1px focus-underline
+  // bleed from popping a horizontal scrollbar. Keep this block when copying.
   page: {
     display: "flex",
     flexDirection: "column",
     rowGap: tokens.spacingVerticalM,
     padding: tokens.spacingHorizontalXXL,
     maxWidth: "480px",
+    boxSizing: "border-box",
+    height: "100%",
+    overflowY: "auto",
+    overflowX: "hidden",
   },
   actions: { display: "flex", columnGap: tokens.spacingHorizontalS },
   message: { color: tokens.colorNeutralForeground2 },

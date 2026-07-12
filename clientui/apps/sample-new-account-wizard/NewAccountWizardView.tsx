@@ -17,6 +17,15 @@ const useStyles = makeStyles({
     rowGap: tokens.spacingVerticalM,
     padding: tokens.spacingHorizontalXXL,
     boxSizing: "border-box",
+    // The shell pins body overflow hidden, so the app owns its inner scroll.
+    // Without this the wizard's card sizes to its content and a taller step (or a
+    // validation message) pushes Back and Next below an unreachable fold; bounding
+    // the page to full height lets it scroll and keeps the footer reachable.
+    // overflowX hidden because overflowY auto alone lets the browser turn on a
+    // horizontal scrollbar for a focused field's 1px focus-underline bleed.
+    height: "100%",
+    overflowY: "auto",
+    overflowX: "hidden",
   },
   // The wizard is a card sized to its content, so Back/Next sit in a footer right
   // under the fields instead of floating at the viewport bottom.

@@ -38,7 +38,10 @@ export class MultiSelectOptionSetField extends ObserverComponent<IMultiSelectOpt
       .join(", ");
 
     return (
-      <FieldShell {...this.props}>
+      // Read-only renders the selected labels as flat locked text through
+      // FieldShell (the same join the closed trigger shows, empty-safe), matching
+      // TextField and OptionSetField instead of a greyed-out disabled dropdown.
+      <FieldShell {...this.props} readOnlyText={display}>
         <Dropdown
           multiselect
           // Fill the field like the Input/Lookup/Date controls, so every control

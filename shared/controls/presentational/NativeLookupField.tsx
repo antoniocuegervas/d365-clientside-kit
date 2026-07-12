@@ -118,6 +118,16 @@ export interface INativeLookupFieldProps extends ICommonFieldProps {
   activeTarget?: OrObservable<string | undefined>;
   /** Raised when the user picks a different target table in the switcher. */
   onTargetChange?: (entity: string) => void;
+  /**
+   * When true and the search is open, the search surface renders as a full-window
+   * TAKEOVER (fixed, inset 0) instead of the anchored flyout, matching the
+   * platform's narrow-viewport lookup: a dedicated search page with edge-to-edge
+   * rows, a scope row of target buttons, and a pinned footer. Tapping a row
+   * commits and closes, exactly like the flyout. Absent or false (the default)
+   * renders the anchored flyout unchanged. Host-supplied (the smart tier resolves
+   * the viewport); the presentational control never measures the viewport itself.
+   */
+  fullscreenSearch?: OrObservable<boolean>;
 }
 
 //#endregion
@@ -245,6 +255,15 @@ const useStyles = makeStyles({
     cursor: "pointer",
   },
   rowActive: { backgroundColor: tokens.colorNeutralBackground5 },
+  // Takeover rows match the platform's phone lookup density (48px two-line
+  // rows): tighter vertical padding than the flyout, and border-box so the
+  // 48px minHeight is the rendered row height (content-box would add the
+  // padding on top, which is exactly how the flyout's rows reach 64).
+  rowTakeover: {
+    paddingTop: tokens.spacingVerticalXXS,
+    paddingBottom: tokens.spacingVerticalXXS,
+    boxSizing: "border-box",
+  },
   rowText: { display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0 },
   rowName: {
     color: tokens.colorNeutralForeground1,
@@ -285,6 +304,54 @@ const useStyles = makeStyles({
     borderTop: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke2}`,
   },
   footerSpacer: { flexGrow: 1 },
+  // The narrow-viewport takeover: a full-window search page replacing the
+  // anchored flyout. Fixed inset 0 fills the host window (the iframe in the
+  // webresource shell, the whole UCI page in a PCF). Rendered inline inside the
+  // FluentProvider (never portaled) so the theme variables resolve in a PCF, the
+  // same reason the flyout renders inline. Column flex so the results region
+  // grows and the footer pins.
+  takeover: {
+    position: "fixed",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    // Must clear the model-driven form chrome (header, command bar, side panes)
+    // when the control lives in the UCI page as a PCF; a large explicit value.
+    zIndex: 1000000,
+    display: "flex",
+    flexDirection: "column",
+    backgroundColor: tokens.colorNeutralBackground1,
+    overflow: "hidden",
+  },
+  takeoverBar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    padding: `${tokens.spacingVerticalXS} ${tokens.spacingHorizontalS}`,
+    flexShrink: 0,
+  },
+  // Horizontal padding for the takeover's chip and search rows, so only the
+  // result rows run edge to edge (matching native).
+  takeoverSection: {
+    padding: `${tokens.spacingVerticalXS} ${tokens.spacingHorizontalM}`,
+    flexShrink: 0,
+  },
+  scopeRow: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    columnGap: tokens.spacingHorizontalXS,
+    rowGap: tokens.spacingVerticalXS,
+    padding: `${tokens.spacingVerticalXS} ${tokens.spacingHorizontalM}`,
+    flexShrink: 0,
+  },
+  scopeLabel: { color: tokens.colorNeutralForeground3, fontSize: tokens.fontSizeBase300 },
+  // The takeover's results region fills the space between the scope row and the
+  // pinned footer and scrolls; minHeight 0 lets the flex child shrink so its
+  // overflow scrolls rather than pushing the footer off-screen.
+  treeTakeover: { flexGrow: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden" },
+  footerPinned: { flexShrink: 0 },
 });
 
 //#endregion
@@ -337,7 +404,8 @@ export class NativeLookupField extends ObserverComponent<
       props.tableLabel,
       props.targets,
       props.activeTarget,
-      props.selectedIconUrl
+      props.selectedIconUrl,
+      props.fullscreenSearch
     );
   }
 
@@ -349,13 +417,23 @@ export class NativeLookupField extends ObserverComponent<
     _prevProps: INativeLookupFieldProps,
     prevState: INativeLookupFieldState
   ): void {
+    const openedNow = this.state.open && !prevState.open;
+    const closedNow = !this.state.open && prevState.open;
+    const fullscreen = valueOf(this.props.fullscreenSearch ?? false);
     // Fluent's Popover surface pulls focus to its first control when it opens
     // (tabster's legacy trap, even with trapFocus off). Pull focus back to the
     // input so the user keeps typing (search-as-you-type), and arrow keys drive
     // the active row through aria-activedescendant rather than real focus. The
     // refocus is deferred so it runs after tabster's own post-open focus, and it
     // only fires on the open transition, so typing and hover never re-grab focus.
-    if (this.state.open && !prevState.open && this.interactive()) {
+    // The takeover has no Popover stealing focus and autofocuses its own input,
+    // so this only applies to the flyout path.
+    if (openedNow && this.interactive() && !fullscreen) {
+      clearTimeout(this.focusTimer);
+      this.focusTimer = setTimeout(() => this.inputRef.current?.focus(), 0);
+    } else if (closedNow && this.interactive() && fullscreen) {
+      // Returning from the takeover: put focus back on the field's search input
+      // when one is mounted (an empty field), so the field is not left focusless.
       clearTimeout(this.focusTimer);
       this.focusTimer = setTimeout(() => this.inputRef.current?.focus(), 0);
     }
@@ -408,6 +486,11 @@ export class NativeLookupField extends ObserverComponent<
     event.stopPropagation();
     this.setState({ searchText: null });
     this.props.onChange?.(null);
+  };
+
+  /** The takeover's dismiss (X): close without changing the value. */
+  private readonly handleCloseTakeover = (): void => {
+    this.close();
   };
 
   private readonly toggleExpand = (id: string): void => {
@@ -490,6 +573,7 @@ export class NativeLookupField extends ObserverComponent<
         onToggleExpand={this.toggleExpand}
         onSetActive={this.setActive}
         onKeyDown={this.handleKeyDown}
+        onCloseTakeover={this.handleCloseTakeover}
       />
     );
   }
@@ -510,6 +594,7 @@ type BodyProps = INativeLookupFieldProps & {
   onToggleExpand: (id: string) => void;
   onSetActive: (id: string) => void;
   onKeyDown: (event: React.KeyboardEvent) => void;
+  onCloseTakeover: () => void;
 };
 
 const highlight = (text: string, query: string, matchClass: string): React.ReactNode =>
@@ -535,6 +620,9 @@ const Body: React.FC<BodyProps> = (props) => {
   const activeTarget = valueOf(props.activeTarget ?? undefined);
   const query = state.searchText ?? "";
   const showSearch = state.open || !current;
+  // The open search renders as the full-window takeover (native's narrow-viewport
+  // lookup page) instead of the anchored flyout when the host asks for it.
+  const takeover = interactive && state.open && valueOf(props.fullscreenSearch ?? false);
 
   // A set value renders as a navigable link (smart tier opens the record),
   // matching native; plain text when no handler is wired or the field is locked.
@@ -570,41 +658,26 @@ const Body: React.FC<BodyProps> = (props) => {
   const field = showSearch ? (
     // tabIndex -1 keeps the PopoverTrigger wrapper (which Fluent makes a
     // role="button" tab stop) out of the tab order, so the input is the single
-    // tab stop. The wrapper still opens the flyout on click.
+    // tab stop. This div IS the trigger the Popover opens on click.
     <div className={styles.field} tabIndex={-1}>
-      <Input
-        className={styles.input}
-        appearance="filled-lighter"
-        value={query}
-        onChange={props.onInput}
+      <SearchInput
+        styles={styles}
+        query={query}
+        onInput={props.onInput}
         onKeyDown={props.onKeyDown}
         disabled={disabled}
-        placeholder={props.placeholder ?? kitStrings().lookForRecords}
-        contentAfter={<SearchRegular className={styles.fieldIcon} aria-hidden />}
-        role="combobox"
-        aria-expanded={state.open}
-        aria-controls="native-lookup-results"
-        aria-activedescendant={state.activeId ? `native-lookup-row-${state.activeId}` : undefined}
-        // When a set value is opened for change, the input mounts in place of the
-        // chip; focus it so the user can type immediately. No value means the
-        // input is always mounted, so this stays off and never grabs focus on load.
-        input={{ ref: props.inputRef, autoFocus: !!current }}
+        placeholder={props.placeholder}
+        open={state.open}
+        activeId={state.activeId}
+        // In takeover mode the overlay owns the single search input and its focus;
+        // the resting input behind it must not hold the ref or grab focus on mount.
+        inputRef={takeover ? undefined : props.inputRef}
+        autoFocus={!!current && !takeover}
       />
     </div>
   ) : (
     <div className={styles.field} tabIndex={-1}>
-      <div className={styles.chip}>
-        {valueDisplay}
-        {interactive ? (
-          <Button
-            appearance="subtle"
-            size="small"
-            icon={<DismissRegular />}
-            aria-label={kitStrings().clearValue}
-            onClick={props.onClear}
-          />
-        ) : null}
-      </div>
+      <ValueChip styles={styles} valueDisplay={valueDisplay} interactive={interactive} onClear={props.onClear} />
       {interactive ? (
         <Button
           appearance="subtle"
@@ -619,7 +692,9 @@ const Body: React.FC<BodyProps> = (props) => {
   return (
     <FieldShell {...props} readOnlyText={valueDisplay}>
       <Popover
-        open={state.open && interactive}
+        // The takeover replaces the flyout, so keep the Popover closed while it is
+        // active; the trigger still handles the click that opens the search.
+        open={state.open && interactive && !takeover}
         onOpenChange={props.onOpenChange}
         trapFocus={false}
         // Match the field width so the flyout lines up with the control. Render
@@ -641,37 +716,262 @@ const Body: React.FC<BodyProps> = (props) => {
             activeTarget={activeTarget}
             onTargetChange={props.onTargetChange}
           />
-          {searching ? (
-            <div className={styles.loading}>
-              <Spinner size="tiny" /> {kitStrings().loading}
-            </div>
-          ) : null}
-          <div id="native-lookup-results" role="tree" aria-label={kitStrings().lookupResults} className={styles.tree}>
-            {results.length === 0 && !searching ? (
-              <div className={styles.message}>
-                {searchFailed ? kitStrings().searchFailed : kitStrings().noRecordsFound}
-              </div>
-            ) : (
-              results.map((result) => (
-                <ResultRow
-                  key={result.id}
-                  styles={styles}
-                  result={result}
-                  query={query}
-                  active={result.id === state.activeId}
-                  expanded={state.expanded.includes(result.id)}
-                  onSelect={props.onSelect}
-                  onToggleExpand={props.onToggleExpand}
-                  onSetActive={props.onSetActive}
-                />
-              ))
-            )}
-          </div>
-          {readOnly ? null : <FlyoutFooter styles={styles} onNew={props.onNew} onAdvanced={props.onAdvanced} />}
+          <SurfaceContent
+            styles={styles}
+            results={results}
+            searching={searching}
+            searchFailed={searchFailed}
+            query={query}
+            activeId={state.activeId}
+            expanded={state.expanded}
+            onSelect={props.onSelect}
+            onToggleExpand={props.onToggleExpand}
+            onSetActive={props.onSetActive}
+            readOnly={!!readOnly}
+            onNew={props.onNew}
+            onAdvanced={props.onAdvanced}
+            treeClassName={styles.tree}
+          />
         </PopoverSurface>
       </Popover>
+      {takeover ? (
+        // Rendered inline inside the FluentProvider tree (never portaled) so the
+        // theme variables resolve in a PCF, exactly as the flyout does. role
+        // dialog labels the surface; no aria-modal and no focus trap by design
+        // (the combobox + aria-activedescendant pattern drives list navigation).
+        <div className={styles.takeover} role="dialog" aria-label={props.placeholder ?? kitStrings().searchRecords}>
+          <div className={styles.takeoverBar}>
+            <Button
+              appearance="subtle"
+              icon={<DismissRegular />}
+              aria-label={kitStrings().closeSearch}
+              onClick={props.onCloseTakeover}
+            />
+          </div>
+          {current ? (
+            <div className={styles.takeoverSection}>
+              <ValueChip styles={styles} valueDisplay={valueDisplay} interactive={interactive} onClear={props.onClear} />
+            </div>
+          ) : null}
+          <div className={styles.takeoverSection}>
+            <div className={styles.field} tabIndex={-1}>
+              <SearchInput
+                styles={styles}
+                query={query}
+                onInput={props.onInput}
+                onKeyDown={props.onKeyDown}
+                disabled={disabled}
+                placeholder={props.placeholder}
+                open={state.open}
+                activeId={state.activeId}
+                inputRef={props.inputRef}
+                autoFocus
+              />
+            </div>
+          </div>
+          <ScopeRow
+            styles={styles}
+            label={tableLabel}
+            targets={targets}
+            activeTarget={activeTarget}
+            onTargetChange={props.onTargetChange}
+          />
+          <SurfaceContent
+            styles={styles}
+            results={results}
+            searching={searching}
+            searchFailed={searchFailed}
+            query={query}
+            activeId={state.activeId}
+            expanded={state.expanded}
+            onSelect={props.onSelect}
+            onToggleExpand={props.onToggleExpand}
+            onSetActive={props.onSetActive}
+            readOnly={!!readOnly}
+            onNew={props.onNew}
+            onAdvanced={props.onAdvanced}
+            treeClassName={styles.treeTakeover}
+            footerClassName={styles.footerPinned}
+            rowClassName={styles.rowTakeover}
+          />
+        </div>
+      ) : null}
     </FieldShell>
   );
+};
+
+/**
+ * The search Input element wiring, shared by the flyout (as the field inside the
+ * PopoverTrigger) and the takeover. Returns just the Input: the caller supplies
+ * the wrapping `styles.field` div, which in the flyout IS the PopoverTrigger's
+ * cloned trigger (a DOM element it can attach the open-on-click handler to, which
+ * a function component would swallow).
+ */
+const SearchInput: React.FC<{
+  styles: Styles;
+  query: string;
+  onInput: (event: React.ChangeEvent<HTMLInputElement>, data: { value: string }) => void;
+  onKeyDown: (event: React.KeyboardEvent) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  open: boolean;
+  activeId: string | null;
+  inputRef?: React.Ref<HTMLInputElement>;
+  autoFocus: boolean;
+}> = ({ styles, query, onInput, onKeyDown, disabled, placeholder, open, activeId, inputRef, autoFocus }) => (
+  <Input
+    className={styles.input}
+    appearance="filled-lighter"
+    value={query}
+    onChange={onInput}
+    onKeyDown={onKeyDown}
+    disabled={disabled}
+    placeholder={placeholder ?? kitStrings().lookForRecords}
+    contentAfter={<SearchRegular className={styles.fieldIcon} aria-hidden />}
+    role="combobox"
+    aria-expanded={open}
+    aria-controls="native-lookup-results"
+    aria-activedescendant={activeId ? `native-lookup-row-${activeId}` : undefined}
+    input={{ ref: inputRef, autoFocus }}
+  />
+);
+
+/** The set value's chip: icon + name (link) + clear, shared by the field and the takeover. */
+const ValueChip: React.FC<{
+  styles: Styles;
+  valueDisplay: React.ReactNode;
+  interactive: boolean;
+  onClear: (event: React.MouseEvent) => void;
+}> = ({ styles, valueDisplay, interactive, onClear }) => (
+  <div className={styles.chip}>
+    {valueDisplay}
+    {interactive ? (
+      <Button
+        appearance="subtle"
+        size="small"
+        icon={<DismissRegular />}
+        aria-label={kitStrings().clearValue}
+        onClick={onClear}
+      />
+    ) : null}
+  </div>
+);
+
+/**
+ * The shared surface content: the loading line, the results tree, and the footer,
+ * rendered identically for the flyout and the takeover. Only the tree container
+ * class (bounded flyout vs flex-grow takeover) and the footer's pin differ, so
+ * the results markup lives in one place.
+ */
+const SurfaceContent: React.FC<{
+  styles: Styles;
+  results: INativeLookupResult[];
+  searching: boolean;
+  searchFailed: boolean;
+  query: string;
+  activeId: string | null;
+  expanded: ReadonlyArray<string>;
+  onSelect: (result: INativeLookupResult) => void;
+  onToggleExpand: (id: string) => void;
+  onSetActive: (id: string) => void;
+  readOnly: boolean;
+  onNew?: () => void;
+  onAdvanced?: () => void;
+  treeClassName: string;
+  footerClassName?: string;
+  rowClassName?: string;
+}> = ({
+  styles,
+  results,
+  searching,
+  searchFailed,
+  query,
+  activeId,
+  expanded,
+  onSelect,
+  onToggleExpand,
+  onSetActive,
+  readOnly,
+  onNew,
+  onAdvanced,
+  treeClassName,
+  footerClassName,
+  rowClassName,
+}) => (
+  <>
+    {searching ? (
+      <div className={styles.loading}>
+        <Spinner size="tiny" /> {kitStrings().loading}
+      </div>
+    ) : null}
+    <div id="native-lookup-results" role="tree" aria-label={kitStrings().lookupResults} className={treeClassName}>
+      {results.length === 0 && !searching ? (
+        <div className={styles.message}>
+          {searchFailed ? kitStrings().searchFailed : kitStrings().noRecordsFound}
+        </div>
+      ) : (
+        results.map((result) => (
+          <ResultRow
+            key={result.id}
+            styles={styles}
+            result={result}
+            query={query}
+            active={result.id === activeId}
+            expanded={expanded.includes(result.id)}
+            onSelect={onSelect}
+            onToggleExpand={onToggleExpand}
+            onSetActive={onSetActive}
+            rowClassName={rowClassName}
+          />
+        ))
+      )}
+    </div>
+    {readOnly ? null : (
+      <FlyoutFooter styles={styles} onNew={onNew} onAdvanced={onAdvanced} footerClassName={footerClassName} />
+    )}
+  </>
+);
+
+/**
+ * The takeover's target scope row: one button per target for a polymorphic
+ * lookup (the active one distinct), or the single target's label as text. The
+ * flyout keeps its Menu-based switcher (FlyoutHeader); this is the takeover's
+ * segmented equivalent.
+ */
+const ScopeRow: React.FC<{
+  styles: Styles;
+  label?: string;
+  targets?: INativeLookupTarget[];
+  activeTarget?: string;
+  onTargetChange?: (entity: string) => void;
+}> = ({ styles, label, targets, activeTarget, onTargetChange }) => {
+  const multi = !!targets && targets.length > 1;
+  if (multi) {
+    return (
+      <div className={styles.scopeRow} role="group" aria-label={kitStrings().changeTable}>
+        {targets!.map((target) => {
+          const active = target.entity === activeTarget;
+          return (
+            <Button
+              key={target.entity}
+              appearance={active ? "primary" : "subtle"}
+              size="small"
+              aria-pressed={active}
+              onClick={() => onTargetChange?.(target.entity)}
+            >
+              {target.label}
+            </Button>
+          );
+        })}
+      </div>
+    );
+  }
+  const single = targets?.find((t) => t.entity === activeTarget)?.label ?? label;
+  return single ? (
+    <div className={styles.scopeRow}>
+      <span className={styles.scopeLabel}>{single}</span>
+    </div>
+  ) : null;
 };
 
 type Styles = ReturnType<typeof useStyles>;
@@ -719,7 +1019,9 @@ const ResultRow: React.FC<{
   onSelect: (result: INativeLookupResult) => void;
   onToggleExpand: (id: string) => void;
   onSetActive: (id: string) => void;
-}> = ({ styles, result, query, active, expanded, onSelect, onToggleExpand, onSetActive }) => {
+  /** Extra class merged onto the row (the takeover's denser 48px sizing). */
+  rowClassName?: string;
+}> = ({ styles, result, query, active, expanded, onSelect, onToggleExpand, onSetActive, rowClassName }) => {
   const hasDetail = resultHasDetail(result);
   const firstColumn = result.columns?.[0];
   const extraColumns = expanded ? result.columns?.slice(1) ?? [] : [];
@@ -729,7 +1031,7 @@ const ResultRow: React.FC<{
       role="treeitem"
       aria-selected={active}
       aria-expanded={hasDetail ? expanded : undefined}
-      className={mergeClasses(styles.row, active && styles.rowActive)}
+      className={mergeClasses(styles.row, active && styles.rowActive, rowClassName)}
       onClick={() => onSelect(result)}
       onMouseEnter={() => onSetActive(result.id)}
     >
@@ -771,12 +1073,14 @@ const FlyoutFooter: React.FC<{
   styles: Styles;
   onNew?: () => void;
   onAdvanced?: () => void;
-}> = ({ styles, onNew, onAdvanced }) => {
+  /** Extra class merged onto the footer (the takeover pins it; the flyout omits it). */
+  footerClassName?: string;
+}> = ({ styles, onNew, onAdvanced, footerClassName }) => {
   if (!onNew && !onAdvanced) {
     return null;
   }
   return (
-    <div className={styles.footer}>
+    <div className={footerClassName ? mergeClasses(styles.footer, footerClassName) : styles.footer}>
       {onNew ? (
         <Button appearance="subtle" size="small" icon={<AddRegular />} onClick={onNew}>
           {kitStrings().newLabel}

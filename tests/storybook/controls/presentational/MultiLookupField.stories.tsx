@@ -60,6 +60,23 @@ const makeRequired = () => {
   };
 };
 
+/** Five selected records, two with long names, to pin the tag row on an editable field. */
+const manyStakeholders: IEntityReference[] = [
+  {
+    id: "a1a00000-0000-0000-0000-000000000010",
+    logicalName: "account",
+    name: "Adventure Works Northwest Distribution Center",
+  },
+  {
+    id: "a1a00000-0000-0000-0000-000000000011",
+    logicalName: "account",
+    name: "Contoso Pharmaceuticals Regional Fulfillment Hub",
+  },
+  { id: "c1c00000-0000-0000-0000-000000000012", logicalName: "contact", name: "Yvonne McKay" },
+  { id: "c1c00000-0000-0000-0000-000000000013", logicalName: "contact", name: "Patrick Sands" },
+  { id: "c1c00000-0000-0000-0000-000000000014", logicalName: "contact", name: "Susanna Stubberod" },
+];
+
 export const Empty: Story = {
   render: () => <MultiLookupField label="Stakeholders" {...make([])} />,
 };
@@ -74,4 +91,26 @@ export const Disabled: Story = {
 };
 export const ReadOnly: Story = {
   render: () => <MultiLookupField label="Stakeholders" readOnly {...make(contactRefs)} />,
+};
+export const ManyTags: Story = {
+  name: "Many tags (long names, editable)",
+  render: () => {
+    // Editable (no disabled/readOnly), five tags with two long names, so the tag
+    // row's wrapping shows: the tags flow onto more rows instead of panning off the edge.
+    const selected = new Observable<IEntityReference[]>(manyStakeholders);
+    const results = new Observable<IEntityReference[]>([]);
+    return (
+      <MultiLookupField
+        label="Stakeholders"
+        selected={selected}
+        results={results}
+        onSearchTextChanged={(text) =>
+          (results.value = manyStakeholders.filter((r) =>
+            (r.name ?? "").toLowerCase().includes(text.toLowerCase())
+          ))
+        }
+        onChange={(v) => (selected.value = v)}
+      />
+    );
+  },
 };

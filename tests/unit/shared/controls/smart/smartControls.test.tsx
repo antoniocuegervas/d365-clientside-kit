@@ -765,6 +765,47 @@ describe("SmartNativeLookup", () => {
     expect(await screen.findByText("nancy@example.com")).toBeTruthy();
   });
 
+  it("passes a live viewport Observable that opens the full-window takeover on a narrow viewport", async () => {
+    // Stub matchMedia narrow: the wrapper's own trackNarrowViewport seeds a true
+    // flag and passes it down as fullscreenSearch, so opening renders the takeover
+    // (role dialog). This proves a LIVE Observable reached the presentational
+    // control, not a one-time snapshot.
+    const original = Object.getOwnPropertyDescriptor(window, "matchMedia");
+    // A full MediaQueryList-shaped stub: Fluent's own useIsReducedMotion also
+    // calls matchMedia(...).addEventListener, so a bare { matches } would throw.
+    (window as unknown as { matchMedia: unknown }).matchMedia = () => ({
+      matches: true,
+      media: "",
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    });
+    try {
+      const { context } = createFakeViewModelContext(baseOptions);
+      const value = new Observable<IEntityReference | null>(null);
+      renderWith(
+        context,
+        <SmartNativeLookup
+          entity="contact"
+          attribute="preferredsystemuserid"
+          value={value}
+          searchDebounceMs={0}
+        />
+      );
+      await userEvent.click(await screen.findByRole("combobox"));
+      expect(await screen.findByRole("dialog")).toBeTruthy();
+    } finally {
+      if (original) {
+        Object.defineProperty(window, "matchMedia", original);
+      } else {
+        delete (window as { matchMedia?: unknown }).matchMedia;
+      }
+    }
+  });
+
   it("filters with a contains clause as the user types", async () => {
     const { context, calls } = createFakeViewModelContext(baseOptions);
     const value = new Observable<IEntityReference | null>(null);

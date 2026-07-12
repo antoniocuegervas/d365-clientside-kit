@@ -7,6 +7,7 @@ import {
   type IGridRow,
 } from "../../controls/presentational/DataGrid";
 import { PersonaList, type IPersonaItem } from "../../controls/presentational/PersonaList";
+import { MeasuredWidth } from "../../controls/presentational/MeasuredWidth";
 import { SearchBar } from "../../controls/presentational/SearchBar";
 import { valueOf, type Observable, type OrObservable } from "../../reactivity/Observable";
 import { valueOfList, type OrObservableList } from "../../reactivity/ObservableArray";
@@ -35,11 +36,6 @@ export interface ICounterpartyGridViewProps {
   pager?: React.ReactNode;
   /** Heading + page chrome shown above the grid. The PCF omits it (the form frames it). */
   title?: string;
-}
-
-interface ICounterpartyGridViewState {
-  /** Measured host width; 0 until the first resize observation. */
-  width: number;
 }
 
 /**
@@ -76,45 +72,19 @@ const useStyles = makeStyles({
  * identically. It watches its own width and, on a host too narrow for a grid,
  * collapses each row into a persona card instead of forcing a horizontal scroll.
  */
-export class CounterpartyGridView extends ObserverComponent<
-  ICounterpartyGridViewProps,
-  ICounterpartyGridViewState
-> {
-  private readonly rootRef = React.createRef<HTMLDivElement>();
-  private observer: ResizeObserver | undefined;
-
+export class CounterpartyGridView extends ObserverComponent<ICounterpartyGridViewProps> {
   constructor(props: ICounterpartyGridViewProps) {
     super(props);
-    this.state = { width: 0 };
     this.observe(props.columns, props.rows, props.loading, props.selectedKey, props.searchText);
   }
 
-  override componentDidMount(): void {
-    if (this.rootRef.current && typeof ResizeObserver !== "undefined") {
-      this.observer = new ResizeObserver((entries) => {
-        const width = Math.round(entries[0]?.contentRect.width ?? 0);
-        if (Math.abs(width - this.state.width) > 1) {
-          this.setState({ width });
-        }
-      });
-      this.observer.observe(this.rootRef.current);
-    }
-  }
-
-  protected override onUnmount(): void {
-    this.observer?.disconnect();
-  }
-
   override render(): React.ReactNode {
-    // Width-only sizing: the wrapper fills its host's width but takes its height
-    // from the grid's content. Forcing height:100% collapses to 0 in an
-    // auto-height host (a dataset PCF's container), which hid the control until a
-    // later layout pass. The observer only needs the width (for the persona switch).
-    return (
-      <div ref={this.rootRef} style={{ width: "100%" }}>
-        <Body {...this.props} width={this.state.width} />
-      </div>
-    );
+    // Width-only sizing: MeasuredWidth fills the host's width but never forces a
+    // height, so the control still takes its height from the grid's content.
+    // Forcing height:100% collapses to 0 in an auto-height host (a dataset PCF's
+    // container), which hid the control until a later layout pass. The measured
+    // width only drives the persona switch below PERSONA_BREAKPOINT.
+    return <MeasuredWidth>{(width) => <Body {...this.props} width={width} />}</MeasuredWidth>;
   }
 }
 

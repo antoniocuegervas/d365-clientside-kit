@@ -87,3 +87,23 @@ export const Overflow: Story = {
   name: "Overflow (long option labels)",
   render: () => <OptionSetField label="Industry" {...make(2)} />,
 };
+export const ManyOptions: Story = {
+  name: "Many options (listbox scrolls)",
+  render: () => {
+    // 30+ options so the open dropdown reaches its max height and its listbox
+    // scrolls, the state the short fixture lists (8 or fewer) never reach.
+    const options = Array.from({ length: 32 }, (_, index) => ({
+      value: index + 1,
+      label: `Industry segment ${index + 1}`,
+    }));
+    const selectedValue = new Observable<number | null>(12);
+    return (
+      <OptionSetField
+        label="Industry"
+        options={options}
+        selectedValue={selectedValue}
+        onChange={(v) => (selectedValue.value = v)}
+      />
+    );
+  },
+};

@@ -114,7 +114,14 @@ The native-parity lookup: a resting chip with clickthrough, and an inline flyout
 that opens on click, loads the entity's lookup view (querytype 64) first page,
 filters as you type with the match bolded, and expands per-row detail (the lookup
 view's columns, name over the first column, the rest behind a conditional
-chevron). Same value contract as `SmartLookup` (the simpler combobox); reach for
+chevron). On a narrow (phone) viewport the search opens as a full-screen
+takeover instead, matching the platform's own phone lookup: a dismiss X, the
+current value as a clearable chip, an autofocused search box, one scope button
+per target on a polymorphic lookup, edge-to-edge 48px rows, and the pinned
+New / Advanced footer; a row tap commits and closes, exactly like the flyout.
+The wrapper tracks the viewport itself (the top window's 768px media query,
+live, so a rotation switches surfaces), so there is nothing to configure.
+Same value contract as `SmartLookup` (the simpler combobox); reach for
 it when native look and feel (muscle memory) is the point. Replaces the former
 `StandardLookupField`. Auto-resolves the target, the lookup view + columns, and
 the entity icon from metadata. Extra props (beyond the smart-field common set):
@@ -130,6 +137,7 @@ the entity icon from metadata. Extra props (beyond the smart-field common set):
 | `showIcons` | Show the entity icon in the flyout rows and the resting chip (resolved from the value's entity, so it shows on load); on by default, set `false` to disable and skip the metadata read |
 | `showAdvanced` | Footer "Advanced" escalation to the native picker (default on) |
 | `showNew` | Footer "+ New" quick-create on the target (default off; the target must support quick create) |
+| `fullscreenSearch` | Overrides the automatic narrow-viewport takeover with a host-owned flag (an `Observable<boolean>` or plain boolean). Omit it: the wrapper tracks the viewport and disposes the tracker itself. A host with its own lifecycle (the lookup PCF root) passes its own Observable so it owns the teardown |
 
 ### SmartViewGrid
 Auto: layout/columns from the savedquery's `layoutjson` (preferred) or

@@ -75,9 +75,15 @@ export const TemplateAppOnTheFakeContext: Story = {
     const context = makeSeededContext();
     const viewModel = new TemplateViewModel(context);
     return (
-      <ViewModelContextProvider context={context}>
-        <TemplateView viewModel={viewModel} />
-      </ViewModelContextProvider>
+      // Mirror the shell's hosting: #container is a bounded 100%-height box with
+      // body overflow pinned hidden, and the View owns its inner scroll. The
+      // wrapper stands in for #container so the story runs under the same
+      // vertical space pressure as the live app.
+      <div style={{ height: "100vh", overflow: "hidden" }}>
+        <ViewModelContextProvider context={context}>
+          <TemplateView viewModel={viewModel} />
+        </ViewModelContextProvider>
+      </div>
     );
   },
 };

@@ -40,7 +40,16 @@ const useStyles = makeStyles({
     rowGap: tokens.spacingVerticalM,
     padding: tokens.spacingHorizontalXXL,
     boxSizing: "border-box",
+    // Mirror the real app's hosting: the shell pins body overflow hidden and the
+    // page owns the scroll, so the story reproduces the same vertical space
+    // pressure the live app is under.
+    height: "100vh",
+    overflowY: "auto",
   },
+  // In the bounded page column a flex child with its own overflow can shrink to
+  // nothing under height pressure; pin the grid so the page scrolls instead,
+  // the same posture the real View takes.
+  gridRegion: { flexShrink: 0 },
   toolbar: { display: "flex", alignItems: "center", columnGap: tokens.spacingHorizontalS },
   caption: { color: tokens.colorNeutralForeground3 },
 });
@@ -95,13 +104,15 @@ const Body: React.FC<IMergedBody> = (props) => {
           Refresh
         </Button>
       </div>
-      <DataGrid
-        columns={mergedOpportunityColumns}
-        rows={props.rows}
-        emptyMessage="Nothing in the pipeline."
-        selectedKey={props.selectedKey}
-        onRowClick={props.onOpen}
-      />
+      <div className={styles.gridRegion}>
+        <DataGrid
+          columns={mergedOpportunityColumns}
+          rows={props.rows}
+          emptyMessage="Nothing in the pipeline."
+          selectedKey={props.selectedKey}
+          onRowClick={props.onOpen}
+        />
+      </div>
       {props.opened.value ? (
         <div className={styles.caption}>Would open {props.opened.value}.</div>
       ) : null}

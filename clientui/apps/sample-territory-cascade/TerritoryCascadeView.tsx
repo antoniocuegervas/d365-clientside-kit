@@ -16,6 +16,14 @@ const useStyles = makeStyles({
     rowGap: tokens.spacingVerticalM,
     padding: tokens.spacingHorizontalXXL,
     maxWidth: "480px",
+    boxSizing: "border-box",
+    // The shell pins body overflow hidden, so the app owns its inner scroll: on a
+    // short viewport the cascading fields stay reachable instead of being clipped.
+    // overflowX hidden because overflowY auto alone can pop a horizontal scrollbar
+    // in for a focused field's 1px focus-underline bleed.
+    height: "100%",
+    overflowY: "auto",
+    overflowX: "hidden",
   },
   summary: { color: tokens.colorNeutralForeground3 },
 });

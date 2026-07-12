@@ -125,6 +125,18 @@ describe("LibraryUtils.parseWebResourceParams", () => {
   it("handles a search string without leading question mark", () => {
     expect(LibraryUtils.parseWebResourceParams("app=x").app).toBe("x");
   });
+
+  it("reads the fullPage marker from the data payload", () => {
+    const data = encodeURIComponent(JSON.stringify({ app: "template", fullPage: true }));
+    const result = LibraryUtils.parseWebResourceParams(`?data=${data}`);
+    expect(result.fullPage).toBe(true);
+  });
+
+  it("defaults fullPage to false when the payload does not mark it", () => {
+    expect(LibraryUtils.parseWebResourceParams("?app=template").fullPage).toBe(false);
+    const unmarked = encodeURIComponent(JSON.stringify({ app: "template" }));
+    expect(LibraryUtils.parseWebResourceParams(`?data=${unmarked}`).fullPage).toBe(false);
+  });
 });
 
 describe("LibraryUtils.buildClientUIDataParam", () => {
@@ -196,6 +208,91 @@ describe("LibraryUtils.isNarrowViewport", () => {
 
   it("is false when neither the top window nor the caller has matchMedia", () => {
     expect(LibraryUtils.isNarrowViewport(fakeWindow(undefined, { top: {} }))).toBe(false);
+  });
+});
+
+describe("LibraryUtils.trackNarrowViewport", () => {
+  // A controllable MediaQueryList: flip `matches` and fire the captured change
+  // listener on demand, so a test can simulate the viewport crossing 768px.
+  const makeMql = (initial: boolean) => {
+    let handler: (() => void) | undefined;
+    const mql = {
+      matches: initial,
+      addEventListener: (_type: string, cb: () => void) => {
+        handler = cb;
+      },
+      removeEventListener: (_type: string, cb: () => void) => {
+        if (handler === cb) {
+          handler = undefined;
+        }
+      },
+    };
+    return {
+      mql,
+      fire: (next: boolean) => {
+        mql.matches = next;
+        handler?.();
+      },
+      hasListener: () => handler !== undefined,
+    };
+  };
+  const windowWith = (mql: object): Window => ({ matchMedia: () => mql }) as unknown as Window;
+
+  it("seeds the initial value from the current match, both ways", () => {
+    const yes = LibraryUtils.trackNarrowViewport(windowWith(makeMql(true).mql));
+    expect(yes.narrow.value).toBe(true);
+    yes.dispose();
+
+    const no = LibraryUtils.trackNarrowViewport(windowWith(makeMql(false).mql));
+    expect(no.narrow.value).toBe(false);
+    no.dispose();
+  });
+
+  it("flips the Observable when the media query change fires", () => {
+    const controller = makeMql(false);
+    const tracker = LibraryUtils.trackNarrowViewport(windowWith(controller.mql));
+    expect(tracker.narrow.value).toBe(false);
+    controller.fire(true);
+    expect(tracker.narrow.value).toBe(true);
+    controller.fire(false);
+    expect(tracker.narrow.value).toBe(false);
+    tracker.dispose();
+  });
+
+  it("dispose removes the listener so later changes are ignored", () => {
+    const controller = makeMql(false);
+    const tracker = LibraryUtils.trackNarrowViewport(windowWith(controller.mql));
+    tracker.dispose();
+    expect(controller.hasListener()).toBe(false);
+    controller.fire(true);
+    expect(tracker.narrow.value).toBe(false);
+  });
+
+  it("is false and never throws when matchMedia is unavailable (dispose is a no-op)", () => {
+    const tracker = LibraryUtils.trackNarrowViewport({} as unknown as Window);
+    expect(tracker.narrow.value).toBe(false);
+    expect(() => tracker.dispose()).not.toThrow();
+  });
+
+  it("uses the deprecated addListener pair when addEventListener is absent", () => {
+    let handler: (() => void) | undefined;
+    const mql = {
+      matches: false,
+      addListener: (cb: () => void) => {
+        handler = cb;
+      },
+      removeListener: (cb: () => void) => {
+        if (handler === cb) {
+          handler = undefined;
+        }
+      },
+    };
+    const tracker = LibraryUtils.trackNarrowViewport(windowWith(mql));
+    mql.matches = true;
+    handler?.();
+    expect(tracker.narrow.value).toBe(true);
+    tracker.dispose();
+    expect(handler).toBeUndefined();
   });
 });
 

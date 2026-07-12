@@ -134,6 +134,11 @@ const useStyles = makeStyles({
     rowGap: tokens.spacingVerticalM,
     padding: tokens.spacingHorizontalXXL,
     boxSizing: "border-box",
+    // Mirror the real app's hosting: the shell pins body overflow hidden and the
+    // page owns the scroll, so the story reproduces the same vertical space
+    // pressure the live app is under.
+    height: "100vh",
+    overflowY: "auto",
     // Tighter padding on a narrow (portrait / mobile) screen.
     "@media (max-width: 640px)": {
       padding: tokens.spacingHorizontalM,
@@ -141,6 +146,10 @@ const useStyles = makeStyles({
   },
   bridge: { display: "flex", flexDirection: "column", rowGap: tokens.spacingVerticalS },
   picker: { maxWidth: "420px" },
+  // In the bounded page column a flex child with its own overflow can shrink to
+  // nothing under height pressure; pin the grid so the page scrolls instead,
+  // the same posture the real View takes.
+  gridRegion: { flexShrink: 0 },
   detail: {
     display: "flex",
     flexDirection: "column",
@@ -248,13 +257,15 @@ const Body: React.FC<IMasterDetailBody> = ({ demo }) => {
     <div className={styles.page}>
       <Title3>Master / Detail: Accounts and Contacts</Title3>
 
-      <DataGrid
-        columns={accountColumns}
-        rows={accountRows}
-        emptyMessage="No accounts."
-        selectedKey={demo.selectedAccountKey}
-        onRowClick={demo.onAccountSelected}
-      />
+      <div className={styles.gridRegion}>
+        <DataGrid
+          columns={accountColumns}
+          rows={accountRows}
+          emptyMessage="No accounts."
+          selectedKey={demo.selectedAccountKey}
+          onRowClick={demo.onAccountSelected}
+        />
+      </div>
 
       <Divider />
 

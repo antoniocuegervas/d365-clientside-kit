@@ -40,6 +40,8 @@ export interface IKitStrings {
   browseRecords: string;
   clearValue: string;
   searchRecords: string;
+  /** Dismiss button on the full-screen lookup search takeover. */
+  closeSearch: string;
   lookupResults: string;
   loadingRows: string;
   recordRange: string;
@@ -84,6 +86,7 @@ export const defaultKitStrings: IKitStrings = {
   browseRecords: "Browse records",
   clearValue: "Clear value",
   searchRecords: "Search records",
+  closeSearch: "Close search",
   lookupResults: "Lookup results",
   loadingRows: "Loading rows",
   recordRange: "Record range",

@@ -4,6 +4,7 @@ import { FluentProvider } from "@fluentui/react-components";
 import { createContextFromXrm, findInjectedHost, findXrm } from "../shared/context/createWebResourceContext";
 import { ViewModelContextProvider } from "../shared/context/ViewModelContextProvider";
 import { ErrorBoundary } from "../shared/controls/presentational/ErrorBoundary";
+import { FullPageBackBar } from "./FullPageBackBar";
 import { resolveKitTheme } from "../shared/theme/d365Theme";
 import { LibraryUtils } from "../shared/utils/LibraryUtils";
 import { getApp, listApps } from "./registry";
@@ -74,11 +75,29 @@ export async function bootstrap(options: IBootstrapOptions = {}): Promise<Root |
     //    The theme tracks the user's D365 high-contrast setting when present.
     const host: IAppHost = { context, params, container };
     const theme = resolveKitTheme(context.globalContext.userSettings.isHighContrastEnabled);
+
+    // A full-page launch (openClientUI takes it automatically on a narrow
+    // viewport and marks the payload fullPage) gets no platform back chrome on
+    // the web client, so the shell renders its own Back above the app. The bar
+    // sits above a bounded, scrolling app region, so it never takes the app's
+    // scroll space. Every other hosting (dialog, sitemap, non-web client) renders
+    // the app bare.
+    const appContent = app.render(host);
+    const showBackBar = params.fullPage && context.client.getClient() === "Web";
+    const body = showBackBar ? (
+      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+        <FullPageBackBar onBack={() => win.history.back()} />
+        <div style={{ flexGrow: 1, minHeight: 0, overflowY: "auto" }}>{appContent}</div>
+      </div>
+    ) : (
+      appContent
+    );
+
     const root = createRoot(container);
     root.render(
       <FluentProvider theme={theme} style={{ height: "100%" }}>
         <ErrorBoundary>
-          <ViewModelContextProvider context={context}>{app.render(host)}</ViewModelContextProvider>
+          <ViewModelContextProvider context={context}>{body}</ViewModelContextProvider>
         </ErrorBoundary>
       </FluentProvider>
     );

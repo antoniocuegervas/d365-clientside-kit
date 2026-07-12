@@ -94,7 +94,10 @@ deployment/    # SPKL config + publish script
 `clientui/bootstrap.tsx` reads top to bottom: find `#container` → parse
 `?app=`/`data` → poll for Xrm (visible timeout error) → auto-detect modern vs
 legacy adapter → registry lookup → render app inside `FluentProvider` +
-`ViewModelContextProvider` → unmount on `beforeunload`.
+`ViewModelContextProvider` (a full-page launch, marked `fullPage` by
+`openClientUI`, gets the shell's own Back bar above a bounded scrolling app
+region on the web client) → unmount on `pagehide` (not `beforeunload`, which
+browsers deprioritize and which blocks the back/forward cache).
 
 ### One bundle, and the app manifest as the size lever
 

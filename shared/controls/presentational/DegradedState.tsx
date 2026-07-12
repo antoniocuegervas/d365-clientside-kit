@@ -37,7 +37,10 @@ export class DegradedState extends React.Component<IDegradedStateProps> {
 const Body: React.FC<IDegradedStateProps> = (props) => {
   const styles = useStyles();
   return (
-    <MessageBar className={styles.root} intent={props.intent ?? "warning"}>
+    // multiline layout wraps the message body onto as many lines as it needs,
+    // instead of the single-line default that runs a long explanation off the end
+    // of the bar. A short message stays a single line either way.
+    <MessageBar className={styles.root} intent={props.intent ?? "warning"} layout="multiline">
       <MessageBarBody>
         {props.title ? <MessageBarTitle>{props.title}</MessageBarTitle> : null} {props.message}
       </MessageBarBody>

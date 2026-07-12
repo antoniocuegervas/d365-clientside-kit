@@ -5,6 +5,7 @@ import { SmartViewGrid, type ISortSpec } from "../../../shared/controls/smart/Sm
 import {
   gridContext,
   pagedGridContext,
+  richGridContext,
   gridViewId,
   withContext,
   sample,
@@ -87,6 +88,20 @@ export const Paging: Story = {
 // "previous" is instant. The page size travels as odata.maxpagesize, not $top.
 <SmartViewGrid entity="account" pageSize={2} />`,
     "Setting pageSize pages the view server-side. The Next button follows the result's nextLink; visited pages are cached for instant Previous. For jump-to-any-page and a total count, also pass pagination=\"rich\" (FetchXML page/count, the only server-side random-access paging in Dataverse); simple mode is forward/back only."
+  ),
+};
+
+export const RichPagination: Story = {
+  name: "Rich paging (jump-to-page + total)",
+  decorators: [withContext(richGridContext)],
+  render: () => <SmartViewGrid entity="account" pageSize={5} pagination="rich" />,
+  parameters: sample(
+    `// pagination="rich" adds jump-to-any-page, first/last, and a total count on
+// top of pageSize. The grid pages the saved view through FetchXML page/count
+// and asks for the total once (returntotalrecordcount), so the pager shows
+// "X-Y of N" and a page picker rather than just next/prev.
+<SmartViewGrid entity="account" pageSize={5} pagination="rich" />`,
+    "Rich paging is the only server-side random-access paging in Dataverse (FetchXML page/count). The grid fetches page one with returntotalrecordcount, derives the page count from the total, and renders the full pager (first, last, and jump-to-page); simple paging is forward/back only."
   ),
 };
 

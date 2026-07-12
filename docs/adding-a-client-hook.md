@@ -70,8 +70,11 @@ surface:
   pane, with `width`/`height` in pixels (80% when omitted) and an optional
   `title`.
 - `"fullpage"` always opens a full page and marks the payload `fullPage: true`
-  so the launched app can offer its own back affordance (a full-page webresource
-  gets no platform back chrome on the phone client).
+  (a full-page webresource gets no platform back chrome on the web client). The
+  clientui shell reads that marker and renders its own slim Back bar above the
+  app automatically, so an app launched through the shell needs nothing; a
+  consumer hosting its own page instead of the shell offers its own back
+  affordance off the same marker.
 
 `AccountRibbon` ships `openCompanySearch` (auto, so a modal on the desktop) and
 `openCompanySearchPane` (side pane); `LibraryUtils.isNarrowViewport()` exposes

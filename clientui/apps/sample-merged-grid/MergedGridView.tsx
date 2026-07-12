@@ -21,6 +21,9 @@ const useStyles = makeStyles({
     overflowY: "auto",
   },
   toolbar: { display: "flex", alignItems: "center", columnGap: tokens.spacingHorizontalS },
+  // In the bounded page column a flex child with its own overflow can shrink to
+  // nothing under height pressure; pin the grid so the page scrolls instead.
+  gridRegion: { flexShrink: 0 },
 });
 
 export class MergedGridView extends ObserverComponent<IMergedGridViewProps> {
@@ -57,18 +60,20 @@ const Body: React.FC<IMergedGridViewProps> = ({ viewModel: vm }) => {
       {vm.loadError.value ? (
         <DegradedState message={vm.loadError.value} />
       ) : (
-        <DataGrid
-          columns={[
-            { key: "topic", name: "Topic", width: 280 },
-            { key: "customer", name: "Customer", width: 200 },
-            { key: "value", name: "Est. Value", width: 130 },
-            { key: "source", name: "Source Query", width: 170 },
-          ]}
-          rows={rows}
-          loading={vm.loading}
-          emptyMessage="Nothing in the pipeline."
-          onRowClick={(row) => vm.onOpenRecord(String(row.recordId))}
-        />
+        <div className={styles.gridRegion}>
+          <DataGrid
+            columns={[
+              { key: "topic", name: "Topic", width: 280 },
+              { key: "customer", name: "Customer", width: 200 },
+              { key: "value", name: "Est. Value", width: 130 },
+              { key: "source", name: "Source Query", width: 170 },
+            ]}
+            rows={rows}
+            loading={vm.loading}
+            emptyMessage="Nothing in the pipeline."
+            onRowClick={(row) => vm.onOpenRecord(String(row.recordId))}
+          />
+        </div>
       )}
     </div>
   );

@@ -16,7 +16,10 @@ export default tseslint.config(
       "**/solution/src/**",
       "coverage/**",
       "storybook-static/**",
-      "pcfs/**",
+      // PCF projects carry their own pcf-scripts lint setup, wherever they
+      // sit: the kit's own pcfs/, and any untracked local folder that carries
+      // its own PCF tree.
+      "**/pcfs/**",
       "deployment/**",
     ],
   },

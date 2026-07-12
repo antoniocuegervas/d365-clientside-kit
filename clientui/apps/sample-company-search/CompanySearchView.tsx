@@ -25,6 +25,9 @@ const useStyles = makeStyles({
     overflowY: "auto",
   },
   toolbar: { display: "flex", columnGap: tokens.spacingHorizontalS, alignItems: "center" },
+  // In the bounded page column a flex child with its own overflow can shrink to
+  // nothing under height pressure; pin the grid so the page scrolls instead.
+  gridRegion: { flexShrink: 0 },
   // Fluent's Divider defaults to flex-grow: 1; in a flex column that makes it grow
   // vertically and push everything below it down, so pin it to 0.
   divider: { flexGrow: 0 },
@@ -79,16 +82,18 @@ const Body: React.FC<ICompanySearchViewProps> = ({ viewModel: vm }) => {
           impossible to embed natively in a webresource. The search box feeds the
           grid's own quick-find, so one grid both lists and searches: server-paged,
           server-filtered, with the view's columns. Double-click a row to open it. */}
-      <SmartViewGrid
-        entity="account"
-        pageSize={25}
-        refresh={vm.refreshViewGrid}
-        quickFind={vm.searchText}
-        multiSelect
-        selectedRecordIds={vm.selectedAccountIds}
-        selectedRecordId={vm.selectedAccountId}
-        onRecordSelected={(id) => void vm.onAccountSelected(id)}
-      />
+      <div className={styles.gridRegion}>
+        <SmartViewGrid
+          entity="account"
+          pageSize={25}
+          refresh={vm.refreshViewGrid}
+          quickFind={vm.searchText}
+          multiSelect
+          selectedRecordIds={vm.selectedAccountIds}
+          selectedRecordId={vm.selectedAccountId}
+          onRecordSelected={(id) => void vm.onAccountSelected(id)}
+        />
+      </div>
 
       <Divider className={styles.divider} />
 

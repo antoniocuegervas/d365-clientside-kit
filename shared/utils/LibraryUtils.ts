@@ -6,11 +6,25 @@
  *   - OData formatting for the Dataverse Web API (entity sets, escaping, binds)
  *   - Webresource `data`/`?app=` parameter parsing (the one parser)
  *   - GUID / $batch boundary generation
+ *   - Viewport reads (the narrow check and its live tracker)
  *
- * Stateless static methods, with no dependencies of their own beyond EntityModel.
+ * Static methods with no dependencies of their own beyond EntityModel and the
+ * reactivity Observable (the viewport tracker hands one out).
  */
 
+import { Observable } from "../reactivity/Observable";
 import { normalizeGuid, type IEntityReference } from "./EntityModel";
+
+/**
+ * A live narrow-viewport flag with an explicit teardown, returned by
+ * {@link LibraryUtils.trackNarrowViewport}.
+ */
+export interface INarrowViewportTracker {
+  /** True while the resolved viewport sits under the narrow breakpoint. */
+  readonly narrow: Observable<boolean>;
+  /** Stops listening to viewport changes. Safe to call more than once. */
+  dispose(): void;
+}
 
 /** Parsed webresource parameters. */
 export interface IWebResourceParams {
@@ -18,6 +32,13 @@ export interface IWebResourceParams {
   app?: string;
   /** Parsed data payload: JSON object, plain string, or undefined. */
   data?: unknown;
+  /**
+   * True when the data payload marks a full-page hosting (the payload's
+   * `fullPage: true`). openClientUI's full-page launch, taken automatically on a
+   * narrow viewport, sets it so the launched app can render its own back
+   * affordance: the platform gives a full-page webresource no back chrome.
+   */
+  fullPage: boolean;
   /** All raw query parameters for app-specific needs. */
   query: Record<string, string>;
 }
@@ -160,14 +181,16 @@ export class LibraryUtils {
     }
 
     let app = params.get("app") ?? undefined;
-    if (!app && typeof data === "object" && data !== null) {
-      const fromData = (data as Record<string, unknown>).app;
-      if (typeof fromData === "string") {
-        app = fromData;
+    let fullPage = false;
+    if (typeof data === "object" && data !== null) {
+      const payload = data as Record<string, unknown>;
+      if (!app && typeof payload.app === "string") {
+        app = payload.app;
       }
+      fullPage = payload.fullPage === true;
     }
 
-    return { app, data, query };
+    return { app, data, fullPage, query };
   }
 
   /**
@@ -204,22 +227,81 @@ export class LibraryUtils {
    * so those paths keep the default dialog launch.
    */
   static isNarrowViewport(win: Window = window): boolean {
-    let viewport = win;
+    const viewport = LibraryUtils.resolveViewportWindow(win);
+    return (
+      typeof viewport.matchMedia === "function" &&
+      viewport.matchMedia(LibraryUtils.NARROW_QUERY).matches
+    );
+  }
+
+  /**
+   * A LIVE narrow-viewport flag: the initial value is {@link isNarrowViewport}
+   * and the returned Observable updates whenever the resolved window crosses the
+   * breakpoint (a device rotation or window resize). Measured on the same
+   * top-most same-origin window as isNarrowViewport, so a hidden ribbon frame
+   * never reads narrow. Absent matchMedia (a non-browser host: unit tests, SSR)
+   * yields a false flag that never changes, and dispose is then a no-op. Call
+   * dispose from a host that has an explicit teardown (a smart control's
+   * onUnmount, a PCF's destroy) to stop listening.
+   *
+   * The presentational tier never calls this (the lint boundary forbids it a
+   * LibraryUtils import); a smart wrapper or PCF root resolves the flag and
+   * passes the Observable down.
+   */
+  static trackNarrowViewport(win: Window = window): INarrowViewportTracker {
+    const viewport = LibraryUtils.resolveViewportWindow(win);
+    const narrow = new Observable<boolean>(LibraryUtils.isNarrowViewport(win));
+    const mql =
+      typeof viewport.matchMedia === "function"
+        ? viewport.matchMedia(LibraryUtils.NARROW_QUERY)
+        : undefined;
+    if (!mql) {
+      return { narrow, dispose: () => undefined };
+    }
+    const listener = (): void => {
+      narrow.value = mql.matches;
+    };
+    // addEventListener is the modern MediaQueryList API; older engines expose
+    // only the deprecated addListener/removeListener pair; a MediaQueryList with
+    // neither (a minimal stub) keeps its initial value and disposes to a no-op.
+    if (typeof mql.addEventListener === "function") {
+      mql.addEventListener("change", listener);
+      return { narrow, dispose: () => mql.removeEventListener("change", listener) };
+    }
+    if (typeof mql.addListener === "function") {
+      mql.addListener(listener);
+      return { narrow, dispose: () => mql.removeListener(listener) };
+    }
+    return { narrow, dispose: () => undefined };
+  }
+
+  /**
+   * The narrow breakpoint, shared by isNarrowViewport and trackNarrowViewport so
+   * the resting read and the live tracker can never drift. 768px is the
+   * platform's conventional narrow (phone) breakpoint.
+   */
+  private static readonly NARROW_QUERY = "(max-width: 768px)";
+
+  /**
+   * Resolves the window whose viewport drives the narrow decision: the top-most
+   * same-origin window. UCI runs ribbon and command-bar handlers inside a hidden
+   * 0x0 ClientApiFrame, so the application viewport is the top window's, not the
+   * caller's. A cross-origin top (member access throws) or an absent top falls
+   * back to the calling window.
+   */
+  private static resolveViewportWindow(win: Window): Window {
     try {
       const top = win.top;
       if (top) {
         // Probing a member here makes a cross-origin top throw inside the
         // guard, leaving the calling window as the fallback.
         void top.matchMedia;
-        viewport = top;
+        return top;
       }
     } catch {
       // Cross-origin top: measure the calling window instead.
     }
-    return (
-      typeof viewport.matchMedia === "function" &&
-      viewport.matchMedia("(max-width: 768px)").matches
-    );
+    return win;
   }
 
   //#endregion

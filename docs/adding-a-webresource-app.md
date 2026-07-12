@@ -119,3 +119,14 @@ apps and standalone pages render without it.
   `DataGrid`/`PersonaList`/etc.
 - The View never executes queries and never receives context, if you're
   tempted, that logic belongs in the ViewModel or a smart control.
+- **Your page owns its scroll.** The shell pins `body` overflow hidden, so a
+  page that relies on body scroll leaves content unreachable on a short
+  viewport. Make the page a bounded flex column (`height: "100%"`,
+  `overflowY: "auto"`, `overflowX: "hidden"`), and pin any grid region with
+  `flexShrink: 0`: a flex child with its own overflow resolves its min-height
+  to 0 and gets crushed by a growing sibling (a detail panel mounting on row
+  select) before the page ever scrolls. Every sample app follows this; the
+  template ships it.
+- Give your scenario story the same bound (`height: "100vh"`,
+  `overflowY: "auto"` on its page style): a story without it renders under no
+  vertical pressure and hides exactly the layout defects the bound exposes.

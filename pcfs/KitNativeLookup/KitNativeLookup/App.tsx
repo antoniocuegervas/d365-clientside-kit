@@ -1,6 +1,6 @@
 import * as React from "react";
 import { SmartNativeLookup } from "../../../shared/controls/smart/SmartNativeLookup";
-import type { Observable } from "../../../shared/reactivity/Observable";
+import type { Observable, OrObservable } from "../../../shared/reactivity/Observable";
 import type { IEntityReference } from "../../../shared/utils/EntityModel";
 
 export interface INativeLookupAppProps {
@@ -20,6 +20,8 @@ export interface INativeLookupAppProps {
   readOnly?: boolean;
   /** Host-owned value the control writes the pick into. */
   value: Observable<IEntityReference | null>;
+  /** Live narrow-viewport flag driving the full-window search takeover. */
+  fullscreenSearch?: OrObservable<boolean>;
   onChange: (value: IEntityReference | null) => void;
 }
 
@@ -44,6 +46,7 @@ export const NativeLookupApp: React.FC<INativeLookupAppProps> = (props) => {
       showIcons={props.showIcons}
       disabled={props.disabled}
       readOnly={props.readOnly}
+      fullscreenSearch={props.fullscreenSearch}
       onChange={props.onChange}
       // Suppress the control's own label: the form field already renders it.
       label=""

@@ -2180,3 +2180,169 @@ consumer's desktop-width report.
 Revisit trigger: rides D-064's (if the platform starts hosting webresource
 dialogs on the narrow reflow, auto stops diverging and this check goes dormant
 with it).
+
+## D-067, the kit takes a verified mobile posture: narrow layout mechanics and the lookup's full-screen search
+
+One wave, four working rules. Narrow-layout correctness triggers on width;
+mode-appropriate interaction triggers on pointer capability; desktop rendering
+is preserved (every adaptive change sits behind its trigger, desktop changes
+only by explicit owner approval); and the reference for a native-parity
+control is the platform's own control at narrow, observed live, never
+imagined. A fifth rule emerged during the wave and is now standing: a change
+is called tested only at the rung it was actually tested at, and the rungs are
+named explicitly (story-verified: renders its states; org-verified: measured
+live on a deployed bundle at narrow).
+
+**The native references, recorded from live walks on the dev org at a 400px
+viewport.** The entity list is a card list (full-width cards, per-card
+overflow). A narrow FORM keeps labels beside fields at desktop density (about
+176px label plus 156px control, 30px inputs): card presentation is a grid
+idiom, not a form idiom. The date picker opens a compact anchored popup
+(222x254, single month, 24x24 day cells: the kit calendar's existing density,
+so no change there). A choice field opens an anchored listbox at field width
+with 32px options. Secondary chrome is 32px even on phone (search buttons,
+chip actions); 44px-class targets apply to primary row targets only. The one
+exception to "anchored flyouts everywhere" is the LOOKUP: its search opens a
+dedicated full-screen takeover (own top chrome, search input, a scope row
+with one button per target plus a Recent-records segment, edge-to-edge 48px
+two-line rows with expand chevrons, a pinned "+ New / Advanced" footer), and
+tapping a row commits the value immediately (the surface then closes; the
+platform autosaves on a form). That takeover is the parity target for the
+kit lookup, and only for it: no other picker gets full-screened.
+
+**Layout mechanics that shipped (each behind its trigger, desktop rendering
+unchanged unless noted).**
+
+- The five grid apps pin their grid region (flexShrink 0) inside the bounded
+  page column. Mechanism, worth keeping: the app page is a bounded flex
+  column (height 100 percent, overflowY auto) and the grid's scroll wrapper
+  has non-visible overflow, which resolves the flex min-height of auto to 0,
+  so sibling growth (a detail panel mounting on row select) crushed the grid
+  to nothing before the page ever scrolled. The pin makes the page scroll
+  instead.
+- Pagination wraps its range label to its own line under width pressure; the
+  pager controls travel as one cluster. DateTimeField wraps its date and time
+  row in narrow containers (the time side carries flexBasis 220, replacing a
+  misleading fixed width the Fluent TimePicker overflowed). MultiLookupField
+  wraps its tag row.
+- DegradedState renders long messages multiline (owner-approved desktop
+  change: long banners previously escaped the bar at any width).
+  MultiSelectOptionSetField read-only renders the flat FieldShell text like
+  every other field (owner-approved; was a greyed disabled dropdown).
+- The wizard, territory cascade, and template apps own an inner scroll
+  container (height 100 percent, overflowY auto, overflowX hidden): the shell
+  pins body overflow hidden, so page-scroll reliance meant unreachable
+  content on a short viewport. The counterparty webresource app gets the same
+  bound through a wrapper in its registration, because its View is shared
+  with the dataset PCF and stays height-neutral on purpose (the PCF hosting
+  scrolls the form; forcing a height would collapse in an auto-height
+  container).
+- The shell renders its own Back bar above a full-page launch (fullPage
+  marker plus the Web client), wired to history back, above a bounded
+  scrolling app region. Every other hosting renders the app bare.
+- MeasuredWidth is the shared container-width primitive (class component,
+  ResizeObserver on its own full-width div, children(width) render prop,
+  width-only so auto-height PCF containers keep content height; width 0
+  means unmeasured and the consumer renders its default). The counterparty
+  grid rides it for the persona switch; its public props are unchanged.
+- Baseline stories pin the pre-wave desktop rendering of every state the
+  audit flagged, and the two scenario stories mirror the shell's viewport
+  bound (height 100vh plus overflowY auto), which is the fidelity gap that
+  had hidden the grid crush. App scenario stories should carry the shell
+  bound as a rule.
+
+**The lookup's narrow search is a full-screen takeover.** The presentational
+NativeLookupField takes fullscreenSearch (OrObservable of boolean, default
+false: absent, the anchored flyout renders unchanged, pinned by the untouched
+pre-wave test suite). When the flag is true and the search opens, the same
+content tree (one shared SurfaceContent: loading, results tree, footer)
+renders in a fixed inset-0 inline surface (never portaled, so the theme
+variables resolve in a PCF) with takeover chrome: a dismiss X (no confirm
+button: the observed native behavior is that a row tap commits immediately,
+so the kit does the same, tap commits and closes, X or Escape leaves without
+change), the current value as a clearable chip, an autofocused search input,
+a scope row with one button per target (aria-pressed marks the active one;
+the flyout keeps its Menu switcher), and the pinned New and Advanced footer.
+Takeover rows render at the native 48px: tighter vertical padding plus
+border-box, because the rows are otherwise content-box and the 48px
+minHeight was never the rendered height (the flyout's 64px rows are exactly
+that minHeight plus its padding; the flyout keeps them). The scope row
+carries no Recent-records segment: the platform MRU is not exposed to this
+tier, a recorded divergence rather than an invented one. The z-index is a
+large explicit value so the surface clears the form chrome when the control
+lives in the UCI page.
+
+**The trigger is the viewport, resolved live.** LibraryUtils gains
+trackNarrowViewport (an Observable of boolean plus dispose), sharing the
+top-most same-origin window resolution and the 768px query with
+isNarrowViewport through one private helper, so the resting read and the
+live tracker cannot drift; the change listener rides matchMedia (with the
+deprecated addListener fallback), and an absent matchMedia yields a false
+flag that never changes. SmartNativeLookup tracks the viewport itself and
+disposes in its unmount path; the PCF root creates its own tracker in init
+and disposes it in destroy, passing the Observable through, because the
+platform owns a virtual control's React root and destroy is the one
+teardown the control can rely on. The smart wrapper's fullscreenSearch prop
+exists as that plumbing channel (host-supplied flag wins, otherwise
+self-track); it is lifecycle plumbing, not a mode switch. Container width
+was rejected as the trigger on purpose: a narrow desktop section must not
+take over the screen, and the platform keys this idiom to the phone reflow.
+
+**Alternatives rejected.** Full-screening the other pickers (native keeps
+date and choice anchored at narrow; parity means matching that, not
+inventing). A confirm-button commit in the takeover (the observed native
+tap commits immediately; a dead check button would be chrome without
+behavior). getFormFactor or container width as the trigger (the device is
+not the reflow, and the container is not the viewport).
+
+**Evidence rungs, per item, stated plainly.**
+
+- Org-verified at 400px on the deployed webresource bundle: the grid pin on
+  the activities grid (45 live rows, computed flexShrink 0, the wide table
+  scrolling inside its wrapper, no page pan) and company search (12 rows,
+  re-driven inside a full-page launch); DegradedState multiline (shown
+  naturally, contained at 352x60); the three inner-scroll apps under staged
+  height pressure (content scrolled inside the container, the last control
+  reachable, the body never panning); the Back bar end to end (fullPage
+  payload, 400x41 bar, app region below it, Back walking iframe history);
+  the counterparty persona reflow (a visible-tab walk: full card list at
+  400px, no grid, no horizontal scroll); and the lookup takeover (covers
+  the full app area, ten live rows all exactly 48px, autofocused input,
+  tap committed and closed with the chip appearing, clear worked).
+- Structural-only on this org: the merged grid and opportunity search pins
+  (this dev org carries no opportunity or territory entities, so those apps
+  degrade gracefully by design and their data paths cannot be exercised
+  here; the degrade itself is the org-verified part).
+- Story-verified ceiling, no org surface exists today: the MultiLookupField
+  tag wrap and the MultiSelectOptionSetField read-only rendering (no sample
+  app or PCF consumes them) and the DateTimeField date-plus-time wrap (the
+  sample bindings are date-only; the date picker PCF binds a datetime
+  column, so a redeploy wave can lift this one).
+- The lookup PCF: deployed at manifest 1.2.2 and exercised as code by the
+  same tests and the same shared path the webresource runs; the side-by-side
+  drive against the native lookup on the form itself has not been performed
+  and the claim stays at that rung until it is.
+
+**Environment fact recorded.** The dev org has no Sales solution: no
+opportunity entity set and no territory entity. The merged grid and
+opportunity search show their designed degraded state there ("could not be
+loaded in this environment"), which is portability behavior working, not a
+defect.
+
+**Open, deliberately.** Grid card-list mode at narrow is the remaining big
+divergence (native lists are cards; the kit grids stay dense tables with
+inner horizontal scroll). Owner directive recorded for whenever it is
+scoped: card mode is chosen by the implementer per app, never default grid
+behavior; PersonaList and MeasuredWidth are the building blocks. The
+re-graded touch items: the 32px small-target step-up is a real parity fix
+but native runs 32px at desktop too, so it is a desktop change awaiting
+explicit approval; the FieldShell hint tooltip staying unreachable by
+keyboard and touch is an accessibility defect worth fixing regardless of
+this wave; combobox tap-to-open under a coarse pointer stays proposed;
+column resize at narrow is a recorded limitation (native phone grids do not
+resize); calendar density closed at parity; MultiLookupField open-seeding is
+deprioritized until the control has a consumer.
+
+Revisit triggers: the grid card-mode scope call; a consumer for the three
+no-surface fixes (or their removal); the platform changing the narrow lookup
+idiom (the takeover then follows it).

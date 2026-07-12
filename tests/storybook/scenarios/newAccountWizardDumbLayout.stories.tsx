@@ -40,6 +40,11 @@ const useStyles = makeStyles({
     rowGap: tokens.spacingVerticalM,
     padding: tokens.spacingHorizontalXXL,
     boxSizing: "border-box",
+    // Mirror the real app's hosting: the shell pins body overflow hidden and the
+    // page owns the scroll, so the story reproduces the same vertical space
+    // pressure the live app is under.
+    height: "100vh",
+    overflowY: "auto",
   },
   // Match the live View: a content-sized card so Back/Next sit in a footer under
   // the fields instead of floating at the bottom of the canvas.

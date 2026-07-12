@@ -34,3 +34,12 @@ export const MessageOnly: Story = {
     <DegradedState message="This view could not be loaded in this environment." />
   ),
 };
+
+export const LongMessage: Story = {
+  render: () => (
+    <DegradedState
+      title="Counterparty Activities is unavailable here"
+      message="This sample needs the activity and activity party tables, plus read access to the accounts and contacts behind each activity, none of which are present in this environment. Install the Sales or Service app, then reopen the sample to run it."
+    />
+  ),
+};

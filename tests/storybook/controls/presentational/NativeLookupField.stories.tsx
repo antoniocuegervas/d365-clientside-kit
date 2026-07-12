@@ -128,6 +128,22 @@ const make = (source: INativeLookupResult[], initial: IEntityReference | null) =
   };
 };
 
+// Twelve two-line results, so the flyout's internal scroll region (320px) engages
+// on focus, where the other stories seed at most three rows.
+const manyContactResults: INativeLookupResult[] = Array.from({ length: 12 }, (_, index) => {
+  const n = index + 1;
+  return {
+    id: `many-${n}`,
+    name: `Sample Contact ${String(n).padStart(2, "0")}`,
+    logicalName: "contact",
+    iconUrl: icon("%230f6cbd"),
+    columns: [
+      { label: "Email", value: `someone${n}@example.com` },
+      { label: "City", value: "Redmond" },
+    ],
+  };
+});
+
 export const Empty: Story = {
   name: "Empty (focus to open the flyout)",
   render: () => <NativeLookupField label="Primary Contact" placeholder="Look for Primary Contact" {...make(contactResults, null)} />,
@@ -203,6 +219,58 @@ export const ReadOnly: Story = {
   ),
 };
 
+export const ManyResults: Story = {
+  name: "Many results (flyout scrolls)",
+  render: () => (
+    <NativeLookupField
+      label="Primary Contact"
+      placeholder="Look for Primary Contact"
+      {...make(manyContactResults, null)}
+    />
+  ),
+};
+
+export const SearchFailed: Story = {
+  name: "Search failed (distinct from no matches)",
+  render: () => {
+    const selected = new Observable<IEntityReference | null>(null);
+    const results = new Observable<INativeLookupResult[]>([]);
+    const searchFailed = new Observable<boolean>(true);
+    return (
+      <NativeLookupField
+        label="Primary Contact"
+        placeholder="Look for Primary Contact"
+        selected={selected}
+        results={results}
+        searchFailed={searchFailed}
+        // The host's query keeps failing, so the flyout shows the failed-search
+        // message rather than the empty "no records" line.
+        onSearchTextChanged={() => {
+          results.value = [];
+          searchFailed.value = true;
+        }}
+        onChange={(value) => (selected.value = value)}
+      />
+    );
+  },
+};
+
+export const LabelStart: Story = {
+  name: "Label beside the field (start)",
+  render: () => (
+    <NativeLookupField
+      label="Primary Contact"
+      labelPosition="start"
+      {...make(contactResults, {
+        id: "c1",
+        logicalName: "contact",
+        name: "Coho Winery (sample)",
+        iconUrl: icon("%230f6cbd"),
+      })}
+    />
+  ),
+};
+
 export const MultiTarget: Story = {
   name: "Polymorphic (target switcher)",
   render: () => {
@@ -233,6 +301,83 @@ export const MultiTarget: Story = {
         }
         onChange={(value) => (selected.value = value)}
       />
+    );
+  },
+};
+
+// The narrow-viewport takeover: on a phone reflow the same control opens a
+// dedicated full-window search page instead of the anchored flyout, matching the
+// platform's phone lookup. Forced on here with fullscreenSearch; in production
+// SmartNativeLookup resolves it from the viewport. The field renders in a
+// phone-width column; clicking it opens the takeover (it fills the window), and
+// the X dismisses it. Tapping a row commits and closes, exactly like the flyout.
+export const Takeover: Story = {
+  name: "Fullscreen takeover (click to open)",
+  render: () => (
+    <div style={{ maxWidth: 360 }}>
+      <NativeLookupField
+        label="Primary Contact"
+        placeholder="Look for Primary Contact"
+        fullscreenSearch
+        {...make(contactResults, null)}
+      />
+    </div>
+  ),
+};
+
+export const TakeoverSeeded: Story = {
+  name: "Fullscreen takeover with a set value",
+  render: () => (
+    <div style={{ maxWidth: 360 }}>
+      <NativeLookupField
+        label="Primary Contact"
+        fullscreenSearch
+        {...make(contactResults, {
+          id: "c1",
+          logicalName: "contact",
+          name: "Coho Winery (sample)",
+          iconUrl: icon("%230f6cbd"),
+        })}
+      />
+    </div>
+  ),
+};
+
+export const TakeoverMultiTarget: Story = {
+  name: "Fullscreen takeover (polymorphic scope buttons)",
+  render: () => {
+    const targets: INativeLookupTarget[] = [
+      { entity: "account", label: "Accounts" },
+      { entity: "contact", label: "Contacts" },
+    ];
+    const selected = new Observable<IEntityReference | null>(null);
+    const results = new Observable<INativeLookupResult[]>([]);
+    const activeTarget = new Observable<string | undefined>("contact");
+    const sourceFor = (entity: string | undefined): INativeLookupResult[] =>
+      entity === "account" ? accountResults : contactResults;
+    return (
+      <div style={{ maxWidth: 360 }}>
+        <NativeLookupField
+          label="Customer"
+          placeholder="Look for Customer"
+          fullscreenSearch
+          selected={selected}
+          results={results}
+          targets={targets}
+          activeTarget={activeTarget}
+          tableLabel="Contacts"
+          onTargetChange={(entity) => {
+            activeTarget.value = entity;
+            results.value = sourceFor(entity);
+          }}
+          onSearchTextChanged={(text) =>
+            (results.value = sourceFor(activeTarget.value).filter((r) => matches(r, text)))
+          }
+          onChange={(value) => (selected.value = value)}
+          onNew={() => window.alert("New record")}
+          onAdvanced={() => window.alert("Advanced lookup")}
+        />
+      </div>
     );
   },
 };

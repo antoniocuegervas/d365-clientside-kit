@@ -8,6 +8,7 @@ import { ViewModelContextProvider } from "../../../shared/context/ViewModelConte
 import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoundary";
 import { Observable } from "../../../shared/reactivity/Observable";
 import { normalizeGuid, type IEntityReference } from "../../../shared/utils/EntityModel";
+import { LibraryUtils, type INarrowViewportTracker } from "../../../shared/utils/LibraryUtils";
 import { NativeLookupApp } from "./App";
 
 /**
@@ -35,6 +36,10 @@ export class KitNativeLookup implements ComponentFramework.ReactControl<IInputs,
   // Host-owned value bridging the bound lookup column to the control. The control
   // writes the user's pick into it; getOutputs reads it back for the platform.
   private readonly value = new Observable<IEntityReference | null>(null);
+  // Live narrow-viewport flag feeding the presentational full-window search
+  // takeover. The PCF root owns it (created in init, disposed in destroy) so the
+  // takeover matches the platform's phone lookup on the UCI page.
+  private narrowTracker: INarrowViewportTracker | undefined;
 
   public init(
     context: ComponentFramework.Context<IInputs>,
@@ -43,6 +48,7 @@ export class KitNativeLookup implements ComponentFramework.ReactControl<IInputs,
   ): void {
     this.kitContext = new PCFContext(context as unknown as IPcfContextLike);
     this.notifyOutputChanged = notifyOutputChanged;
+    this.narrowTracker = LibraryUtils.trackNarrowViewport();
   }
 
   public updateView(context: ComponentFramework.Context<IInputs>): React.ReactElement {
@@ -91,6 +97,7 @@ export class KitNativeLookup implements ComponentFramework.ReactControl<IInputs,
             disabled: context.mode.isControlDisabled,
             readOnly: securedReadOnly(context.parameters.value),
             value: this.value,
+            fullscreenSearch: this.narrowTracker?.narrow,
             // The control writes the value observable itself; reflect to the host.
             onChange: () => this.notifyOutputChanged?.(),
           })
@@ -109,7 +116,9 @@ export class KitNativeLookup implements ComponentFramework.ReactControl<IInputs,
   }
 
   public destroy(): void {
-    // The platform owns the React root for a virtual control.
+    // The platform owns the React root for a virtual control; the viewport
+    // tracker is the one host resource this control owns and must release.
+    this.narrowTracker?.dispose();
   }
 }
 

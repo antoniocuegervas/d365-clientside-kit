@@ -36,6 +36,9 @@ const useStyles = makeStyles({
   // vertically and push everything below it down, so pin it to 0.
   divider: { flexGrow: 0 },
   summary: { color: tokens.colorNeutralForeground3 },
+  // In the bounded page column a flex child with its own overflow can shrink to
+  // nothing under height pressure; pin the grid so the page scrolls instead.
+  gridRegion: { flexShrink: 0 },
 });
 
 /**
@@ -88,19 +91,21 @@ const Body: React.FC<IOpportunitySearchViewProps> = ({ viewModel: vm }) => {
 
       <Divider className={styles.divider} />
       {vm.resultSummary.value ? <div className={styles.summary}>{vm.resultSummary.value}</div> : null}
-      <DataGrid
-        columns={[
-          { key: "topic", name: "Topic", width: 260 },
-          { key: "customer", name: "Customer", width: 180 },
-          { key: "value", name: "Est. Value", width: 120 },
-          { key: "closing", name: "Est. Close Date", width: 140 },
-          { key: "rating", name: "Rating", width: 100 },
-        ]}
-        rows={rows}
-        loading={vm.searching}
-        emptyMessage="Run a search to see opportunities."
-        onRowClick={(row) => vm.onOpenRecord(row.key)}
-      />
+      <div className={styles.gridRegion}>
+        <DataGrid
+          columns={[
+            { key: "topic", name: "Topic", width: 260 },
+            { key: "customer", name: "Customer", width: 180 },
+            { key: "value", name: "Est. Value", width: 120 },
+            { key: "closing", name: "Est. Close Date", width: 140 },
+            { key: "rating", name: "Rating", width: 100 },
+          ]}
+          rows={rows}
+          loading={vm.searching}
+          emptyMessage="Run a search to see opportunities."
+          onRowClick={(row) => vm.onOpenRecord(row.key)}
+        />
+      </div>
     </div>
   );
 };

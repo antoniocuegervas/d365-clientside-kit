@@ -159,3 +159,63 @@ describe("bootstrap and the injected-host boot order", () => {
     expect(container.innerHTML).toContain("on account");
   });
 });
+
+/**
+ * The shell's own Back affordance for a full-page launch. openClientUI opens the
+ * shell full page on a narrow viewport and marks the payload fullPage; a full-page
+ * webresource gets no platform back chrome on the web client, so the shell renders
+ * its own Back. It is gated to the web client and the marker, and never appears for
+ * a dialog or sitemap hosting (no marker) or a non-web client.
+ */
+describe("bootstrap full-page Back bar", () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    document.body.innerHTML = '<div id="container"></div>';
+    container = document.getElementById("container")!;
+  });
+
+  const fullPageSearch = (app: string): string =>
+    "?data=" + encodeURIComponent(JSON.stringify({ app, fullPage: true }));
+
+  const findBackButton = (): HTMLButtonElement | undefined =>
+    Array.from(container.querySelectorAll("button")).find((button) =>
+      (button.textContent ?? "").includes("Back")
+    );
+
+  it("renders the Back bar for a full-page launch on the web client, and Back calls history.back", async () => {
+    const walked = createModernXrmMock({ clientKind: "Web" }).xrm;
+    const win = makeShellWindow(makeTopWindow(walked));
+    const back = jest.fn();
+    (win as unknown as { history: History }).history = { back } as unknown as History;
+
+    await bootstrap({ window: win, search: fullPageSearch("probe-presence"), xrmTimeoutMs: 2000 });
+    await waitForContent(container, (html) => html.includes("no form bound"));
+
+    const backButton = findBackButton();
+    expect(backButton).toBeTruthy();
+
+    backButton!.click();
+    expect(back).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders no Back bar when the launch is not marked full page", async () => {
+    const walked = createModernXrmMock({ clientKind: "Web" }).xrm;
+    const win = makeShellWindow(makeTopWindow(walked));
+
+    await bootstrap({ window: win, search: "?app=probe-presence", xrmTimeoutMs: 2000 });
+    await waitForContent(container, (html) => html.includes("no form bound"));
+
+    expect(findBackButton()).toBeUndefined();
+  });
+
+  it("renders no Back bar for a full-page launch on a non-web client", async () => {
+    const walked = createModernXrmMock({ clientKind: "Mobile" }).xrm;
+    const win = makeShellWindow(makeTopWindow(walked));
+
+    await bootstrap({ window: win, search: fullPageSearch("probe-presence"), xrmTimeoutMs: 2000 });
+    await waitForContent(container, (html) => html.includes("no form bound"));
+
+    expect(findBackButton()).toBeUndefined();
+  });
+});

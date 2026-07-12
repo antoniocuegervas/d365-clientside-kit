@@ -7,9 +7,9 @@ import type {
   IViewDefinition,
 } from "../../context/IViewModelContext";
 import { attributeDisplayName, attributeTargets } from "../../metadata/attributeMetadataReads";
-import { Observable } from "../../reactivity/Observable";
+import { Observable, type OrObservable } from "../../reactivity/Observable";
 import { normalizeGuid, type IEntityReference } from "../../utils/EntityModel";
-import { LibraryUtils } from "../../utils/LibraryUtils";
+import { LibraryUtils, type INarrowViewportTracker } from "../../utils/LibraryUtils";
 import {
   NativeLookupField,
   type INativeLookupResult,
@@ -42,6 +42,13 @@ export interface ISmartNativeLookupProps extends ISmartFieldProps<IEntityReferen
   showAdvanced?: boolean;
   /** Show the footer "+ New" quick-create. Default false. */
   showNew?: boolean;
+  /**
+   * Drives the presentational control's full-window search takeover. Omit and
+   * this wrapper tracks the viewport itself (narrow reflow gets the takeover, the
+   * common case); a host with its own explicit lifecycle (the PCF root) resolves
+   * the flag and passes its own Observable so it owns the teardown.
+   */
+  fullscreenSearch?: OrObservable<boolean>;
 }
 
 /** Per-target resolution: entity keys, the view layout, and the icon, cached once. */
@@ -82,10 +89,17 @@ export class SmartNativeLookup extends SmartFieldBase<
   private debounceHandle: ReturnType<typeof setTimeout> | undefined;
   private searchSequence = 0;
 
+  // The viewport tracker feeding the presentational takeover. Owned here (and
+  // disposed on unmount) UNLESS the host passed its own fullscreenSearch, in
+  // which case the host owns the teardown and this wrapper tracks nothing.
+  private readonly narrowTracker: INarrowViewportTracker | undefined =
+    this.props.fullscreenSearch === undefined ? LibraryUtils.trackNarrowViewport() : undefined;
+
   protected override onUnmount(): void {
     if (this.debounceHandle !== undefined) {
       clearTimeout(this.debounceHandle);
     }
+    this.narrowTracker?.dispose();
   }
 
   override componentDidUpdate(prevProps: ISmartNativeLookupProps): void {
@@ -427,6 +441,8 @@ export class SmartNativeLookup extends SmartFieldBase<
         onOpenRecord={(ref) => void this.vmContext.navigation.openForm(ref.logicalName, ref.id)}
         onAdvanced={this.props.showAdvanced === false ? undefined : this.handleAdvanced}
         onNew={this.props.showNew ? this.handleNew : undefined}
+        // The host's own flag wins; otherwise this wrapper's viewport tracker.
+        fullscreenSearch={this.props.fullscreenSearch ?? this.narrowTracker?.narrow}
       />
     );
   }

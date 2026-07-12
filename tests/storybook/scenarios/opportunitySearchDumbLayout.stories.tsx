@@ -121,7 +121,16 @@ const useStyles = makeStyles({
     rowGap: tokens.spacingVerticalM,
     padding: tokens.spacingHorizontalXXL,
     boxSizing: "border-box",
+    // Mirror the real app's hosting: the shell pins body overflow hidden and the
+    // page owns the scroll, so the story reproduces the same vertical space
+    // pressure the live app is under.
+    height: "100vh",
+    overflowY: "auto",
   },
+  // In the bounded page column a flex child with its own overflow can shrink to
+  // nothing under height pressure; pin the grid so the page scrolls instead,
+  // the same posture the real View takes.
+  gridRegion: { flexShrink: 0 },
   filterGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
@@ -275,11 +284,13 @@ const Body: React.FC<IOpportunityBody> = (props) => {
       </div>
 
       <Divider />
-      <DataGrid
-        columns={resultColumns}
-        rows={props.rows}
-        emptyMessage="No opportunities match these filters."
-      />
+      <div className={styles.gridRegion}>
+        <DataGrid
+          columns={resultColumns}
+          rows={props.rows}
+          emptyMessage="No opportunities match these filters."
+        />
+      </div>
     </div>
   );
 };

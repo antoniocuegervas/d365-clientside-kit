@@ -54,6 +54,19 @@ const useStyles = makeStyles({
     alignItems: "center",
     columnGap: tokens.spacingHorizontalS,
     justifyContent: "flex-end",
+    // When the host is too narrow to fit the range label and the pager controls
+    // on one line, the row wraps and the label takes its own line rather than
+    // being crushed to a few characters. The controls travel together as one
+    // wrapping unit (the `controls` cluster), so they never split across lines.
+    // A host with room keeps the single-line layout unchanged (wrap engages only
+    // when the row overflows).
+    flexWrap: "wrap",
+    rowGap: tokens.spacingVerticalXS,
+  },
+  controls: {
+    display: "flex",
+    alignItems: "center",
+    columnGap: tokens.spacingHorizontalS,
   },
   label: { color: tokens.colorNeutralForeground3, minWidth: "64px", textAlign: "center" },
   rangeLabel: { color: tokens.colorNeutralForeground3, marginRight: tokens.spacingHorizontalS },
@@ -129,23 +142,25 @@ const Body: React.FC<IPaginationProps> = (props) => {
             {range}
           </span>
         ) : null}
-        <Button
-          appearance="subtle"
-          icon={<ChevronLeftRegular />}
-          aria-label={strings.previousPage}
-          disabled={disabled || !canPrev}
-          onClick={props.onPrevious}
-        />
-        <span className={styles.label} aria-label={strings.currentPage}>
-          {strings.pageN(page)}
-        </span>
-        <Button
-          appearance="subtle"
-          icon={<ChevronRightRegular />}
-          aria-label={strings.nextPage}
-          disabled={disabled || !canNext}
-          onClick={props.onNext}
-        />
+        <div className={styles.controls}>
+          <Button
+            appearance="subtle"
+            icon={<ChevronLeftRegular />}
+            aria-label={strings.previousPage}
+            disabled={disabled || !canPrev}
+            onClick={props.onPrevious}
+          />
+          <span className={styles.label} aria-label={strings.currentPage}>
+            {strings.pageN(page)}
+          </span>
+          <Button
+            appearance="subtle"
+            icon={<ChevronRightRegular />}
+            aria-label={strings.nextPage}
+            disabled={disabled || !canNext}
+            onClick={props.onNext}
+          />
+        </div>
       </div>
     );
   }
@@ -164,48 +179,50 @@ const Body: React.FC<IPaginationProps> = (props) => {
           {range}
         </span>
       ) : null}
-      <Button
-        appearance="subtle"
-        icon={<ChevronDoubleLeftRegular />}
-        aria-label={strings.firstPage}
-        disabled={disabled || !canPrev}
-        onClick={props.onFirst}
-      />
-      <Button
-        appearance="subtle"
-        icon={<ChevronLeftRegular />}
-        aria-label={strings.previousPage}
-        disabled={disabled || !canPrev}
-        onClick={props.onPrevious}
-      />
-      <Dropdown
-        className={styles.jump}
-        aria-label={strings.jumpToPage}
-        value={strings.pageNOfM(page, count)}
-        selectedOptions={[String(page)]}
-        onOptionSelect={handleJump}
-        disabled={disabled}
-      >
-        {Array.from({ length: count }, (_unused, index) => index + 1).map((n) => (
-          <Option key={n} value={String(n)} text={strings.pageN(n)}>
-            {strings.pageN(n)}
-          </Option>
-        ))}
-      </Dropdown>
-      <Button
-        appearance="subtle"
-        icon={<ChevronRightRegular />}
-        aria-label={strings.nextPage}
-        disabled={disabled || !canNext}
-        onClick={props.onNext}
-      />
-      <Button
-        appearance="subtle"
-        icon={<ChevronDoubleRightRegular />}
-        aria-label={strings.lastPage}
-        disabled={disabled || page >= count}
-        onClick={props.onLast}
-      />
+      <div className={styles.controls}>
+        <Button
+          appearance="subtle"
+          icon={<ChevronDoubleLeftRegular />}
+          aria-label={strings.firstPage}
+          disabled={disabled || !canPrev}
+          onClick={props.onFirst}
+        />
+        <Button
+          appearance="subtle"
+          icon={<ChevronLeftRegular />}
+          aria-label={strings.previousPage}
+          disabled={disabled || !canPrev}
+          onClick={props.onPrevious}
+        />
+        <Dropdown
+          className={styles.jump}
+          aria-label={strings.jumpToPage}
+          value={strings.pageNOfM(page, count)}
+          selectedOptions={[String(page)]}
+          onOptionSelect={handleJump}
+          disabled={disabled}
+        >
+          {Array.from({ length: count }, (_unused, index) => index + 1).map((n) => (
+            <Option key={n} value={String(n)} text={strings.pageN(n)}>
+              {strings.pageN(n)}
+            </Option>
+          ))}
+        </Dropdown>
+        <Button
+          appearance="subtle"
+          icon={<ChevronRightRegular />}
+          aria-label={strings.nextPage}
+          disabled={disabled || !canNext}
+          onClick={props.onNext}
+        />
+        <Button
+          appearance="subtle"
+          icon={<ChevronDoubleRightRegular />}
+          aria-label={strings.lastPage}
+          disabled={disabled || page >= count}
+          onClick={props.onLast}
+        />
+      </div>
     </div>
   );
 };

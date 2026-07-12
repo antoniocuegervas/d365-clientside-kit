@@ -25,7 +25,11 @@ data shape doesn't fit one native control. See the when-to-use table in the
 Two single-record lookups, by intent: `SmartLookup` is the simpler combobox
 (often the better data-entry experience), `SmartNativeLookup` replicates the
 native model-driven lookup's look and feel (the inline flyout with two-line rows
-and chevron-expand) for when muscle-memory parity is the point. Both share the
+and chevron-expand) for when muscle-memory parity is the point. On a narrow
+(phone) viewport its search opens as a full-screen takeover, matching the
+platform's own phone lookup (scope buttons per target, 48px rows, the pinned
+New / Advanced footer); the wrapper resolves the viewport itself, so nothing
+to configure. Both share the
 same value contract and default their search to the entity's lookup view.
 If you are unsure which to pick, start with `SmartLookup`; reach for
 `SmartNativeLookup` only when matching the native lookup's exact look and feel
@@ -40,6 +44,7 @@ is itself the requirement.
 | `SelectionTree` | Presentational | Hierarchical multi-select |
 | `Stepper` | Presentational | Multi-step gated input; `WizardViewModel` owns the sequence, gating, in-memory draft, and commit |
 | `PersonaList` | Presentational | Custom people layouts |
+| `MeasuredWidth` | Presentational | Container-width adaptation: reports its rendered width to a render-prop child (the counterparty grid's persona switch rides it), correct in any host including a PCF slice where a viewport query would measure the whole window |
 | `SearchBar` | Presentational | Search UX; host runs the query |
 | `WaitingMessage` | Presentational | The kit's single loading presentation |
 | `RecordReady` | Component (CRM-aware) | Form-embedded apps that need the saved record id |

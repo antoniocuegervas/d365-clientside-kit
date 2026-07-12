@@ -26,8 +26,9 @@ import type { IEntityReference } from "../../shared/utils/EntityModel";
  * no Xrm, no XHR. Script attribute metadata and query results per test.
  */
 /**
- * A scripted query failure: put one in a query queue and the matching
- * retrieveMultipleRecords/fetch/fetchPage call rejects with this message.
+ * A scripted query failure: put one in a query queue (queryResults) or the
+ * page queue (pageResults) and the matching retrieveMultipleRecords/fetch/
+ * fetchPage/retrieveMultipleByUrl call rejects with this message.
  */
 export interface IFakeQueryFailure {
   failWith: string;
@@ -61,8 +62,12 @@ export interface IFakeContextOptions {
   activityTypes?: IActivityTypeInfo[];
   /** Scripted results returned by retrieveMultipleRecords/fetch, FIFO per entity. */
   queryResults?: Record<string, Array<FakeQueryOutcome>>;
-  /** Scripted pages returned by retrieveMultipleByUrl (nextLink paging), FIFO. */
-  pageResults?: Array<IRetrieveMultipleResult>;
+  /**
+   * Scripted pages returned by retrieveMultipleByUrl (nextLink paging), FIFO.
+   * A `{ failWith }` entry rejects that page read, the same way queryResults
+   * scripts a failure for the other reads.
+   */
+  pageResults?: Array<FakeQueryOutcome>;
   /** Scripted responses returned by executeAction, keyed by action name. */
   actionResults?: Record<string, unknown>;
   /** Scripted bodies returned by execute/executeMultiple, keyed by operationName. */
@@ -128,7 +133,7 @@ export interface IFakeContextOptions {
   /** Artificial async delay (ms) to exercise loading states. */
   delayMs?: number;
   /**
-   * Awaited before each retrieveMultipleRecords/fetch/fetchPage/
+   * Awaited before each retrieveRecord/retrieveMultipleRecords/fetch/fetchPage/
    * retrieveMultipleByUrl call returns. Lets a test hold individual responses
    * open (hand each call a deferred keyed by `index`, the 0-based call order)
    * so two requests overlap and resolve in a chosen order, the shape every
@@ -270,6 +275,7 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
       retrieveRecord: async (entity, id, opts) => {
         record("retrieveRecord", entity, id, opts);
         await maybeDelay();
+        await maybeGate("retrieveRecord", entity);
         return {};
       },
       retrieveMultipleRecords: async (entity, opts, maxPageSize) => {
@@ -295,9 +301,10 @@ export function createFakeViewModelContext(options: IFakeContextOptions = {}): {
       },
       retrieveMultipleByUrl: async (url, maxPageSize) => {
         record("retrieveMultipleByUrl", url, maxPageSize);
+        const outcome = pageQueue.shift() ?? { entities: [] };
         await maybeDelay();
         await maybeGate("retrieveMultipleByUrl", "");
-        return pageQueue.shift() ?? { entities: [] };
+        return settleQueryOutcome(outcome);
       },
       executeAction: async (actionName, parameters, boundTo) => {
         record("executeAction", actionName, parameters, boundTo);

@@ -21,6 +21,9 @@ const useStyles = makeStyles({
     overflowY: "auto",
   },
   toolbar: { display: "flex", alignItems: "center", columnGap: tokens.spacingHorizontalS },
+  // In the bounded page column a flex child with its own overflow can shrink to
+  // nothing under height pressure; pin the grid so the page scrolls instead.
+  gridRegion: { flexShrink: 0 },
 });
 
 export class ActivitiesGridView extends ObserverComponent<IActivitiesGridViewProps> {
@@ -62,19 +65,21 @@ const Body: React.FC<IActivitiesGridViewProps> = ({ viewModel: vm }) => {
           Refresh
         </Button>
       </div>
-      <DataGrid
-        columns={[
-          { key: "type", name: "Activity Type", width: 130 },
-          { key: "subject", name: "Subject", width: 280 },
-          { key: "regarding", name: "Regarding", width: 200 },
-          { key: "due", name: "Due", width: 150 },
-          { key: "status", name: "Status", width: 110 },
-        ]}
-        rows={rows}
-        loading={vm.loading}
-        emptyMessage="No open activities."
-        onRowClick={(row) => vm.onOpenActivity(String(row.entity), String(row.recordId))}
-      />
+      <div className={styles.gridRegion}>
+        <DataGrid
+          columns={[
+            { key: "type", name: "Activity Type", width: 130 },
+            { key: "subject", name: "Subject", width: 280 },
+            { key: "regarding", name: "Regarding", width: 200 },
+            { key: "due", name: "Due", width: 150 },
+            { key: "status", name: "Status", width: 110 },
+          ]}
+          rows={rows}
+          loading={vm.loading}
+          emptyMessage="No open activities."
+          onRowClick={(row) => vm.onOpenActivity(String(row.entity), String(row.recordId))}
+        />
+      </div>
       {all.length > vm.pageSize ? (
         <Pagination
           page={vm.page}

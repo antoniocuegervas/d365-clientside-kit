@@ -30,6 +30,10 @@ interface IMultiLookupFieldState {
 
 const useStyles = makeStyles({
   stack: { display: "flex", flexDirection: "column", rowGap: tokens.spacingVerticalXS },
+  // Let the selected tags wrap onto more rows on a narrow host instead of panning
+  // off the edge. TagGroup lays its tags out inline; this only adds wrapping and a
+  // row gap, so on a host with room the tags stay a single row unchanged.
+  tags: { flexWrap: "wrap", rowGap: tokens.spacingVerticalXS },
 });
 
 /** Multi-record lookup: selected pills + search-as-you-type adder. */
@@ -97,6 +101,7 @@ const Body: React.FC<
       <div className={styles.stack}>
         {selected.length > 0 ? (
           <TagGroup
+            className={styles.tags}
             onDismiss={interactive ? (_e, data) => props.onRemove(String(data.value)) : undefined}
             aria-label={props.label ? `${props.label} selected records` : "Selected records"}
           >

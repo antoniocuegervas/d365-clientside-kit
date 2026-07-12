@@ -41,6 +41,9 @@ const useStyles = makeStyles({
   },
   bridge: { display: "flex", flexDirection: "column", rowGap: tokens.spacingVerticalS },
   picker: { maxWidth: "420px" },
+  // In the bounded page column a flex child with its own overflow can shrink to
+  // nothing under height pressure; pin the grid so the page scrolls instead.
+  gridRegion: { flexShrink: 0 },
   // Fluent's Divider defaults to flex-grow: 1; in a flex column that makes it grow
   // vertically and push everything below it down, so pin it to 0.
   divider: { flexGrow: 0 },
@@ -103,15 +106,17 @@ const Body: React.FC<IMasterDetailViewProps> = ({ viewModel: vm }) => {
       <Title3>Master / Detail: Accounts and Contacts</Title3>
 
       {/* Master: the account's saved grid view, paged server-side. */}
-      <SmartViewGrid
-        entity="account"
-        pageSize={5}
-        serverSort
-        orderBy={vm.accountSort}
-        refresh={vm.refreshViewGrid}
-        selectedRecordId={vm.selectedAccountId}
-        onRecordSelected={(id) => void vm.onAccountSelected(id)}
-      />
+      <div className={styles.gridRegion}>
+        <SmartViewGrid
+          entity="account"
+          pageSize={5}
+          serverSort
+          orderBy={vm.accountSort}
+          refresh={vm.refreshViewGrid}
+          selectedRecordId={vm.selectedAccountId}
+          onRecordSelected={(id) => void vm.onAccountSelected(id)}
+        />
+      </div>
 
       <Divider className={styles.divider} />
 

@@ -87,6 +87,19 @@ export const fieldContext: IViewModelContext = withClientQuerySemantics(
         { Value: 2, Label: "Female" },
       ] },
     },
+    // Multi-select choice: resolves its option list exactly like the single-select
+    // above (OptionSet.Options), and drives the SmartMultiSelectOptionSet stories.
+    "account.servicelines": {
+      DisplayName: "Service Lines",
+      Type: "multiselectpicklist",
+      OptionSet: { Options: [
+        { Value: 1, Label: "Advisory" },
+        { Value: 2, Label: "Implementation" },
+        { Value: 3, Label: "Managed Services" },
+        { Value: 4, Label: "Support" },
+        { Value: 5, Label: "Training" },
+      ] },
+    },
     "contact.donotemail": {
       DisplayName: "Do Not Allow Emails",
       Type: "boolean",
@@ -398,6 +411,44 @@ export const pagedGridContext: IViewModelContext = createFakeViewModelContext({
       ],
     },
   ],
+}).context;
+
+/**
+ * Same account view, seeded for RICH paging (jump-to-page + total). Rich mode
+ * pages the saved view through FetchXML `page`/`count` and reads the total once,
+ * so the page carries a `totalRecordCount` (23) the grid turns into a page count.
+ * fetchPage replays this single scripted page, which is all the first paint needs.
+ */
+export const richGridContext: IViewModelContext = createFakeViewModelContext({
+  attributes: {
+    "account.name": { DisplayName: "Account Name", Type: "string" },
+    "account.telephone1": { DisplayName: "Main Phone", Type: "string" },
+  },
+  views: {
+    "default:account": {
+      name: "Active Accounts",
+      entityLogicalName: "account",
+      fetchXml: "<fetch><entity name='account'/></fetch>",
+      columns: [
+        { name: "name", width: 300 },
+        { name: "telephone1", width: 160 },
+      ],
+    },
+  },
+  queryResults: {
+    account: [
+      {
+        entities: [
+          { accountid: "r1", name: "Contoso Ltd", telephone1: "555-0101" },
+          { accountid: "r2", name: "Fabrikam Inc", telephone1: "555-0102" },
+          { accountid: "r3", name: "Adventure Works", telephone1: "555-0103" },
+          { accountid: "r4", name: "Northwind Traders", telephone1: "555-0104" },
+          { accountid: "r5", name: "Coho Winery", telephone1: "555-0105" },
+        ],
+        totalRecordCount: 23,
+      },
+    ],
+  },
 }).context;
 
 /** Wraps a story in a metadata-fake host, so its smart control can resolve. */

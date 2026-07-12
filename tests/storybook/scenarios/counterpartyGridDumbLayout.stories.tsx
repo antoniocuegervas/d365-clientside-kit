@@ -54,6 +54,11 @@ const useStyles = makeStyles({
     minWidth: "960px",
     padding: tokens.spacingHorizontalL,
     boxSizing: "border-box",
+    // Mirror the real app's hosting: the shell pins body overflow hidden and the
+    // page owns the scroll, so the story reproduces the same vertical space
+    // pressure the live app is under.
+    height: "100vh",
+    overflowY: "auto",
   },
   caption: { color: tokens.colorNeutralForeground3 },
 });

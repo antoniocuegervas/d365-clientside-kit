@@ -28,9 +28,14 @@ export interface IDateTimeFieldProps extends ICommonFieldProps {
 }
 
 const useStyles = makeStyles({
-  row: { display: "flex", columnGap: tokens.spacingHorizontalS },
-  date: { flexGrow: 1 },
-  time: { width: "120px" },
+  // The time picker has a wide intrinsic minimum, so on a narrow host the date
+  // and time cannot sit side by side without forcing the container wider than
+  // its host (a horizontal scroll). The row wraps instead, dropping the time
+  // picker onto its own line below the date. A host with room keeps both on one
+  // line unchanged (wrap engages only when the pair overflows).
+  row: { display: "flex", columnGap: tokens.spacingHorizontalS, flexWrap: "wrap", rowGap: tokens.spacingVerticalS },
+  date: { flexGrow: 1, flexBasis: "220px" },
+  time: { flexBasis: "220px" },
   // The compat DatePicker has its own intrinsic width, so it must be told to
   // fill its flex-grow wrapper, matching the full-width Input/Dropdown fields.
   fill: { width: "100%" },
