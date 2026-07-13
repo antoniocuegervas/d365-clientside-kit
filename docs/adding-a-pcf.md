@@ -47,15 +47,28 @@ Then align the project with the kit toolchain (copy from `pcfs/KitOptionSet`):
 
 ## 2. Pick the integration pattern
 
-**Pattern 1, presentational via PCF root** (see `pcfs/KitOptionSet`): the
-root owns Observables, maps PCF parameters into them on every `updateView`,
-renders a CRM-agnostic control, and pushes changes out via
-`notifyOutputChanged` + `getOutputs`.
+**Pattern 1, presentational via PCF root** (see
+`pcfs/KitOptionSet/KitOptionSet/pattern1-reference`): the root owns
+Observables, maps PCF parameters into them on every `updateView`, renders a
+CRM-agnostic control, and pushes changes out via `notifyOutputChanged` +
+`getOutputs`. Reach for it only when the parameter values carry no language:
+option and boolean labels arrive from the bound parameter in whatever
+language the host hands over, so a choice column belongs to Pattern 2, where
+the labels resolve from metadata in the user's language. `pcfs/KitOptionSet`
+started as this pattern and graduated for exactly that reason; its retired
+Pattern 1 root is kept verbatim one folder beside the live Pattern 2 root
+(`pcfs/KitOptionSet/KitOptionSet/pattern1-reference/index.ts`, compiled by
+the project but imported by nothing, so it never ships in the bundle) and
+the two patterns compare side by side.
 
-**Pattern 2, smart + provider** (see `pcfs/KitTooltip`): the root creates one
-`PCFContext` in `init`, wraps the tree in `ViewModelContextProvider`, and a
-`SmartComponent` child uses the same `IViewModelContext` contract as
-webresources (metadata, Web API, navigation).
+**Pattern 2, smart + provider** (see `pcfs/KitTooltip` and `pcfs/KitOptionSet`):
+the root creates one `PCFContext` in `init`, wraps the tree in
+`ViewModelContextProvider`, and a `SmartComponent` child uses the same
+`IViewModelContext` contract as webresources (metadata, Web API, navigation).
+The option set shows the field-bound shape: the smart control resolves the
+labels from metadata in the user's language, and the bound parameter's own
+option list stays the allowed set (an option the host does not offer is never
+presented).
 
 **Pattern 3, smart via root** (see `pcfs/KitDatePicker`): the middle ground. The
 root reads host facts from the PCF `context` (here date-vs-datetime and the locale
@@ -70,8 +83,8 @@ The short decision table:
 
 | You are binding… | Pattern | Copy from |
 |---|---|---|
-| A standard column where the kit smart control already does what you want | 2 (smart + provider), the default | `pcfs/KitTooltip`, `pcfs/KitNativeLookup` |
-| A column whose options/values the PCF host itself supplies (no metadata reads needed) | 1 (presentational via root) | `pcfs/KitOptionSet` |
+| A standard column where the kit smart control already does what you want | 2 (smart + provider), the default | `pcfs/KitTooltip`, `pcfs/KitOptionSet`, `pcfs/KitNativeLookup` |
+| A column whose parameter values carry no language (plain text, numbers) and the parameter supplies everything | 1 (presentational via root) | `pcfs/KitOptionSet/KitOptionSet/pattern1-reference` |
 | A standard column, but you need host facts the smart control's props do not cover | 3 (smart via root) | `pcfs/KitDatePicker` |
 | A dataset (subgrid) | 2 with the dataset as input | `pcfs/KitCounterpartyGrid` |
 
@@ -153,6 +166,13 @@ but the form runs the previous build). The bar for a form control is "renders on
 deployed form", not "compiles": a PCF change that only compiled is not done,
 because most of this list (cache, binding, platform libraries) only bites on
 the real form. See [gotchas.md](gotchas.md).
+
+Two import sharp edges worth knowing before they bite: the manifest
+`display-name-key` and `description-key` attributes must not contain an
+apostrophe (the import XSD rejects the solution with a `noAposStringType`
+pattern error), and `pac solution import` can exit 0 on a FAILED import, so a
+scripted deploy must check the output text for `Error:` rather than trusting
+the exit code.
 
 ## Deployed name and the publisher prefix
 

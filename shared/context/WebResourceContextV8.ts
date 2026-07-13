@@ -5,6 +5,7 @@ import { createGetEntityMetadata } from "../metadata/createGetEntityMetadata";
 import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
+import { setKitStringsLanguage } from "../localization/kitStrings";
 import type {
   IAlertStrings,
   IChangeSetRequest,
@@ -110,6 +111,11 @@ export class WebResourceContextV8 implements IViewModelContext {
       name: pageContext.getUserName(),
       languageId: pageContext.getUserLcid?.(),
     };
+    // The kit chrome follows the user language; configureKitStrings overrides.
+    // 8.x exposes the user LCID through the deprecated getUserLcid getter.
+    if (this.user.languageId !== undefined) {
+      setKitStringsLanguage(this.user.languageId);
+    }
     this.orgVersion = pageContext.getVersion?.() ?? "8.2";
     // 8.x exposes a subset through Page.context: client URL, version, org name
     // and lcid via the deprecated getters, and the current user. Business-app

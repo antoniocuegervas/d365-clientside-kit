@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Button, Text, makeStyles, tokens } from "@fluentui/react-components";
+import { kitStrings } from "../../../shared/localization/kitStrings";
 import { SmartComponent } from "../../../shared/context/ViewModelContextProvider";
 import { Observable } from "../../../shared/reactivity/Observable";
 import type { IActivityTypeInfo } from "../../../shared/context/IViewModelContext";
@@ -272,10 +273,12 @@ const LoadMore: React.FC<{
   return (
     <div className={styles.pager}>
       <Button size="small" appearance="subtle" onClick={props.onLoadMore}>
-        Load more
+        {kitStrings().loadMore}
       </Button>
       <Text size={200} className={styles.info}>
-        {props.total > 0 ? `${props.shown} of ${props.total}` : `${props.shown} shown`}
+        {props.total > 0
+          ? kitStrings().shownOfTotal(props.shown, props.total)
+          : kitStrings().shownCount(props.shown)}
       </Text>
     </div>
   );

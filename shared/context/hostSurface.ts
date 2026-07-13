@@ -327,13 +327,16 @@ export function normalizeDateFormatInfo(raw: RawDateFormat): IDateFormatInfo | u
     abbreviatedMonthNames,
     firstDayOfWeek: readNumber(raw, 0, "FirstDayOfWeek", "firstDayOfWeek"),
     shortDatePattern: readString(raw, "ShortDatePattern", "shortDatePattern"),
+    shortTimePattern: readString(raw, "ShortTimePattern", "shortTimePattern"),
   };
 }
 
 /**
- * Fills in the decimal symbol / number separator from the `usersettings`
- * entity when the host did not already provide them. Failures are swallowed, so
- * the controls fall back to browser-locale formatting.
+ * Fills in the decimal symbol, number separator, currency format code, and
+ * short time pattern from the `usersettings` entity when the host did not
+ * already provide them. Whatever the caller supplies wins; the query fills only
+ * the gaps. Failures are swallowed, so the controls fall back to browser-locale
+ * formatting.
  */
 export async function resolveFormatting(input: {
   client: CdsClient;
@@ -341,24 +344,40 @@ export async function resolveFormatting(input: {
   dateFormatInfo?: IDateFormatInfo;
   decimalSymbol?: string;
   numberSeparator?: string;
+  currencyFormatCode?: number;
+  timeFormat?: string;
 }): Promise<IFormattingInfo> {
-  let { decimalSymbol, numberSeparator } = input;
-  if (decimalSymbol === undefined || numberSeparator === undefined) {
+  let { decimalSymbol, numberSeparator, currencyFormatCode, timeFormat } = input;
+  if (
+    decimalSymbol === undefined ||
+    numberSeparator === undefined ||
+    currencyFormatCode === undefined ||
+    timeFormat === undefined
+  ) {
     try {
       const result = await input.client.retrieveMultiple(
         "usersettingscollection",
-        `?$select=decimalsymbol,numberseparator&$filter=systemuserid eq ${normalizeGuid(input.userId)}`
+        `?$select=decimalsymbol,numberseparator,currencyformatcode,timeformatstring&$filter=systemuserid eq ${normalizeGuid(input.userId)}`
       );
       const row = result.entities[0];
       if (row) {
+        // currencyformatcode is a number column; timeformatstring a string.
         decimalSymbol = decimalSymbol ?? (row.decimalsymbol as string | undefined);
         numberSeparator = numberSeparator ?? (row.numberseparator as string | undefined);
+        currencyFormatCode = currencyFormatCode ?? (row.currencyformatcode as number | undefined);
+        timeFormat = timeFormat ?? (row.timeformatstring as string | undefined);
       }
     } catch {
       // leave undefined, controls fall back to defaults
     }
   }
-  return { decimalSymbol, numberSeparator, dateFormatInfo: input.dateFormatInfo };
+  return {
+    decimalSymbol,
+    numberSeparator,
+    currencyFormatCode,
+    timeFormat,
+    dateFormatInfo: input.dateFormatInfo,
+  };
 }
 
 //#endregion

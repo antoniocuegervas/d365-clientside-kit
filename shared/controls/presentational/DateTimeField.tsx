@@ -24,6 +24,12 @@ export interface IDateTimeFieldProps extends ICommonFieldProps {
   strings?: DatePickerProps["strings"];
   /** First day of the week (0 = Sunday). Smart tier supplies from user settings. */
   firstDayOfWeek?: DatePickerProps["firstDayOfWeek"];
+  /**
+   * Clock the time renders in ('h11'|'h12'|'h23'|'h24'), passed to the time
+   * picker and used to format the time text. The smart tier sets this from the
+   * user's time pattern. Undefined lets the browser locale decide (12h vs 24h).
+   */
+  hourCycle?: "h11" | "h12" | "h23" | "h24";
   placeholder?: string;
 }
 
@@ -96,12 +102,17 @@ const Body: React.FC<
   // leaving the list transparent. Mounting it here keeps it inside the themed
   // part of the page; Fluent still floats it beside the field.
   const [overlayHome, setOverlayHome] = React.useState<HTMLDivElement | null>(null);
-  const { value, disabled, readOnly, includeTime, formatDate, parseDate, strings, firstDayOfWeek, placeholder } =
+  const { value, disabled, readOnly, includeTime, formatDate, parseDate, strings, firstDayOfWeek, hourCycle, placeholder } =
     props;
   const current = value.value;
   const formatForDisplay = formatDate ?? defaultFormatDate;
+  // When the user's time pattern fixes the clock (hourCycle from the smart
+  // tier), honor it in both the read-only text and the picker value; undefined
+  // lets the browser locale decide, exactly as before.
+  const formatTime = (date: Date): string =>
+    hourCycle ? formatDateToTimeString(date, { hourCycle }) : formatDateToTimeString(date);
   const readOnlyText = current
-    ? `${formatForDisplay(current)}${includeTime ? ` ${formatDateToTimeString(current)}` : ""}`
+    ? `${formatForDisplay(current)}${includeTime ? ` ${formatTime(current)}` : ""}`
     : "";
   return (
     <FieldShell {...props} readOnlyText={readOnlyText}>
@@ -131,8 +142,9 @@ const Body: React.FC<
           <div className={styles.time}>
             <TimePicker
               selectedTime={current}
-              value={current ? formatDateToTimeString(current) : ""}
+              value={current ? formatTime(current) : ""}
               onTimeChange={props.onTimeChange}
+              hourCycle={hourCycle}
               disabled={disabled || readOnly || !current}
               mountNode={overlayHome ?? undefined}
             />

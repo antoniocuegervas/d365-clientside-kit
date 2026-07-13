@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Title3, makeStyles, tokens } from "@fluentui/react-components";
+import { kitStrings } from "../../localization/kitStrings";
 import { ObserverComponent } from "../../reactivity/ObserverComponent";
 import {
   DataGrid,
@@ -113,7 +114,7 @@ const Body: React.FC<ICounterpartyGridViewProps & { width: number }> = (props) =
         columns={props.columns}
         rows={rows}
         loading={props.loading}
-        emptyMessage={term ? "No matching activities." : "No activities."}
+        emptyMessage={term ? kitStrings().noMatchingActivities : kitStrings().noActivities}
         resizableColumns
         selectedKey={props.selectedKey}
         onRowClick={select}
@@ -131,7 +132,7 @@ const Body: React.FC<ICounterpartyGridViewProps & { width: number }> = (props) =
             <SearchBar
               searchText={props.searchText}
               showButton={false}
-              placeholder="Search by subject or counterparty"
+              placeholder={kitStrings().searchActivitiesPlaceholder}
             />
           </div>
         ) : null}
@@ -167,7 +168,7 @@ const PersonaView: React.FC<
 
   const items: IPersonaItem[] = rows.map((row) => ({
     id: row.key,
-    name: cellText(row[nameKey]) || "(untitled)",
+    name: cellText(row[nameKey]) || kitStrings().untitledActivity,
     secondaryTexts: columns
       .filter((c) => c.key !== nameKey)
       .slice(0, 5)
@@ -185,7 +186,7 @@ const PersonaView: React.FC<
   return (
     <PersonaList
       items={items}
-      emptyMessage="No activities."
+      emptyMessage={kitStrings().noActivities}
       onItemClick={(item) => {
         const row = byKey.get(item.id);
         if (row) {

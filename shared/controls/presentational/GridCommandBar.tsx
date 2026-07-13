@@ -39,7 +39,7 @@ const Body: React.FC<IGridCommandBarProps> = (props) => {
   const disabled = valueOf(props.disabled ?? false);
   const showDivider = !!(props.onNew || props.onDelete) && !!props.onRefresh;
   return (
-    <Toolbar aria-label="Grid actions">
+    <Toolbar aria-label={kitStrings().gridActions}>
       {props.onNew ? (
         <ToolbarButton icon={<AddRegular />} onClick={props.onNew} disabled={disabled}>
           {props.newLabel ?? kitStrings().newLabel}
@@ -51,7 +51,7 @@ const Body: React.FC<IGridCommandBarProps> = (props) => {
           onClick={props.onDelete}
           disabled={disabled || count === 0}
         >
-          {count > 0 ? `Delete (${count})` : "Delete"}
+          {count > 0 ? kitStrings().deleteWithCount(count) : kitStrings().deleteLabel}
         </ToolbarButton>
       ) : null}
       {showDivider ? <ToolbarDivider /> : null}
@@ -61,7 +61,7 @@ const Body: React.FC<IGridCommandBarProps> = (props) => {
           onClick={props.onRefresh}
           disabled={disabled}
         >
-          Refresh
+          {kitStrings().refresh}
         </ToolbarButton>
       ) : null}
     </Toolbar>

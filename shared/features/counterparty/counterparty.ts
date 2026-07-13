@@ -1,6 +1,7 @@
 import type { IViewModelContext } from "../../context/IViewModelContext";
 import { LibraryUtils } from "../../utils/LibraryUtils";
 import { normalizeGuid } from "../../utils/EntityModel";
+import { kitStrings } from "../../localization/kitStrings";
 import type { IGridRow } from "../../controls/presentational/DataGrid";
 
 /**
@@ -118,12 +119,12 @@ function summarize(parties: IParty[]): ICounterpartyInfo {
   const list: ICounterpartyParty[] = external.map((party) => ({
     id: party.partyId,
     entity: party.partyEntity,
-    name: party.name || "(unnamed)",
+    name: party.name || kitStrings().unnamedRecord,
     role: party.role,
   }));
   const [first, ...rest] = list;
   return {
-    counterparty: rest.length > 0 ? `${first.name} (+${rest.length} more)` : first.name,
+    counterparty: rest.length > 0 ? `${first.name} ${kitStrings().moreParties(rest.length)}` : first.name,
     role: first.role,
     parties: list,
   };

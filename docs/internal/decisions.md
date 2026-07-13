@@ -844,6 +844,19 @@ which the kit does not expose yet; that pairs naturally with the offline-first
 metadata rework (which already touches the host surface), so it is deferred there
 rather than bolted on now.
 
+*(Correction, 2026-07-13: the mechanism this entry states is wrong, and it was
+an assumption, not a verified finding. The first day of week is the
+ORGANIZATION-level format setting (System Settings, Formats, the org
+`localeid`), not derived from the user's Language: verified by a controlled
+switch on the dev org, where flipping the org format from English (United
+States) to English (United Kingdom) moved `dateFormattingInfo.FirstDayOfWeek`
+from 0 to 1 with the user's own settings untouched (fully es-ES throughout,
+whose user-driven members all held), and the native picker followed. The
+decision itself stands unchanged: the kit follows the host member, so it
+always matches the native picker, and the `firstDayOfWeek` override remains
+the per-deployment escape hatch. The gotchas entry carries the corrected
+mechanism.)*
+
 ## D-045, a transactional change-set commit beside the flat executeMultiple, and the wizard is now genuinely atomic
 
 `CdsClient.executeMultiple` is a FLAT $batch by design: each operation is an
@@ -2346,3 +2359,144 @@ deprioritized until the control has a consumer.
 Revisit triggers: the grid card-mode scope call; a consumer for the three
 no-surface fixes (or their removal); the platform changing the narrow lookup
 idiom (the takeover then follows it).
+
+## D-068, the kit speaks the user's language and formats: es and nl chrome ships built in, money and time follow user settings, and the choice PCF reads metadata
+
+A full audit on the dev org with the user switched to Spanish (language and
+formats, LCID 3082) found the data pipeline already correct: metadata display
+names, option labels, view headers, and server-formatted cell values all
+arrive localized, decimal-comma input parses, dates display and parse
+day-first, and the Spanish calendar names ride the host date formatting. Four
+things did not follow the user. Every string the kit itself renders was
+English for every non-English user, because nothing ever resolved the
+language (configureKitStrings existed with zero callers, the kit's own apps
+and PCFs included). A second set of kit strings was hardcoded OUTSIDE
+kitStrings, where even that hook could not reach them (stepper Back/Next, the
+search bar, the grid empty and accessibility strings, the grid command bar's
+Delete and Refresh, the counterparty feature's synthesized column and
+overflow strings, the dataset pager, the calendar footer and navigation
+labels, the shell's full-page Back, the tooltip PCF's no-description
+fallback). The currency symbol always rendered as a leading prefix where the
+platform renders "1.234,56" then the euro sign for this user (usersettings
+currencyformatcode 3, amount space symbol). And the time of day followed the
+BROWSER locale (the compat time picker received no hour cycle), so an en-US
+browser showed "3:00 PM" to an "H:mm" user whose native time control renders
+"15:00".
+
+**The shipped shape.** kitStrings gains a language layer: complete built-in
+tables for English, Spanish, and Dutch, resolved once at context creation
+from the host user language by all three adapters (8.x through its
+deprecated user-LCID getter), with configureKitStrings preserved as the
+consumer override, now layered over the active table and order-independent,
+and registerKitStrings for languages the kit does not carry (a complete
+IKitStrings per language, compiler-enforced). The Spanish wording is
+anchored to the platform's own UI strings captured live (Nuevo, Avanzada,
+Eliminar, Actualizar, Ir a hoy, No se encontraron registros); the Dutch
+table is authored to standard Microsoft terminology, not captured from a
+Dutch org, and is labeled accordingly. Every user-facing kit string that
+lived outside kitStrings moved in; developer-facing text (bootstrap boot
+errors, sample apps, stories) stays English by decision. IFormattingInfo
+gains currencyFormatCode (the usersettings currencyformatcode, the .NET
+CurrencyPositivePattern, with the PCF host's numberFormattingInfo
+currencyPositivePattern as its native source there) and timeFormat (host
+ShortTimePattern first, usersettings timeformatstring as the fallback; the
+fallback query now selects both new columns). CurrencyField maps the code to
+a leading or trailing affix with the platform's spacing, an absent code
+keeping the old rendering exactly; NumberField gains a verbatim suffix
+sibling to its prefix (affixes render verbatim, the caller owns spacing);
+DateTimeField takes an hourCycle the smart tier derives from the time
+pattern ("H" means the 24-hour clock, "h" the 12-hour one).
+
+**Two PCF corrections the wave surfaced.** The date picker PCF passed only
+the host display formatter to the field, so its calendar rendered the compat
+picker's own defaults (English names, Sunday-first, browser-locale time, and
+browser m/d/y parsing of typed dates that could commit the wrong date for a
+day-first user); the root now normalizes the host date formatting once per
+paint and threads the same calendar strings, first day, pattern parser, and
+hour cycle the smart tier passes, and resolves the kit chrome language itself
+since it builds no kit context. The option set PCF was rebuilt from the
+parameter-driven Pattern 1 to the smart pattern by owner ruling: option
+labels resolve from entity metadata in the user's language, while the bound
+parameter's own option list stays the allowed set (an option the host does
+not offer is never presented; an empty host list means no filtering, so a
+harness never blanks the control). Its retired Pattern 1 root is kept
+verbatim inside the control project (a pattern1-reference folder beside the
+live root: the project's tsconfig compiles it and editors resolve its types,
+but nothing imports it, so it never ships in the bundle) and the PCF guide's
+pattern roster was rewritten around the graduation: Pattern 1 is rescoped to
+bindings whose parameter values carry no language. The thin stateless
+App-component layer both field PCFs had grown was flattened into their roots
+in the same pass (the layer earns its place only where the child is a real
+stateful component, as in the tooltip and counterparty controls).
+
+**A wrong mechanism corrected in the docs.** The recorded claim that the
+calendar's first day of week derives from the user's Language was an
+assumption, and it was wrong: a controlled switch on the dev org (org format
+en-US to en-GB, user fully es-ES throughout) flipped
+dateFormattingInfo.FirstDayOfWeek from 0 to 1 with every user-driven member
+unchanged, and the native picker followed. The first day is the
+ORGANIZATION-level format setting; usersettings has no first-day column. The
+gotchas entry, the smart date picker's JSDoc, and its story now state the
+verified mechanism, and D-044 carries the dated correction. The kit needed no
+code change there: it reads the same host member the native picker reads, so
+it matches whatever the org serves.
+
+**Alternatives rejected.** Documenting configureKitStrings wiring as the
+consumer's job (nobody had wired it, including the kit's own apps, so the
+out-of-box experience contradicted the kit's native-parity claim). Browser
+Intl formatting (the usersettings row is the authority the platform itself
+formats by, and the browser locale routinely disagrees with it; the audit
+browser was en-US against an es-ES user). A negative-format code map and
+grouped numbers in the pager prose (declined as recorded limitations: the
+first for scope, the second because the strings layer deliberately never
+sees the user's separators). A standalone uncompiled reference folder for
+the retired Pattern 1 root (moved inside the control project by owner call:
+the editor and the project's own typecheck keep it honest, where a
+projectless folder showed spurious editor errors).
+
+**Platform findings recorded for reuse.** The manifest display-name-key and
+description-key attributes reject apostrophes (the import XSD's
+noAposStringType), and pac solution import can exit 0 on a FAILED import, so
+scripted deploys must check the output text; both are now in the PCF guide.
+A republished control keeps serving the previous bundle to an already-open
+form until a fresh page load (reconfirmed live; the recorded
+redeploy-needs-reload behavior).
+
+**Verification.** Live on the dev org under the Spanish user, on the
+deployed bundles, with the org format at en-GB: Spanish pager, lookup,
+wizard, command bar, and calendar chrome measured verbatim on the
+webresource tier; typed "1234,56" committed and rendered "1.234,56" with the
+euro sign trailing the input, matching the server's own FormattedValue; the
+date picker PCF renders "junio 2026", Monday-first day headers, the Spanish
+month picker, "Ir a hoy", and a 24-hour "15:00" on an en-US browser; the
+lookup PCF renders "Buscar Cuenta primaria", live rows, "Avanzada", and "No
+se encontraron registros"; the counterparty PCF renders the Contraparte
+header beside platform-localized view headers. An independent report-only
+test pass re-drove both tiers end to end (11 of 13 checks passed outright;
+the two exceptions were checklist premises, not defects: the tooltip's
+Spanish no-description fallback cannot be exercised because the bound sample
+column carries an authored description, so that one string stays
+unit-verified; and the second option-set binding did not yet exist). The
+option set PCF's served bundle was verified by content, not by rendering:
+its option list is identical under the old and new code for an
+untranslated column, so the registered version (customcontrols row) and two
+marker strings that exist only in the new build were checked instead, and
+after the owner bound the control to a translated out-of-box choice column
+it rendered the Spanish labels from metadata (owner-verified; the binding's
+presence DOM-measured). Unit-pinned: language resolution by LCID and tag,
+override composition in both orders, runtime table completeness, the four
+currency compositions plus the unchanged default, hour-cycle derivation,
+24-hour rendering independent of the runner locale, and the camelCase PCF
+date-format object driven end to end through the shared helpers. Whether the
+PCF parameter's own option labels localize when translations exist was left
+untested on purpose: the control no longer reads labels from the parameter,
+so the question is moot for the kit and is recorded, not asserted either
+way. The full gate is green at the tip; control manifests carry their
+redeploy bumps (1.2.3 to 1.2.5 across the five) and re-align at the next
+release per the versioning policy.
+
+Revisit triggers: a consumer wants LCID resolution for a registered language
+(today only tags resolve for non-built-ins); a user on a leading-zero time
+pattern reports the missing zero; a locale whose negative formats matter in
+practice; a fourth format member turning out to be org-level the way the
+first day of week did.

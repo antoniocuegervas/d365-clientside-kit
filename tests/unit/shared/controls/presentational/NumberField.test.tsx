@@ -91,3 +91,29 @@ describe("NumberField separators", () => {
     );
   });
 });
+
+describe("NumberField affixes", () => {
+  it("renders the suffix in the trailing slot, after the input", () => {
+    const value = new Observable<number | null>(1234);
+    const { container } = render(
+      <NumberField label="Amount" value={value} precision={0} suffix="kg" />
+    );
+    const input = container.querySelector("input")!;
+    const suffix = screen.getByText("kg");
+    // contentAfter renders the suffix element after the input in DOM order.
+    expect(input.compareDocumentPosition(suffix) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("appends the suffix to the read-only text", () => {
+    const value = new Observable<number | null>(1234);
+    render(<NumberField label="Amount" value={value} precision={0} suffix="€" readOnly />);
+    // The affix is verbatim: no auto-space is inserted by the control. The
+    // number formats browser-locale (grouping varies by the test-env ICU), so
+    // compose the expected text from the same call the control makes.
+    const formatted = (1234).toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+    expect(screen.getByText(`${formatted}€`)).toBeTruthy();
+  });
+});

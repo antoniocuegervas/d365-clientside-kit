@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Button, Input, Tooltip } from "@fluentui/react-components";
 import { InfoRegular } from "@fluentui/react-icons";
+import { kitStrings } from "../../../shared/localization/kitStrings";
 import { SmartComponent } from "../../../shared/context/ViewModelContextProvider";
 import {
   attributeDescription,
@@ -93,7 +94,7 @@ export class TooltipApp extends SmartComponent<ITooltipAppProps, ITooltipAppStat
               <>
                 <strong>{metadata.displayName}</strong>
                 {metadata.required ? " (required)" : null}
-                <div>{metadata.description ?? "No description has been authored for this column."}</div>
+                <div>{metadata.description ?? kitStrings().noDescriptionAuthored}</div>
               </>
             }
           >

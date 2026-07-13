@@ -52,6 +52,21 @@ export const EuroSymbol: Story = {
   name: "Supplied currency symbol (€)",
   render: () => <CurrencyField label="Annual Revenue" currencySymbol="€" {...make(840000)} />,
 };
+export const TrailingSymbol: Story = {
+  name: "Trailing symbol + space (es-ES, code 3)",
+  render: () => (
+    // currencyFormatCode 3 (amount-space-symbol) with the Spanish separators
+    // renders "25.000,00 €", the placement a euro-locale user expects.
+    <CurrencyField
+      label="Annual Revenue"
+      currencySymbol="€"
+      currencyFormatCode={3}
+      decimalSymbol=","
+      groupSeparator="."
+      {...make(25000)}
+    />
+  ),
+};
 export const Required: Story = {
   render: () => <CurrencyField label="Annual Revenue" required {...makeRequired("Annual Revenue")} />,
 };

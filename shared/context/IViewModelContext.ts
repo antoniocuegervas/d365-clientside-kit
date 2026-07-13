@@ -175,6 +175,8 @@ export interface IDateFormatInfo {
   firstDayOfWeek: number;
   /** Short date pattern, e.g. "M/d/yyyy" or "dd/MM/yyyy", when known. */
   shortDatePattern?: string;
+  /** Short time pattern, e.g. "h:mm tt" or "H:mm" (24-hour), when known. */
+  shortTimePattern?: string;
 }
 
 /** User locale/number formatting resolved from the host. */
@@ -183,6 +185,19 @@ export interface IFormattingInfo {
   decimalSymbol?: string;
   /** Number group (thousands) separator, e.g. "," or ".". */
   numberSeparator?: string;
+  /**
+   * Currency symbol placement, the usersettings currencyformatcode (the .NET
+   * CurrencyPositivePattern): 0 symbol-amount, 1 amount-symbol, 2
+   * symbol-space-amount, 3 amount-space-symbol. Undefined when the host does
+   * not expose it.
+   */
+  currencyFormatCode?: number;
+  /**
+   * The user's short time pattern (e.g. "H:mm", "hh:mm tt"), from the host date
+   * formatting info's ShortTimePattern or the usersettings timeformatstring.
+   * Undefined when unknown.
+   */
+  timeFormat?: string;
   dateFormatInfo?: IDateFormatInfo;
 }
 

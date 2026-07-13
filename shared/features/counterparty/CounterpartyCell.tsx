@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import {
   Link,
   Popover,
@@ -159,7 +160,7 @@ const MoreParties: React.FC<{
           onMouseEnter={scheduleOpen}
           onMouseLeave={scheduleClose}
         >
-          {` (+${restCount} more)`}
+          {` ${kitStrings().moreParties(restCount)}`}
         </span>
       </PopoverTrigger>
       <PopoverSurface>
@@ -219,7 +220,7 @@ export function counterpartyColumns(onNavigate: NavigateToParty): IGridColumn[] 
   return [
     {
       key: COUNTERPARTY_KEY,
-      name: "Counterparty",
+      name: kitStrings().counterpartyHeader,
       width: 260,
       onRender: (row: IGridRow) => (
         <CounterpartyCell info={row[COUNTERPARTY_KEY] as ICounterpartyInfo} onNavigate={onNavigate} />

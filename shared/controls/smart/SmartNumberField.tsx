@@ -158,6 +158,7 @@ export class SmartNumberField extends SmartFieldBase<number | null, ISmartNumber
         <CurrencyField
           {...common}
           currencySymbol={this.props.currencySymbol ?? this.resolvedCurrencySymbol}
+          currencyFormatCode={formatting?.currencyFormatCode}
           precision={this.moneyPrecision(metadata)}
         />
       );

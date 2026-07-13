@@ -9,7 +9,7 @@ import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoun
 import { Observable } from "../../../shared/reactivity/Observable";
 import { normalizeGuid, type IEntityReference } from "../../../shared/utils/EntityModel";
 import { LibraryUtils, type INarrowViewportTracker } from "../../../shared/utils/LibraryUtils";
-import { NativeLookupApp } from "./App";
+import { SmartNativeLookup } from "../../../shared/controls/smart/SmartNativeLookup";
 
 /**
  * KitNativeLookup root, a virtual control: the platform hands it the host's
@@ -77,6 +77,33 @@ export class KitNativeLookup implements ComponentFramework.ReactControl<IInputs,
   }
 
   private render(context: ComponentFramework.Context<IInputs>): React.ReactElement {
+    const entity = hostEntity(context);
+    const attribute = boundAttribute(context);
+    const field =
+      !entity || !attribute
+        ? React.createElement(
+            "div",
+            null,
+            "Set the lookup column logical name on the control to render the native lookup."
+          )
+        : React.createElement(SmartNativeLookup, {
+            entity,
+            attribute,
+            value: this.value,
+            viewName: context.parameters.viewName.raw ?? undefined,
+            showIcons: context.parameters.showIcons.raw === true,
+            disabled: context.mode.isControlDisabled,
+            // Per-user column security from the host (parameters.value.security):
+            // true forces read-only, false says the user can edit the secured
+            // column, undefined (not secured) leaves the shared metadata default
+            // in charge.
+            readOnly: securedReadOnly(context.parameters.value),
+            fullscreenSearch: this.narrowTracker?.narrow,
+            // The control writes the value observable itself; reflect to the host.
+            onChange: () => this.notifyOutputChanged?.(),
+            // Suppress the control's own label: the form field already renders it.
+            label: "",
+          });
     return React.createElement(
       FluentProvider,
       // Shared root props: the platform theme when the new look serves one,
@@ -89,18 +116,7 @@ export class KitNativeLookup implements ComponentFramework.ReactControl<IInputs,
           ViewModelContextProvider,
           // init always runs before the first updateView, so the context exists.
           { context: this.kitContext as PCFContext },
-          React.createElement(NativeLookupApp, {
-            entity: hostEntity(context),
-            attribute: boundAttribute(context),
-            viewName: context.parameters.viewName.raw ?? undefined,
-            showIcons: context.parameters.showIcons.raw === true,
-            disabled: context.mode.isControlDisabled,
-            readOnly: securedReadOnly(context.parameters.value),
-            value: this.value,
-            fullscreenSearch: this.narrowTracker?.narrow,
-            // The control writes the value observable itself; reflect to the host.
-            onChange: () => this.notifyOutputChanged?.(),
-          })
+          field
         )
       )
     );

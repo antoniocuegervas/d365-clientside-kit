@@ -6,6 +6,7 @@ import {
 import { WebResourceContext } from "../../../../shared/context/WebResourceContext";
 import { WebResourceContextV8 } from "../../../../shared/context/WebResourceContextV8";
 import { PCFContext, type IPcfContextLike } from "../../../../shared/context/PCFContext";
+import { normalizeDateFormatInfo } from "../../../../shared/context/hostSurface";
 import {
   attributeDisplayName,
   attributeKind,
@@ -19,6 +20,19 @@ import {
 } from "../../../mocks/XrmMock";
 import { EntityReference } from "../../../../shared/utils/EntityModel";
 import { LibraryUtils } from "../../../../shared/utils/LibraryUtils";
+import {
+  configureKitStrings,
+  kitStrings,
+  setKitStringsLanguage,
+} from "../../../../shared/localization/kitStrings";
+
+// Constructing a real adapter resolves the host user language into the
+// kitStrings singleton, so restore English + empty overrides after every test
+// (this also contains the languageId flips the formatting tests below trigger).
+afterEach(() => {
+  configureKitStrings({});
+  setKitStringsLanguage("en");
+});
 
 describe("createWebResourceContext factory", () => {
   it("selects the modern adapter when Xrm.WebApi exists", () => {
@@ -729,7 +743,16 @@ describe("WebResourceContext (modern)", () => {
     try {
       server.respondAlways({
         status: 200,
-        responseText: JSON.stringify({ value: [{ decimalsymbol: ",", numberseparator: "." }] }),
+        responseText: JSON.stringify({
+          value: [
+            {
+              decimalsymbol: ",",
+              numberseparator: ".",
+              currencyformatcode: 2,
+              timeformatstring: "hh:mm tt",
+            },
+          ],
+        }),
       });
       const { xrm } = createModernXrmMock({
         clientUrl: "https://org.crm.dynamics.com",
@@ -739,6 +762,7 @@ describe("WebResourceContext (modern)", () => {
           DayNames: ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"],
           FirstDayOfWeek: 1,
           ShortDatePattern: "d-M-yyyy",
+          ShortTimePattern: "H:mm",
         },
       });
       const context = new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
@@ -749,16 +773,31 @@ describe("WebResourceContext (modern)", () => {
       expect(formatting.dateFormatInfo?.firstDayOfWeek).toBe(1);
       expect(formatting.dateFormatInfo?.monthNames[0]).toBe("januari");
       expect(formatting.dateFormatInfo?.shortDatePattern).toBe("d-M-yyyy");
+      expect(formatting.dateFormatInfo?.shortTimePattern).toBe("H:mm");
+      // currencyFormatCode is not on the sync global context, so it comes from
+      // the usersettings fallback.
+      expect(formatting.currencyFormatCode).toBe(2);
+      // timeFormat is host-supplied (the global context ShortTimePattern), so it
+      // WINS over the fallback's timeformatstring ("hh:mm tt").
+      expect(formatting.timeFormat).toBe("H:mm");
       // Cached, a second call does not re-query.
       const requestCount = server.requests.length;
       await context.getFormatting();
       expect(server.requests.length).toBe(requestCount);
       expect(decodeURIComponent(server.lastRequest.url)).toContain(
-        "$select=decimalsymbol,numberseparator"
+        "$select=decimalsymbol,numberseparator,currencyformatcode,timeformatstring"
       );
     } finally {
       server.uninstall();
     }
+  });
+
+  it("resolves the kit chrome language from the host user language", () => {
+    // A Spanish (es-ES, LCID 3082) user: the adapter sets the kit chrome to
+    // Spanish at construction, no app wiring. The afterEach restores English.
+    const { xrm } = createModernXrmMock({ languageId: 3082 });
+    new WebResourceContext(xrm as unknown as Xrm.XrmStatic);
+    expect(kitStrings().newLabel).toBe("Nuevo");
   });
 
   it("exposes formAccess when hosted on a record form", () => {
@@ -927,6 +966,33 @@ describe("WebResourceContextV8 shim matrix", () => {
         700,
       ],
     });
+  });
+
+  it("resolves formatting entirely from the usersettings entity, both new columns", async () => {
+    // 8.x has no sync date/number formatting, so the whole IFormattingInfo,
+    // including currencyFormatCode and timeFormat, rides the usersettings fallback.
+    server.respondAlways({
+      status: 200,
+      responseText: JSON.stringify({
+        value: [
+          {
+            decimalsymbol: ",",
+            numberseparator: ".",
+            currencyformatcode: 3,
+            timeformatstring: "H:mm",
+          },
+        ],
+      }),
+    });
+    const { context } = makeContext();
+    const formatting = await context.getFormatting();
+    expect(formatting.decimalSymbol).toBe(",");
+    expect(formatting.numberSeparator).toBe(".");
+    expect(formatting.currencyFormatCode).toBe(3);
+    expect(formatting.timeFormat).toBe("H:mm");
+    expect(decodeURIComponent(server.lastRequest.url)).toContain(
+      "$select=decimalsymbol,numberseparator,currencyformatcode,timeformatstring"
+    );
   });
 
   it("routes webAPI calls through cds-client against /api/data/v8.2/", async () => {
@@ -1199,6 +1265,40 @@ describe("PCFContext", () => {
     );
   });
 
+  it("reads currencyFormatCode and timeFormat from PCF userSettings formatting", async () => {
+    const server = new FakeXhrServer();
+    server.install();
+    try {
+      const { source } = makeSource();
+      source.userSettings = {
+        ...source.userSettings,
+        numberFormattingInfo: {
+          numberDecimalSeparator: ",",
+          numberGroupSeparator: ".",
+          // A numeric string is tolerated and Number()d.
+          currencyPositivePattern: "1",
+        },
+        // Month/day names so the normalized date info is produced (and carries
+        // the short time pattern); PCF uses camelCase keys.
+        dateFormattingInfo: {
+          monthNames: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+          dayNames: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+          shortTimePattern: "H:mm",
+        },
+      };
+      const context = new PCFContext(source);
+      const formatting = await context.getFormatting();
+      expect(formatting.decimalSymbol).toBe(",");
+      expect(formatting.numberSeparator).toBe(".");
+      expect(formatting.currencyFormatCode).toBe(1);
+      expect(formatting.timeFormat).toBe("H:mm");
+      // All four came from the host, so no usersettings fallback query fired.
+      expect(server.requests.length).toBe(0);
+    } finally {
+      server.uninstall();
+    }
+  });
+
   it("execute rides cds-client because the PCF webAPI has no native execute", async () => {
     const server = new FakeXhrServer();
     server.install();
@@ -1440,5 +1540,22 @@ describe("standard-mirrored metadata wiring (utils.getEntityMetadata)", () => {
     expect(metadata.DisplayName).toBe("Contact");
     expect(metadata.PrimaryNameAttribute).toBe("fullname");
     expect(nativeCalls).toEqual([{ entity: "contact", attributes: [] }]);
+  });
+});
+
+describe("normalizeDateFormatInfo short time pattern", () => {
+  const names = {
+    MonthNames: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    DayNames: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  };
+
+  it("reads the Xrm PascalCase ShortTimePattern", () => {
+    const info = normalizeDateFormatInfo({ ...names, ShortTimePattern: "hh:mm tt" });
+    expect(info?.shortTimePattern).toBe("hh:mm tt");
+  });
+
+  it("reads the PCF camelCase shortTimePattern", () => {
+    const info = normalizeDateFormatInfo({ ...names, shortTimePattern: "H:mm" });
+    expect(info?.shortTimePattern).toBe("H:mm");
   });
 });

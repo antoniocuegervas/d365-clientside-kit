@@ -290,18 +290,33 @@ via `getPricingDecimalPrecision` (the organization row's
 `pricingdecimalprecision`, fetched once and cached for the session). Only if
 that org read fails does the field fall back to the attribute precision.
 
-## The date picker's first day of week follows Language, not the Format locale
+## The calendar's first day of week is an org-level setting; personal Format settings do not move it
 
-Dataverse derives the calendar's first day of week from the user's Language, not
-their Format/Region locale. English ships only as en-US (1033), so a user with UK
-formatting (dd/MM/yyyy) but English language still gets a Sunday-first calendar.
-This is not a kit bug: the native model-driven date picker shows Sunday too, so
-the kit matches it rather than disagreeing with the native pickers beside it. If a
-deployment wants the calendar to follow the format locale (Monday for the UK),
-pass `firstDayOfWeek` to `SmartDatePicker` (0 = Sunday ... 6 = Saturday), computed
-however the deployment prefers (for example
-`new Intl.Locale("en-GB").weekInfo?.firstDay`). The default stays
-matched-to-platform on purpose.
+What you see: a user with fully Spanish personal settings (Spanish language
+AND Spanish formats, where the local convention is Monday-first) still gets a
+Sunday-first calendar, in the native date picker and the kit's alike, inside
+an otherwise fully localized `dateFormattingInfo` (Spanish month and day
+names, dd/MM/yyyy, H:mm). It looks like a localization bug; it is a settings
+split.
+
+The mechanism: `dateFormattingInfo` is a composite. The date and time
+patterns, separators, and month/day names follow the USER's personal Format
+settings (the usersettings row). The first day of the week follows the
+ORGANIZATION's format locale, set in System Settings under Formats
+(`organization.localeid`); usersettings has no first-day column, so personal
+options cannot override it. Verified by a controlled switch on a live org: with
+the user's settings untouched (es-ES throughout), changing the org format from
+English (United States) to English (United Kingdom) flipped
+`FirstDayOfWeek` from 0 to 1 while every user-driven member held its value,
+and the native date picker followed.
+
+The kit reads the same member, so its calendars always agree with the native
+picker beside them, whatever the org setting is. To change the first day,
+change the org's format in System Settings. To make one deployment's calendar
+follow a different convention than the org setting, pass `firstDayOfWeek` to
+`SmartDatePicker` (0 = Sunday ... 6 = Saturday), computed however the
+deployment prefers (for example `new Intl.Locale("es-ES").weekInfo?.firstDay`).
+The default stays matched-to-platform on purpose.
 
 ## A PCF that bundles Fluent v9 pins to the host's shared tabster
 

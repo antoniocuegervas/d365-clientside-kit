@@ -12,8 +12,18 @@ export interface INumberFieldProps extends ICommonFieldProps {
   precision?: number;
   min?: number;
   max?: number;
-  /** Prefix glyph, e.g. a currency symbol, supplied, never resolved here. */
+  /**
+   * Prefix text, e.g. a leading currency symbol, supplied, never resolved here.
+   * Rendered verbatim before the value (include any separating space in the
+   * string); the input chrome shows the trimmed glyph in its leading slot.
+   */
   prefix?: string;
+  /**
+   * Suffix text, e.g. a trailing currency symbol, supplied, never resolved here.
+   * Rendered verbatim after the value (include any separating space in the
+   * string); the input chrome shows the trimmed glyph in its trailing slot.
+   */
+  suffix?: string;
   /** Decimal separator (CRM user setting). Default: browser-locale formatting. */
   decimalSymbol?: string;
   /** Group (thousands) separator (CRM user setting). Default: browser-locale formatting. */
@@ -143,15 +153,21 @@ export class NumberField extends ObserverComponent<INumberFieldProps, INumberFie
   }
 
   override render(): React.ReactNode {
-    const { value, disabled, readOnly, prefix } = this.props;
+    const { value, disabled, readOnly, prefix, suffix } = this.props;
     const text = this.state.editingText ?? this.format(value.value);
+    // prefix/suffix render verbatim: the caller supplies any separating space in
+    // the string, so a currency symbol can sit tight ("$100") or spaced ("100 €")
+    // to match the user's format. Read-only text concatenates them directly; the
+    // input chrome trims the affix to a bare glyph (the Fluent content slot
+    // already renders it with its own gap).
     const readOnlyText =
-      value.value === null ? "" : `${prefix ? `${prefix} ` : ""}${this.format(value.value)}`;
+      value.value === null ? "" : `${prefix ?? ""}${this.format(value.value)}${suffix ?? ""}`;
     return (
       <FieldShell {...this.props} readOnlyText={readOnlyText}>
         <Input
           value={text}
-          contentBefore={prefix ? <span>{prefix}</span> : undefined}
+          contentBefore={prefix ? <span>{prefix.trim()}</span> : undefined}
+          contentAfter={suffix ? <span>{suffix.trim()}</span> : undefined}
           onChange={this.handleChange}
           onFocus={this.handleFocus}
           onBlur={this.handleBlur}

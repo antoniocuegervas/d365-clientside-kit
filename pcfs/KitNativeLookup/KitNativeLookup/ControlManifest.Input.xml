@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="D365Kit" constructor="KitNativeLookup" version="1.2.2" display-name-key="Kit Example: Native Lookup" description-key="Native-parity single-record lookup, the kit SmartNativeLookup bound to a lookup column. See docs/adding-a-pcf.md." control-type="virtual" >
+  <control namespace="D365Kit" constructor="KitNativeLookup" version="1.2.4" display-name-key="Kit Example: Native Lookup" description-key="Native-parity single-record lookup, the kit SmartNativeLookup bound to a lookup column. See docs/adding-a-pcf.md." control-type="virtual" >
     <external-service-usage enabled="false">
     </external-service-usage>
     <!-- The bound lookup column, as a type-group so the control can bind to a

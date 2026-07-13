@@ -123,7 +123,7 @@ const Body: React.FC<IStepperProps> = (props) => {
 
       <div className={styles.footer}>
         <Button appearance="secondary" onClick={onBack} disabled={isFirst || busy}>
-          Back
+          {kitStrings().back}
         </Button>
         {isLast ? (
           <Button appearance="primary" onClick={onFinish} disabled={!canAdvance || busy}>
@@ -131,7 +131,7 @@ const Body: React.FC<IStepperProps> = (props) => {
           </Button>
         ) : (
           <Button appearance="primary" onClick={onNext} disabled={!canAdvance || busy}>
-            Next
+            {kitStrings().next}
           </Button>
         )}
       </div>

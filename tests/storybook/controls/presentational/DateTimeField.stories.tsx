@@ -52,6 +52,14 @@ export const DateOnlyFilled: Story = {
 export const DateAndTime: Story = {
   render: () => <DateTimeField label="Scheduled Start" includeTime {...make(sampleDate)} />,
 };
+export const TwentyFourHourTime: Story = {
+  name: "24-hour time (hourCycle h23)",
+  render: () => (
+    // hourCycle h23 fixes the clock at 24-hour regardless of the browser locale,
+    // so 2:30 PM reads as "14:30" for a 24-hour user.
+    <DateTimeField label="Scheduled Start" includeTime hourCycle="h23" {...make(sampleDate)} />
+  ),
+};
 export const Required: Story = {
   render: () => <DateTimeField label="Est. Close Date" required {...makeRequired("Est. Close Date")} />,
 };

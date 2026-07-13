@@ -62,8 +62,11 @@ Auto: options as above. `value` is `Observable<number[]>`.
 Auto: Yes/No labels from the boolean option set metadata.
 
 ### SmartNumberField
-Auto: precision (0 for whole numbers), min/max bounds, money detection, and the
-user's decimal symbol / group separator from `context.getFormatting()`.
+Auto: precision (0 for whole numbers), min/max bounds, money detection, the
+user's decimal symbol / group separator, and the currency symbol position (the
+usersettings `currencyformatcode`: leading or trailing, with or without a
+space, so a Spanish-format user reads "1.234,56 €" the way the platform
+renders it) from `context.getFormatting()`.
 Extra:
 
 | Prop | Purpose |
@@ -73,8 +76,10 @@ Extra:
 
 ### SmartDatePicker
 Auto: date-only vs date-and-time from attribute format; localized calendar
-strings (day/month names), first day of week, and short-date display format
-from `context.getFormatting()`.
+strings (day/month names), first day of week, short-date display format, and
+the time side's 12/24-hour clock (the user's short time pattern, so an "H:mm"
+user reads "15:00" whatever the browser locale says) from
+`context.getFormatting()`.
 
 ### SmartLookup
 Auto: target entity (first metadata target), target's primary name/id
@@ -172,6 +177,39 @@ open the real activity type on row invoke.
 
 Note: link-entity (aliased / dotted) columns can't be filtered or sorted
 through the savedQuery layer, those clauses are dropped (a platform boundary).
+
+## The kit's own strings: language resolution and overrides
+
+Data, metadata display names, option labels, and formatted values already
+arrive in the user's language and formats from the platform. The strings the
+kit itself renders around them (the pager's "Showing records 1-12", the
+lookup's "No records found" and "Advanced", the wizard's Back/Next, loading
+and error text, the accessibility labels) live in one module,
+`shared/localization/kitStrings.ts`, and follow the user's language with no
+app wiring: the kit ships English, Spanish, and Dutch tables, and every
+context adapter resolves the host user language once at context creation. An
+unknown language stays English.
+
+Two override paths sit on top, and they compose in either call order:
+
+```ts
+import { configureKitStrings, registerKitStrings, setKitStringsLanguage }
+  from "../../../shared/localization/kitStrings";
+
+// Patch a few strings over the resolved language (a RESX or PCF resource
+// source plugs in here), once at boot:
+configureKitStrings({ noRecordsFound: getString("NoRecordsFound") });
+
+// Ship a whole language the kit does not carry: a complete IKitStrings table
+// (the compiler enforces completeness), then select it by tag or let the
+// adapter's LCID resolution pick it up.
+registerKitStrings("fr", frenchKitStrings);
+setKitStringsLanguage("fr-FR");
+```
+
+The user's language is fixed for the session, so the strings are too: set
+them before rendering. Developer-facing text (boot errors, sample apps,
+Storybook stories) stays English on purpose.
 
 ## What you should never hand-configure for standard fields
 

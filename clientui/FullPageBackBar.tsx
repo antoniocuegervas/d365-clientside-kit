@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Button, makeStyles, tokens } from "@fluentui/react-components";
 import { ArrowLeftRegular } from "@fluentui/react-icons";
+import { kitStrings } from "../shared/localization/kitStrings";
 
 export interface IFullPageBackBarProps {
   /** Invoked when Back is chosen. The shell wires this to its own window's history. */
@@ -42,7 +43,7 @@ const Body: React.FC<IFullPageBackBarProps> = (props) => {
   return (
     <div className={styles.bar}>
       <Button appearance="subtle" icon={<ArrowLeftRegular />} onClick={props.onBack}>
-        Back
+        {kitStrings().back}
       </Button>
     </div>
   );

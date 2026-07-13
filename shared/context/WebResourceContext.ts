@@ -5,6 +5,7 @@ import { createGetEntityMetadata } from "../metadata/createGetEntityMetadata";
 import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
+import { setKitStringsLanguage } from "../localization/kitStrings";
 import { callLookupObjects, type IXrmUtilityLookup } from "./hostSurface";
 import { normalizeDateFormatInfo, resolveFormatting } from "./hostSurface";
 import {
@@ -91,6 +92,10 @@ export class WebResourceContext implements IViewModelContext {
       isRTL: userSettings.isRTL,
       timeZoneOffsetMinutes: userSettings.getTimeZoneOffsetMinutes?.(),
     };
+    // The kit chrome follows the user language; configureKitStrings overrides.
+    if (this.user.languageId !== undefined) {
+      setKitStringsLanguage(this.user.languageId);
+    }
     this.rawDateFormat = userSettings.dateFormattingInfo;
     this.orgVersion = globalContext.getVersion();
     this.globalContext = buildGlobalContext(
@@ -169,12 +174,15 @@ export class WebResourceContext implements IViewModelContext {
   }
 
   getFormatting(): Promise<IFormattingInfo> {
-    // Date format is sync from the global context; decimal/separator come from
-    // the usersettings entity via cds-client (the webresource path). Cached.
+    // Date format is sync from the global context; the short time pattern rides
+    // there too. Decimal/separator and the currency format code come from the
+    // usersettings entity via cds-client (the webresource path). Cached.
+    const dateFormatInfo = normalizeDateFormatInfo(this.rawDateFormat);
     this.formattingPromise ??= resolveFormatting({
       client: this.cdsClient,
       userId: this.user.id,
-      dateFormatInfo: normalizeDateFormatInfo(this.rawDateFormat),
+      dateFormatInfo,
+      timeFormat: dateFormatInfo?.shortTimePattern,
     });
     return this.formattingPromise;
   }

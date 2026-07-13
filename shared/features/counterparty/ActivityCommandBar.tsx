@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import {
   Menu,
   MenuItem,
@@ -47,17 +48,17 @@ const Body: React.FC<IActivityCommandBarProps> = (props) => {
   const selected = valueOf(props.selectedKey) != null;
   const types = valueOf(props.activityTypes);
   return (
-    <Toolbar aria-label="Activity actions">
+    <Toolbar aria-label={kitStrings().activityActions}>
       {selected ? (
         <ToolbarButton icon={<EditRegular />} onClick={props.onEdit}>
-          Edit
+          {kitStrings().edit}
         </ToolbarButton>
       ) : (
         <>
           <Menu>
             <MenuTrigger disableButtonEnhancement>
               <ToolbarButton icon={<AddRegular />} disabled={types.length === 0}>
-                New
+                {kitStrings().newLabel}
               </ToolbarButton>
             </MenuTrigger>
             <MenuPopover>
@@ -71,7 +72,7 @@ const Body: React.FC<IActivityCommandBarProps> = (props) => {
             </MenuPopover>
           </Menu>
           <ToolbarButton icon={<ArrowClockwiseRegular />} onClick={props.onRefresh}>
-            Refresh
+            {kitStrings().refresh}
           </ToolbarButton>
         </>
       )}

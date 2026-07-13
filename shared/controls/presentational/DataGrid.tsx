@@ -385,13 +385,13 @@ const Body: React.FC<
           props.onSelectKeys(Array.from(data.selectedItems, String))
         }
         selectionAppearance="none"
-        aria-label="Data grid"
+        aria-label={kitStrings().dataGridLabel}
         className={styles.grid}
       >
         <DataGridHeader>
           <DataGridRow
             className={styles.headerRow}
-            selectionCell={props.multiSelect ? { "aria-label": "Select all rows" } : undefined}
+            selectionCell={props.multiSelect ? { "aria-label": kitStrings().selectAllRows } : undefined}
           >
             {(column) => (
               <DataGridHeaderCell
@@ -403,7 +403,7 @@ const Body: React.FC<
                   <span
                     className={styles.resizeHandle}
                     role="separator"
-                    aria-label={`Resize ${String(column.columnId)} column`}
+                    aria-label={kitStrings().resizeColumn(String(column.columnId))}
                     onPointerDown={(event) => startResize(event, String(column.columnId))}
                     onClick={(event) => event.stopPropagation()}
                     onDoubleClick={(event) => event.stopPropagation()}
@@ -414,7 +414,7 @@ const Body: React.FC<
           </DataGridRow>
         </DataGridHeader>
         {props.sortedRows.length === 0 ? (
-          <div className={styles.empty}>{props.emptyMessage ?? "No data available"}</div>
+          <div className={styles.empty}>{props.emptyMessage ?? kitStrings().noDataAvailable}</div>
         ) : (
           <DataGridBody<IGridRow>>
             {({ item, rowId }) => (

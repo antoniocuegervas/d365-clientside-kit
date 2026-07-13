@@ -9,14 +9,17 @@ import {
   makeFormatDate,
   makeParseDate,
   toFirstDayOfWeek,
+  toHourCycle,
 } from "./localeDateFormatting";
 
 export interface ISmartDatePickerProps extends ISmartFieldProps<Date | null> {
   /**
    * Override the first day of the calendar week (0 = Sunday ... 6 = Saturday).
-   * Default follows the host. Dataverse ties the first day to the user's
-   * Language, not the Format locale, so a UK-format user gets Sunday (matching
-   * native UCI); pass this to honor the locale per deployment. See the gotcha.
+   * Default follows the host's dateFormattingInfo, whose first day is the
+   * ORG-level format setting (System Settings, Formats), not the user's
+   * personal Format locale, so the kit calendar always agrees with the native
+   * picker beside it. Pass this to follow a different convention per
+   * deployment. See the gotcha.
    */
   firstDayOfWeek?: DatePickerProps["firstDayOfWeek"];
 }
@@ -45,6 +48,7 @@ export class SmartDatePicker extends SmartFieldBase<Date | null, ISmartDatePicke
         value={this.props.value}
         onChange={this.commitChange}
         includeTime={attributeKind(metadata) === "datetime"}
+        hourCycle={toHourCycle(this.state.formatting?.timeFormat)}
         strings={dateFormatInfo ? buildDatePickerStrings(dateFormatInfo) : undefined}
         firstDayOfWeek={
           this.props.firstDayOfWeek ??

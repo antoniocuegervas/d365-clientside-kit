@@ -1,5 +1,6 @@
 import type { DatePickerProps } from "@fluentui/react-datepicker-compat";
 import type { IDateFormatInfo } from "../../context/IViewModelContext";
+import { kitStrings } from "../../localization/kitStrings";
 
 /**
  * Smart-tier helpers that turn the context's normalized `IDateFormatInfo`
@@ -16,12 +17,17 @@ export function buildDatePickerStrings(
   if (info.monthNames.length < 12 || info.dayNames.length < 7) {
     return undefined; // incomplete, let the picker use its English defaults
   }
+  const strings = kitStrings();
   return {
     months: info.monthNames,
     shortMonths: info.abbreviatedMonthNames.length >= 12 ? info.abbreviatedMonthNames : info.monthNames,
     days: info.dayNames,
     shortDays: info.shortestDayNames.length >= 7 ? info.shortestDayNames : info.dayNames,
-    goToToday: "Go to today",
+    goToToday: strings.goToToday,
+    prevMonthAriaLabel: strings.prevMonthAriaLabel,
+    nextMonthAriaLabel: strings.nextMonthAriaLabel,
+    prevYearAriaLabel: strings.prevYearAriaLabel,
+    nextYearAriaLabel: strings.nextYearAriaLabel,
   };
 }
 
@@ -29,6 +35,28 @@ export function buildDatePickerStrings(
 export function toFirstDayOfWeek(info: IDateFormatInfo): DatePickerProps["firstDayOfWeek"] {
   const day = Math.max(0, Math.min(6, info.firstDayOfWeek));
   return day as NonNullable<DatePickerProps["firstDayOfWeek"]>;
+}
+
+/**
+ * Maps the user's short time pattern to the hourCycle the Fluent time controls
+ * take. The .NET custom pattern letters: "H" is the 24-hour hour, "h" the
+ * 12-hour hour (with "tt" the AM/PM designator riding along with h). An
+ * uppercase "H" anywhere means 24-hour ("h23"); otherwise a lowercase "h" means
+ * 12-hour ("h12"); a pattern with neither, or no pattern, yields undefined so
+ * the control keeps the browser-locale default. Deliberately dumb: it reads the
+ * pattern letters, nothing more.
+ */
+export function toHourCycle(timeFormat: string | undefined): "h12" | "h23" | undefined {
+  if (!timeFormat) {
+    return undefined;
+  }
+  if (timeFormat.includes("H")) {
+    return "h23";
+  }
+  if (timeFormat.includes("h")) {
+    return "h12";
+  }
+  return undefined;
 }
 
 /**

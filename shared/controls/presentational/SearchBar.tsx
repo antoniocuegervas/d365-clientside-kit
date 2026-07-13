@@ -1,4 +1,5 @@
 import * as React from "react";
+import { kitStrings } from "../../localization/kitStrings";
 import { Button, SearchBox, makeStyles, tokens } from "@fluentui/react-components";
 import { SearchRegular } from "@fluentui/react-icons";
 import { ObserverComponent } from "../../reactivity/ObserverComponent";
@@ -106,7 +107,7 @@ const Body: React.FC<
           value={props.searchText.value}
           onChange={props.onChange}
           onKeyDown={props.onKeyDown}
-          placeholder={props.placeholder ?? "Search"}
+          placeholder={props.placeholder ?? kitStrings().search}
           disabled={props.disabled}
           style={{ width: "100%" }}
         />
@@ -118,7 +119,7 @@ const Body: React.FC<
           onClick={props.onSearchClick}
           disabled={props.disabled}
         >
-          Search
+          {kitStrings().search}
         </Button>
       ) : null}
     </div>

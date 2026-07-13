@@ -5,6 +5,7 @@ import { createGetEntityMetadata } from "../metadata/createGetEntityMetadata";
 import { MetadataService } from "../metadata/MetadataService";
 import { normalizeGuid, type IEntityReference } from "../utils/EntityModel";
 import { LibraryUtils } from "../utils/LibraryUtils";
+import { setKitStringsLanguage } from "../localization/kitStrings";
 import { callLookupObjects, type IXrmUtilityLookup } from "./hostSurface";
 import { normalizeDateFormatInfo, resolveFormatting } from "./hostSurface";
 import {
@@ -146,6 +147,10 @@ export class PCFContext implements IViewModelContext {
       isRTL: source.userSettings.isRTL,
       timeZoneOffsetMinutes: source.userSettings.getTimeZoneOffsetMinutes?.(),
     };
+    // The kit chrome follows the user language; configureKitStrings overrides.
+    if (this.user.languageId !== undefined) {
+      setKitStringsLanguage(this.user.languageId);
+    }
     this.rawDateFormat = source.userSettings.dateFormattingInfo;
     this.rawNumberFormat = source.userSettings.numberFormattingInfo;
     this.orgVersion = "9.2"; // PCF hosts are modern; the framework hides the build number
@@ -202,14 +207,23 @@ export class PCFContext implements IViewModelContext {
   }
 
   getFormatting(): Promise<IFormattingInfo> {
-    // PCF carries both date and number formatting on userSettings; fall back to
-    // the usersettings entity for any separators the host didn't supply. Cached.
+    // PCF carries both date and number formatting on userSettings: separators
+    // and the currency pattern come off numberFormattingInfo, the short time
+    // pattern off dateFormattingInfo. Fall back to the usersettings entity for
+    // anything the host didn't supply. Cached.
+    const dateFormatInfo = normalizeDateFormatInfo(this.rawDateFormat);
     this.formattingPromise ??= resolveFormatting({
       client: this.cdsClient,
       userId: this.user.id,
-      dateFormatInfo: normalizeDateFormatInfo(this.rawDateFormat),
+      dateFormatInfo,
       decimalSymbol: readNumberFormat(this.rawNumberFormat, "numberDecimalSeparator", "NumberDecimalSeparator"),
       numberSeparator: readNumberFormat(this.rawNumberFormat, "numberGroupSeparator", "NumberGroupSeparator"),
+      currencyFormatCode: readNumberFormatCode(
+        this.rawNumberFormat,
+        "currencyPositivePattern",
+        "CurrencyPositivePattern"
+      ),
+      timeFormat: dateFormatInfo?.shortTimePattern,
     });
     return this.formattingPromise;
   }
@@ -223,6 +237,26 @@ function readNumberFormat(
     const value = raw?.[key];
     if (typeof value === "string" && value) {
       return value;
+    }
+  }
+  return undefined;
+}
+
+/** Reads a numeric number-format member, tolerating a numeric string (Number()d). */
+function readNumberFormatCode(
+  raw: Record<string, unknown> | undefined,
+  ...keys: string[]
+): number | undefined {
+  for (const key of keys) {
+    const value = raw?.[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim() !== "") {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
     }
   }
   return undefined;
