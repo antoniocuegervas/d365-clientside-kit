@@ -2697,3 +2697,62 @@ time list wants its own live re-measure once a non-emulated viewport is in
 hand; the surgical z-index plus positioning ever proves insufficient in some
 host (then the inlinePopup path is reopened, with explicit positioning to
 cure the historical misplacement).
+
+*(2026-07-14: the desktop time list was live re-measured on a non-emulated
+desktop viewport (the restored primary workstation, app window 2069 to 2560
+CSS px), closing the "wants its own live re-measure" trigger above. The list
+anchors under the field at the field width, lifts above the form at z-index
+1000, and stays within the viewport, both when the field sits low (the list
+flips up) and mid-form. Recorded honestly: the compat TimePicker sets its own
+inline max-height from available space (816 px on a 1263 px viewport), which
+wins over the listbox class's 40vh, so the 40vh is not the binding cap on a
+tall desktop viewport; the anchor and the z-index elevation are the
+load-bearing parts and the list stays on screen either way. The same session
+exercised the narrow half at 400 px: the date and time stack onto full-width
+rows and the native lookup search takes over full screen.)*
+
+## D-071, the kit cuts release 1.3.0: the mobile, multilanguage, and New Look waves ship as one minor bump
+
+Context: since 1.2.0 (2026-07-04) the kit gained a verified mobile posture
+(D-067), a multilanguage and locale-format layer (D-068), the New Look filled
+field appearance with its datetime follow-ups (D-069, D-070), the openClientUI
+full-page auto mode (D-064), the SolutionPackager 2.x pin (D-065), the
+narrow-viewport top-window fix (D-066), and the injected-host boot-race fix
+(D-063). The owner called the release after a two-viewport live re-verification
+on the restored primary workstation.
+
+The decision. The release is 1.3.0, a minor bump: a substantial feature wave
+with no API break. The version pass follows the one rule: package.json carries
+1.3.0 and all five control manifests align to it. They had drifted to
+intermediate dev versions across the wave (KitCounterpartyGrid 1.2.4,
+KitTooltip 1.2.5, KitNativeLookup 1.2.6, KitOptionSet 1.2.6, KitDatePicker
+1.2.7); the manifest bump is load-bearing, since the platform serves a cached
+bundle when the control version does not move.
+
+The New Look default. The filled appearance changes the default look of every
+field control (the previous default becomes filled-darker). It is a visible
+default change, not an API break, and nothing is published to a package, so
+there is no version-range consumer to protect. The release notes call it out
+under notable changes rather than burying it, per the disclosure rule. Releases
+carry the sample solution only, unchanged from 1.2.0.
+
+Verification. The full gate is green at the release tip (floor check, lint,
+typecheck, build, 571 unit plus 12 smoke, storybook). The waves were
+live-verified on the dev org in both a desktop (2069 px) and a narrow (400 px)
+viewport: filled fields match the native ones, the time list anchors and
+overlays the form at desktop width, the date and time stack and the native
+lookup takes over full screen at phone width, company search loads live rows
+with localized chrome and pager, and no console errors appear in either mode.
+The shipped solution artifact is built and exercised locally, not by CI: the
+Package pipeline stage remains defined but connected to no runner, the standing
+gap carried from 1.2.0.
+
+Owner step still pending. The tag, the push, and the GitHub Release (with the
+sample solution artifact) are owner-gated and not done in the session that
+recorded this. The version pass and this entry land on master ahead of them; a
+dated addendum records the tag and Release when they happen.
+
+Revisit trigger: the first npm package publish moves the presentational tier
+onto its own strict-semver line, and this milestone-marker policy then governs
+only the solution version; connecting the Package pipeline to a runner closes
+the "built locally, not by CI" caveat.
