@@ -15,13 +15,13 @@ export interface INumberFieldProps extends ICommonFieldProps {
   /**
    * Prefix text, e.g. a leading currency symbol, supplied, never resolved here.
    * Rendered verbatim before the value (include any separating space in the
-   * string); the input chrome shows the trimmed glyph in its leading slot.
+   * string); the input shows the trimmed symbol in its leading slot.
    */
   prefix?: string;
   /**
    * Suffix text, e.g. a trailing currency symbol, supplied, never resolved here.
    * Rendered verbatim after the value (include any separating space in the
-   * string); the input chrome shows the trimmed glyph in its trailing slot.
+   * string); the input shows the trimmed symbol in its trailing slot.
    */
   suffix?: string;
   /** Decimal separator (CRM user setting). Default: browser-locale formatting. */
@@ -158,7 +158,7 @@ export class NumberField extends ObserverComponent<INumberFieldProps, INumberFie
     // prefix/suffix render verbatim: the caller supplies any separating space in
     // the string, so a currency symbol can sit tight ("$100") or spaced ("100 €")
     // to match the user's format. Read-only text concatenates them directly; the
-    // input chrome trims the affix to a bare glyph (the Fluent content slot
+    // input trims the prefix or suffix to a bare symbol (the Fluent content slot
     // already renders it with its own gap).
     const readOnlyText =
       value.value === null ? "" : `${prefix ?? ""}${this.format(value.value)}${suffix ?? ""}`;

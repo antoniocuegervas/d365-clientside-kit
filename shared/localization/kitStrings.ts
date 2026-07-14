@@ -1,11 +1,11 @@
 /**
- * The kit's user-facing chrome strings, everything a control shows that is
+ * The kit's user-facing interface strings, everything a control shows that is
  * not data (data, metadata display names, option labels, and formatted values
  * already arrive user-localized from the platform).
  *
  * The kit ships built-in tables for English, Spanish, and Dutch. Each context
  * adapter resolves the host user language once at context creation and calls
- * `setKitStringsLanguage`, so the chrome follows the user with no app wiring;
+ * `setKitStringsLanguage`, so the interface text follows the user with no app wiring;
  * an unknown or absent language stays English. English is both the default and
  * the fallback.
  *
@@ -85,7 +85,7 @@ export interface IKitStrings {
   platformWaveTooOld: string;
 
   // Command and navigation actions.
-  /** Stepper and shell back affordances. */
+  /** Stepper and shell back buttons. */
   back: string;
   /** Stepper next-step action. */
   next: string;
@@ -100,7 +100,7 @@ export interface IKitStrings {
   /** Search button text and the default search placeholder. */
   search: string;
 
-  // Grid chrome.
+  // Grid labels.
   /** Grid empty fallback. */
   noDataAvailable: string;
   /** Grid aria label. */

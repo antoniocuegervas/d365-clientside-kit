@@ -3,7 +3,7 @@ import { Caption1, makeStyles, tokens } from "@fluentui/react-components";
 import { SmartComponent } from "../../../shared/context/ViewModelContextProvider";
 
 /**
- * One line of hub chrome that names the hosting record when the shell runs
+ * One line of the hub's own UI that names the hosting record when the shell runs
  * beside a form (the clienthooks injected-host path), and renders nothing
  * everywhere else, so sitemap and quick-test hostings look exactly as
  * before. It POLLS form access rather than reading it once: the injection

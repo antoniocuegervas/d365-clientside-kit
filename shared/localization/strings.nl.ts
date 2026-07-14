@@ -1,7 +1,7 @@
 import type { IKitStrings } from "./kitStrings";
 
 /**
- * Dutch (nl-NL) chrome strings, Microsoft Dynamics terminology (Nieuw,
+ * Dutch (nl-NL) interface strings, Microsoft Dynamics terminology (Nieuw,
  * Geavanceerd, Zoeken, Bewerken, Vernieuwen, Terug, Volgende, Ga naar vandaag,
  * Tegenpartij, ...). Registered as "nl" by kitStrings. The EN dash in the
  * record-range strings matches the English table (never an em dash).

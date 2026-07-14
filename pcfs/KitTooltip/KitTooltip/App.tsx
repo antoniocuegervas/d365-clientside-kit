@@ -53,7 +53,7 @@ export class TooltipApp extends SmartComponent<ITooltipAppProps, ITooltipAppStat
 
   private async loadMetadata(): Promise<void> {
     try {
-      // The standard idiom: entity metadata scoped to the bound attribute,
+      // The standard pattern: entity metadata scoped to the bound attribute,
       // then the attribute picked off the collection.
       const entityMetadata = await this.vmContext.utils.getEntityMetadata(
         this.props.entityLogicalName,

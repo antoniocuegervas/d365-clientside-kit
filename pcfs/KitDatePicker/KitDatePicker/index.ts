@@ -20,7 +20,7 @@ import { ErrorBoundary } from "../../../shared/controls/presentational/ErrorBoun
  * LOCALE-correct behavior from the PCF context and drives the presentational
  * DateTimeField with it: the display format, the calendar month and day names,
  * the first day of the week, typed-date parsing, the clock (12 or 24 hour), and
- * the kit chrome language. The field itself never learns where any of it came
+ * the kit's interface language. The field itself never learns where any of it came
  * from.
  *
  * This is a virtual control: the platform hands it the host's own React
@@ -41,7 +41,7 @@ export class KitDatePicker implements ComponentFramework.ReactControl<IInputs, I
     _state: ComponentFramework.Dictionary
   ): void {
     this.notifyOutputChanged = notifyOutputChanged;
-    // The kit chrome follows the user language. This root builds no kit context
+    // The kit's interface text follows the user language. This root builds no kit context
     // (the context adapters resolve the language at construction, there is none
     // here), so it resolves the language itself.
     if (context.userSettings.languageId !== undefined) {

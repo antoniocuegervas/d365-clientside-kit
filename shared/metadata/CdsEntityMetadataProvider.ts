@@ -241,7 +241,7 @@ export class CdsEntityMetadataProvider {
   }
 }
 
-/** Wraps synthesized descriptors in the standard ItemCollection idiom. */
+/** Wraps synthesized descriptors in the standard ItemCollection shape. */
 function toAttributeCollection(descriptors: IAttributeDescriptor[]): IAttributeMetadataCollection {
   const items: IAttributeMetadata[] = descriptors.map((descriptor) => ({
     LogicalName: descriptor.LogicalName,

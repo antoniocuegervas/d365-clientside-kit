@@ -334,7 +334,7 @@ const useStyles = makeStyles({
     right: 0,
     bottom: 0,
     left: 0,
-    // Must clear the model-driven form chrome (header, command bar, side panes)
+    // Must clear the model-driven form's own UI (header, command bar, side panes)
     // when the control lives in the UCI page as a PCF; a large explicit value.
     zIndex: 1000000,
     display: "flex",

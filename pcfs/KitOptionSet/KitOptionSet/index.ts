@@ -18,7 +18,7 @@ import type { IOptionItem } from "../../../shared/utils/EntityModel";
  * list stays the ALLOWED SET: an option the host does not carry is never
  * presented, so any host- or column-level filtering of the choices is honored.
  * It reuses one PCFContext (the same IViewModelContext the webresource and
- * form-script hosts use, which also resolves the kit chrome language in its
+ * form-script hosts use, which also resolves the kit's interface language in its
  * constructor), so metadata resolution is identical to the rest of the kit.
  *
  * The host entity comes from the form context (the shared `hostEntity` read,

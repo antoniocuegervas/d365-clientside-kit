@@ -29,7 +29,7 @@ export interface ICurrencyFieldProps extends ICommonFieldProps {
 /**
  * Currency, a NumberField with a supplied currency symbol placed by the user's
  * currency format code. The code maps to a leading (prefix) or trailing
- * (suffix) affix with the platform's spacing; an undefined code keeps the
+ * (suffix) symbol with the platform's spacing; an undefined code keeps the
  * original leading-symbol-with-space rendering, so existing consumers are
  * byte-identical.
  */
@@ -43,11 +43,11 @@ export class CurrencyField extends React.Component<ICurrencyFieldProps> {
 }
 
 /**
- * Maps a currency symbol + format code to the NumberField prefix/suffix affix.
+ * Maps a currency symbol + format code to the NumberField prefix or suffix.
  * The .NET CurrencyPositivePattern spacing: 0 "$n", 1 "n$", 2 "$ n", 3 "n $".
  * An undefined or unrecognized code keeps the original "$ n" (leading symbol,
  * separating space) so a host that never resolves the code renders as before.
- * The affix carries its own spacing; NumberField renders it verbatim.
+ * The prefix or suffix carries its own spacing; NumberField renders it verbatim.
  */
 function currencyAffix(
   symbol: string,

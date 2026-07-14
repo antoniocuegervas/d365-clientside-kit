@@ -36,7 +36,7 @@ export interface IWebResourceParams {
    * True when the data payload marks a full-page hosting (the payload's
    * `fullPage: true`). openClientUI's full-page launch, taken automatically on a
    * narrow viewport, sets it so the launched app can render its own back
-   * affordance: the platform gives a full-page webresource no back chrome.
+   * button: the platform gives a full-page webresource no back button.
    */
   fullPage: boolean;
   /** All raw query parameters for app-specific needs. */

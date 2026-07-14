@@ -76,7 +76,7 @@ export interface FieldNotificationOptions {
   notificationLevel?: "ERROR" | "RECOMMENDATION";
   /** Identifies the notification so it can be cleared via clearFieldNotification. */
   uniqueId: string;
-  /** Optional clickable "fix this" affordances. */
+  /** Optional clickable "fix this" links. */
   actions?: FieldNotificationAction[];
 }
 

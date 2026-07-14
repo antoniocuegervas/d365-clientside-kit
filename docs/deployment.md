@@ -227,7 +227,7 @@ states the wave requirement in place of the control instead of throwing into the
 error boundary. If the API floor rises to an export another control uses, give that
 control's root the same probe.
 
-The checker also holds the rest of the virtual posture in place: react-dom
+The checker also holds the rest of the virtual-control setup in place: react-dom
 externalization stays switched on (`pcfReactPlatformLibraries` in featureconfig.json),
 React and Fluent stay out of `dependencies`, and shared code stays clear of
 React-18-only APIs (the webresource shell bundles React 18, but the PCF host serves

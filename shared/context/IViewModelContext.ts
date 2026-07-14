@@ -203,7 +203,7 @@ export interface IFormattingInfo {
 
 /** A transaction currency's display info. */
 export interface ICurrencyInfo {
-  /** Currency symbol glyph, e.g. "$", "€". */
+  /** Currency symbol, e.g. "$", "€". */
   symbol: string;
   /** Currency-specific precision, when the field uses pricing decimal precision. */
   precision?: number;
@@ -683,8 +683,8 @@ export interface INavigationOptions {
  *   "modal"    always a centered modal dialog.
  *   "side"     always a right-hand side pane.
  *   "fullpage" always a full page, and marks the payload `fullPage: true` so
- *              the launched app can offer its own back affordance (a full-page
- *              webresource gets no platform back chrome on the phone client).
+ *              the launched app can offer its own back button (a full-page
+ *              webresource gets no platform back button on the phone client).
  * `width`/`height` are dialog pixels (omit for the 80% default) and do not
  * apply to a full page; `title` sets the dialog header. The full-page path and
  * the narrow auto-adaptation are the modern host's; the legacy (V8) and PCF
@@ -938,7 +938,7 @@ export interface IEntityMetadata {
   Attributes?: IAttributeMetadataCollection;
 }
 
-/** The standard ItemCollection idiom the metadata store uses for attributes. */
+/** The standard ItemCollection shape the metadata store uses for attributes. */
 export interface IAttributeMetadataCollection {
   get(name: string): IAttributeMetadata | null | undefined;
   getAll(): IAttributeMetadata[];
@@ -1070,7 +1070,7 @@ export interface IMetadataApi {
   /**
    * Resolves a transaction currency's symbol/precision by id, cached
    * per currency. Money controls supply the result to the `currencySymbol`
-   * prop so a record shows its real currency, not a hardcoded glyph.
+   * prop so a record shows its real currency, not a hardcoded symbol.
    */
   getCurrencySymbol(transactionCurrencyId: string): Promise<ICurrencyInfo>;
   /**

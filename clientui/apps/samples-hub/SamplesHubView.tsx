@@ -16,7 +16,7 @@ import { HostedRecordLine } from "./HostedRecordLine";
 /**
  * Samples hub: ONE deployed webresource that swaps between sample
  * apps at runtime, demonstrates dynamic app switching without separate
- * deployments. The dropdown is shell chrome, not a CRM field, so it uses
+ * deployments. The dropdown is the shell's own UI, not a CRM field, so it uses
  * Fluent directly rather than a kit field control.
  */
 export interface ISamplesHubProps {

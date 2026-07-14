@@ -92,7 +92,7 @@ export class WebResourceContext implements IViewModelContext {
       isRTL: userSettings.isRTL,
       timeZoneOffsetMinutes: userSettings.getTimeZoneOffsetMinutes?.(),
     };
-    // The kit chrome follows the user language; configureKitStrings overrides.
+    // The kit's interface text follows the user language; configureKitStrings overrides.
     if (this.user.languageId !== undefined) {
       setKitStringsLanguage(this.user.languageId);
     }
@@ -364,8 +364,8 @@ class ModernNavigation implements INavigation {
       // query string (`<name>?data=<encoded>`), the shape the sitemap subarea
       // carries; the platform double-encodes it into the final URL, which is
       // expected. The payload is marked fullPage so the launched app can offer
-      // its own back affordance (a full-page webresource gets no platform back
-      // chrome on the phone client).
+      // its own back button (a full-page webresource gets no platform back
+      // button on the phone client).
       const data = LibraryUtils.buildClientUIDataParam(app, { ...payload, fullPage: true });
       await this.navigation.navigateTo(
         {

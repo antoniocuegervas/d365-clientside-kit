@@ -168,7 +168,7 @@ export abstract class SmartFieldBase<
     const sequence = ++this.metadataSequence;
     try {
       // Resolve EVERYTHING the first paint needs, then commit once. The
-      // standard idiom for the metadata itself: ask the host for the entity's
+      // standard pattern for the metadata itself: ask the host for the entity's
       // metadata scoped to this one attribute, then pick the attribute off
       // the collection. Formatting resolves in parallel (it does not depend
       // on the metadata and is non-fatal); subclass extras resolve after,
@@ -220,7 +220,7 @@ export abstract class SmartFieldBase<
    * OPT-IN: the earlier default (falling back to the attribute's Dataverse
    * Description) made every described field grow permanent text under its
    * label whether the author wanted it or not, which is not what a
-   * description usually means (the common affordance is an on-demand
+   * description usually means (the common approach is an on-demand
    * tooltip). The Description stays readable via attributeDescription for
    * surfaces that opt in, the way the tooltip control does.
    */

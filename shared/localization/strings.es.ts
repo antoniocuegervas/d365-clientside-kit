@@ -1,7 +1,7 @@
 import type { IKitStrings } from "./kitStrings";
 
 /**
- * Spanish (es-ES) chrome strings, usted register, Microsoft Dynamics
+ * Spanish (es-ES) interface strings, usted register, Microsoft Dynamics
  * terminology. Anchor terms (Nuevo, Avanzada, Buscar, Editar, Actualizar,
  * Atrás, Siguiente, Ir a hoy, Contraparte, ...) were captured live from the
  * platform UI on a Spanish org. Registered as "es" by kitStrings. The EN dash

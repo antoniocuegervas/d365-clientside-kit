@@ -35,13 +35,13 @@ export interface ICounterpartyGridViewProps {
   commandBar?: React.ReactNode;
   /** Pager rendered below the grid (the PCF wires it to the dataset's paging). */
   pager?: React.ReactNode;
-  /** Heading + page chrome shown above the grid. The PCF omits it (the form frames it). */
+  /** Heading + page controls shown above the grid. The PCF omits it (the form frames it). */
   title?: string;
 }
 
 /**
  * Below this host width the grid is unreadable, so each row becomes a persona card.
- * This is an intentional responsive affordance, not speculative: a narrow host is a
+ * This is an intentional responsive behavior, not speculative: a narrow host is a
  * real case (a vertical display, a narrow side pane, or how a model-driven form
  * reflows tab columns), so keep it.
  */

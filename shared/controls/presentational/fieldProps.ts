@@ -4,7 +4,7 @@ import type { OrObservable } from "../../reactivity/Observable";
 /**
  * onError handler for decorative icon images (entity icons on lookup values
  * and result rows). The icon URLs are supplied by the host and never checked
- * up front, so a moved or missing icon would render as a broken-image glyph.
+ * up front, so a moved or missing icon would render as a broken-image placeholder.
  * Blanking the image instead keeps its box, so row alignment holds and the
  * icon simply is not there.
  */
@@ -26,7 +26,7 @@ export interface ICommonFieldProps {
   required?: boolean;
   /** Disabled: visible but not interactive (locked field). */
   disabled?: boolean;
-  /** Read-only: value presented without input affordance. */
+  /** Read-only: value presented without an editing control. */
   readOnly?: boolean;
   /** Validation error text shown below the field, UCI-style. */
   errorMessage?: OrObservable<string | undefined>;

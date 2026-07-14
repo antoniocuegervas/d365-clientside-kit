@@ -96,7 +96,7 @@ export class NewAccountWizardViewModel extends WizardViewModel {
     }
   }
 
-  /** Return-to-caller affordance: open the record the wizard just created. */
+  /** Return-to-caller action: open the record the wizard just created. */
   readonly openCreatedAccount = (): void => {
     const id = this.createdAccountId.value;
     if (id) {

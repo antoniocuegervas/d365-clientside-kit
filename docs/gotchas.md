@@ -144,7 +144,7 @@ rejection as "this host can't do it", not as a bug.
 entity points at `/_imgs/svg_<ObjectTypeCode>.svg`. The OOTB path is a tested
 convention carried from production, not a documented platform contract, so a
 platform change could start returning a 404. Treat the icon URL as best-effort:
-fine for a decorative glyph, not something to hard-depend on. The method returns
+fine for a decorative icon, not something to hard-depend on. The method returns
 `undefined` when it cannot resolve a name, but a resolved-but-stale URL is still
 possible.
 
@@ -398,7 +398,7 @@ inside the themed provider); it is not clipped because Fluent positions it `fixe
 The kit's `NativeLookupField` flyout does this, so it renders the same in the
 webresource and a field-bound PCF.
 
-## Column (field-level) security: the posture differs by delivery shape
+## Column (field-level) security: the behavior differs by delivery shape
 
 Native model-driven forms resolve each user's effective access to a column-secured
 field and render it accordingly: masked or blank with no read, read-only with no

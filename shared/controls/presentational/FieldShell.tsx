@@ -25,7 +25,7 @@ type FieldShellProps = ICommonFieldProps & {
 
 /**
  * Shared label/required/error wrapper, Fluent v9 `Field` is exactly the
- * refreshed-UCI field chrome (label above input, red asterisk, validation
+ * refreshed-UCI field framing (label above input, red asterisk, validation
  * message below). Every presentational field control renders inside one.
  *
  * Read-only is handled here, once, for every field: instead of leaving an

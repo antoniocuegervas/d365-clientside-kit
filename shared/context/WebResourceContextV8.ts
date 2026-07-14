@@ -111,7 +111,7 @@ export class WebResourceContextV8 implements IViewModelContext {
       name: pageContext.getUserName(),
       languageId: pageContext.getUserLcid?.(),
     };
-    // The kit chrome follows the user language; configureKitStrings overrides.
+    // The kit's interface text follows the user language; configureKitStrings overrides.
     // 8.x exposes the user LCID through the deprecated getUserLcid getter.
     if (this.user.languageId !== undefined) {
       setKitStringsLanguage(this.user.languageId);

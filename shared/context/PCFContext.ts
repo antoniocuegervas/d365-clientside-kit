@@ -147,7 +147,7 @@ export class PCFContext implements IViewModelContext {
       isRTL: source.userSettings.isRTL,
       timeZoneOffsetMinutes: source.userSettings.getTimeZoneOffsetMinutes?.(),
     };
-    // The kit chrome follows the user language; configureKitStrings overrides.
+    // The kit's interface text follows the user language; configureKitStrings overrides.
     if (this.user.languageId !== undefined) {
       setKitStringsLanguage(this.user.languageId);
     }
