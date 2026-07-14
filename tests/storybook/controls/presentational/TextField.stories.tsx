@@ -17,7 +17,10 @@ const meta: Meta<typeof TextField> = {
           "nothing about CRM (no metadata, no context), which is why it renders here with " +
           "zero mocks. In an app you rarely wire these props by hand: `SmartTextField` " +
           "resolves the label, required flag, and max length from attribute metadata and " +
-          "renders this control, see its page for the metadata-bound usage.",
+          "renders this control, see its page for the metadata-bound usage. It defaults to " +
+          "Fluent's `filled-darker` appearance, the light-grey filled box the model-driven " +
+          "New Look uses for form fields (measured live), so it reads native beside platform " +
+          "fields; every kit field control shares that default.",
       },
     },
   },

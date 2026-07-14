@@ -151,6 +151,16 @@ export const Empty: Story = {
 
 export const Set: Story = {
   name: "Set (chip + clickthrough)",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "The set value's chip and its clear button sit on the filled grey field surface, " +
+          "the same surface the search Input paints, so the field never disappears when it " +
+          "holds a value, matching the native lookup.",
+      },
+    },
+  },
   render: () => (
     <NativeLookupField
       label="Primary Contact"

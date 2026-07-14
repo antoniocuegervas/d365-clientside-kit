@@ -1,10 +1,11 @@
 import * as React from "react";
-import { makeStyles, tokens } from "@fluentui/react-components";
+import { makeStyles, mergeClasses, tokens } from "@fluentui/react-components";
 import { DatePicker, type DatePickerProps } from "@fluentui/react-datepicker-compat";
 import { TimePicker, formatDateToTimeString } from "@fluentui/react-timepicker-compat";
 import { ObserverComponent } from "../../reactivity/ObserverComponent";
 import type { Observable } from "../../reactivity/Observable";
 import { FieldShell } from "./FieldShell";
+import { MeasuredWidth } from "./MeasuredWidth";
 import type { ICommonFieldProps } from "./fieldProps";
 
 export interface IDateTimeFieldProps extends ICommonFieldProps {
@@ -33,18 +34,51 @@ export interface IDateTimeFieldProps extends ICommonFieldProps {
   placeholder?: string;
 }
 
+// Below this container width the date cannot stay readable beside the time's
+// compact floor, so the date and time stack onto their own full-width lines.
+export const DATE_TIME_STACK_BELOW_PX = 340;
+export function dateTimeStacked(containerWidth: number, includeTime: boolean): boolean {
+  return includeTime && containerWidth > 0 && containerWidth < DATE_TIME_STACK_BELOW_PX;
+}
+
 const useStyles = makeStyles({
-  // The time picker has a wide intrinsic minimum, so on a narrow host the date
-  // and time cannot sit side by side without forcing the container wider than
-  // its host (a horizontal scroll). The row wraps instead, dropping the time
-  // picker onto its own line below the date. A host with room keeps both on one
-  // line unchanged (wrap engages only when the pair overflows).
-  row: { display: "flex", columnGap: tokens.spacingHorizontalS, flexWrap: "wrap", rowGap: tokens.spacingVerticalS },
-  date: { flexGrow: 1, flexBasis: "220px" },
-  time: { flexBasis: "220px" },
-  // The compat DatePicker has its own intrinsic width, so it must be told to
-  // fill its flex-grow wrapper, matching the full-width Input/Dropdown fields.
-  fill: { width: "100%" },
+  row: {
+    display: "flex",
+    flexDirection: "row",
+    columnGap: tokens.spacingHorizontalS,
+    // Safety net only: MeasuredWidth stacks before this matters, but if a host
+    // has no ResizeObserver the row still wraps rather than overflowing.
+    flexWrap: "wrap",
+    rowGap: tokens.spacingVerticalS,
+  },
+  // Stacked: one field per full-width line, so the time fills its own line.
+  rowStacked: { flexDirection: "column", flexWrap: "nowrap" },
+  // Side by side: the date takes the remaining width beside the compact time.
+  dateInline: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 },
+  // Side by side: the time keeps its own compact width.
+  timeInline: { flexShrink: 0, minWidth: 0 },
+  // Stacked: the field fills the line.
+  itemStacked: { width: "100%", minWidth: 0 },
+  // The compat DatePicker has its own intrinsic width, so it must fill its wrapper.
+  fill: { width: "100%", minWidth: 0 },
+  // The compat TimePicker is a Combobox: an inline-grid with a min-content input
+  // column and a wide default min-width, so by default it will neither fill a
+  // wide line nor shrink to share a narrow one. Making it a block grid whose
+  // input column is minmax(0, 1fr), with the min-widths relaxed down through the
+  // inner input, lets it fill its wrapper when stacked and stay compact when
+  // beside the date.
+  timeField: {
+    display: "grid",
+    width: "100%",
+    minWidth: 0,
+    gridTemplateColumns: "minmax(0, 1fr) auto auto",
+    "& input": { minWidth: 0 },
+  },
+  // The open time list is a popup. Mounted inside the themed form tree (see
+  // mountNode below), it inherits the default stacking, so on a narrow form the
+  // timeline pane and later fields paint over it. Lift it above the form and cap
+  // its height so a long list stays on screen instead of running off the bottom.
+  timeListbox: { zIndex: 1000, maxHeight: "40vh" },
 });
 
 /**
@@ -74,10 +108,12 @@ export class DateTimeField extends ObserverComponent<IDateTimeFieldProps> {
     _event: unknown,
     data: { selectedTime: Date | null | undefined }
   ): void => {
-    const base = this.props.value.value;
-    if (!data.selectedTime || !base) {
+    if (!data.selectedTime) {
       return;
     }
+    // Picking a time with no date sets today, so the time is always editable
+    // like the native control.
+    const base = this.props.value.value ?? new Date();
     const next = new Date(base);
     next.setHours(data.selectedTime.getHours(), data.selectedTime.getMinutes(), 0, 0);
     this.props.onChange?.(next);
@@ -114,44 +150,66 @@ const Body: React.FC<
   const readOnlyText = current
     ? `${formatForDisplay(current)}${includeTime ? ` ${formatTime(current)}` : ""}`
     : "";
+  const datePicker = (
+    <DatePicker
+      className={styles.fill}
+      // filled-darker matches the model-driven New Look field styling (measured live).
+      appearance="filled-darker"
+      value={current}
+      onSelectDate={props.onDateSelect}
+      formatDate={(date) => (date ? formatForDisplay(date) : "")}
+      parseDateFromString={parseDate}
+      strings={strings}
+      firstDayOfWeek={firstDayOfWeek}
+      disabled={disabled || readOnly}
+      placeholder={readOnly ? undefined : placeholder ?? "---"}
+      allowTextInput
+      // Render the calendar in place rather than in a portal. A portal
+      // mounts outside the themed FluentProvider, and in an embedded host
+      // (a PCF on a form) the theme's CSS variables are undefined out
+      // there, leaving the surface transparent. In place it inherits
+      // them, and Fluent positions the surface fixed, so an overflow
+      // ancestor never clips it (the native lookup flyout does the same).
+      inlinePopup
+    />
+  );
   return (
     <FieldShell {...props} readOnlyText={readOnlyText}>
-      <div className={styles.row}>
-        <div className={styles.date}>
-          <DatePicker
-            className={styles.fill}
-            value={current}
-            onSelectDate={props.onDateSelect}
-            formatDate={(date) => (date ? formatForDisplay(date) : "")}
-            parseDateFromString={parseDate}
-            strings={strings}
-            firstDayOfWeek={firstDayOfWeek}
-            disabled={disabled || readOnly}
-            placeholder={readOnly ? undefined : placeholder ?? "---"}
-            allowTextInput
-            // Render the calendar in place rather than in a portal. A portal
-            // mounts outside the themed FluentProvider, and in an embedded host
-            // (a PCF on a form) the theme's CSS variables are undefined out
-            // there, leaving the surface transparent. In place it inherits
-            // them, and Fluent positions the surface fixed, so an overflow
-            // ancestor never clips it (the native lookup flyout does the same).
-            inlinePopup
-          />
+      {includeTime ? (
+        <MeasuredWidth>
+          {(width) => {
+            const stacked = dateTimeStacked(width, true);
+            return (
+              <div className={mergeClasses(styles.row, stacked && styles.rowStacked)}>
+                <div className={stacked ? styles.itemStacked : styles.dateInline}>{datePicker}</div>
+                <div className={stacked ? styles.itemStacked : styles.timeInline}>
+                  <TimePicker
+                    className={styles.timeField}
+                    // filled-darker matches the model-driven New Look field styling (measured live).
+                    appearance="filled-darker"
+                    selectedTime={current}
+                    value={current ? formatTime(current) : ""}
+                    onTimeChange={props.onTimeChange}
+                    hourCycle={hourCycle}
+                    disabled={disabled || readOnly}
+                    // Anchor the list under the field at the field width (without
+                    // this the list mis-anchors on a narrow form host), and give it
+                    // the elevated, height-capped listbox so it overlays the form.
+                    positioning={{ position: "below", align: "start", matchTargetSize: "width" }}
+                    listbox={{ className: styles.timeListbox }}
+                    mountNode={overlayHome ?? undefined}
+                  />
+                  <div ref={setOverlayHome} />
+                </div>
+              </div>
+            );
+          }}
+        </MeasuredWidth>
+      ) : (
+        <div className={styles.row}>
+          <div className={styles.dateInline}>{datePicker}</div>
         </div>
-        {includeTime ? (
-          <div className={styles.time}>
-            <TimePicker
-              selectedTime={current}
-              value={current ? formatTime(current) : ""}
-              onTimeChange={props.onTimeChange}
-              hourCycle={hourCycle}
-              disabled={disabled || readOnly || !current}
-              mountNode={overlayHome ?? undefined}
-            />
-            <div ref={setOverlayHome} />
-          </div>
-        ) : null}
-      </div>
+      )}
     </FieldShell>
   );
 };

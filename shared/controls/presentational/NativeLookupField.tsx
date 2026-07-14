@@ -3,6 +3,7 @@ import { kitStrings } from "../../localization/kitStrings";
 import {
   Button,
   Input,
+  type InputProps,
   Link,
   Menu,
   MenuTrigger,
@@ -182,13 +183,30 @@ export function resultHasDetail(result: INativeLookupResult): boolean {
 //#region Styles
 
 const useStyles = makeStyles({
-  // Filled field matching native UCI (resting #F5F5F5, transparent border). The
-  // chip and the search input both sit on this surface.
+  // The field row: a flex line at the native 32px field height holding either the
+  // search Input or the value chip. It paints no surface itself. In the search
+  // state the filled-darker Input paints the grey field; in the valued state the
+  // chip branch merges valuedField for the same grey surface (two painted
+  // surfaces must not nest, so the recipe rides the branch, not this row).
   field: {
     display: "flex",
     alignItems: "center",
     columnGap: tokens.spacingHorizontalXS,
     minHeight: "32px",
+  },
+  // The valued (chip) state's filled surface, merged onto the field row on that
+  // branch only, so the chip and its clear button sit on the same resting grey
+  // field the search Input paints for itself. The XS horizontal padding plus the
+  // chip's own SNudge padding lands the chip text at the search Input's ~10px
+  // inset, so the empty-to-set toggle never shifts the text.
+  valuedField: {
+    paddingLeft: tokens.spacingHorizontalXS,
+    paddingRight: tokens.spacingHorizontalXS,
+    backgroundColor: tokens.colorNeutralBackground3,
+    border: `${tokens.strokeWidthThin} solid ${tokens.colorTransparentStroke}`,
+    borderRadius: tokens.borderRadiusMedium,
+    ":hover": { border: `${tokens.strokeWidthThin} solid ${tokens.colorTransparentStrokeInteractive}` },
+    ":focus-within": { border: `${tokens.strokeWidthThin} solid ${tokens.colorTransparentStrokeInteractive}` },
   },
   input: { flexGrow: 1, minWidth: 0 },
   fieldIcon: { color: tokens.colorNeutralForeground3, fontSize: "20px" },
@@ -669,6 +687,9 @@ const Body: React.FC<BodyProps> = (props) => {
         placeholder={props.placeholder}
         open={state.open}
         activeId={state.activeId}
+        // The resting field reads filled-darker to match the model-driven New Look
+        // field styling (measured live); the takeover keeps its own filled-lighter.
+        appearance="filled-darker"
         // In takeover mode the overlay owns the single search input and its focus;
         // the resting input behind it must not hold the ref or grab focus on mount.
         inputRef={takeover ? undefined : props.inputRef}
@@ -676,7 +697,7 @@ const Body: React.FC<BodyProps> = (props) => {
       />
     </div>
   ) : (
-    <div className={styles.field} tabIndex={-1}>
+    <div className={mergeClasses(styles.field, styles.valuedField)} tabIndex={-1}>
       <ValueChip styles={styles} valueDisplay={valueDisplay} interactive={interactive} onClear={props.onClear} />
       {interactive ? (
         <Button
@@ -818,10 +839,17 @@ const SearchInput: React.FC<{
   activeId: string | null;
   inputRef?: React.Ref<HTMLInputElement>;
   autoFocus: boolean;
-}> = ({ styles, query, onInput, onKeyDown, disabled, placeholder, open, activeId, inputRef, autoFocus }) => (
+  /**
+   * Input appearance. The resting field passes filled-darker to match the
+   * model-driven New Look field styling (measured live). The narrow-viewport
+   * takeover keeps its own separately measured filled-lighter (the default), so
+   * its search input is left untouched.
+   */
+  appearance?: InputProps["appearance"];
+}> = ({ styles, query, onInput, onKeyDown, disabled, placeholder, open, activeId, inputRef, autoFocus, appearance = "filled-lighter" }) => (
   <Input
     className={styles.input}
-    appearance="filled-lighter"
+    appearance={appearance}
     value={query}
     onChange={onInput}
     onKeyDown={onKeyDown}

@@ -22,6 +22,14 @@ data shape doesn't fit one native control. See the when-to-use table in the
 | Boolean (two options) | `BooleanField` | `SmartBooleanField` |
 | Rich text | deferred: a native-parity rich text editor is a project of its own, use the native control (full reasoning in internal/decisions.md) | n/a |
 
+Field controls render Fluent's filled field appearance by default (the grey
+fill with no visible border that the model-driven New Look uses for form
+fields, measured live against native controls), so a kit field reads native
+beside the platform's own. That includes the lookups' set-value states: the
+value and its clear button sit on the same grey surface, as the native
+lookup keeps its field when it holds a value. The look rides the shared
+Fluent components and theme tokens; there is nothing to configure.
+
 Two single-record lookups, by intent: `SmartLookup` is the simpler combobox
 (often the better data-entry experience), `SmartNativeLookup` replicates the
 native model-driven lookup's look and feel (the inline flyout with two-line rows

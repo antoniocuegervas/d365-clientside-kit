@@ -70,6 +70,16 @@ export const Empty: Story = {
   render: () => <LookupField label="Parent Account" {...make(null)} />,
 };
 export const Filled: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "A set value sits on the same filled grey field surface as the empty combobox, " +
+          "with the clear button on that surface, so toggling between empty and set never " +
+          "loses the field, matching the native lookup.",
+      },
+    },
+  },
   render: () => <LookupField label="Parent Account" {...make(accountRefs[0])} />,
 };
 export const Required: Story = {

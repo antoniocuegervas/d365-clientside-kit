@@ -60,13 +60,24 @@ const useStyles = makeStyles({
   fill: { width: "100%" },
   optionIcon: { marginRight: tokens.spacingHorizontalXS, verticalAlign: "middle" },
   // The selected value shown as the native lookup does: icon + the record name
-  // as a link, vertically aligned to sit where the input text would.
+  // as a link + the clear button, all on the same filled grey field surface the
+  // empty Combobox paints, so toggling between empty and set never loses the
+  // field. The MNudge horizontal padding matches the medium Combobox's inner
+  // text inset, so the value text keeps the empty state's horizontal position;
+  // border-box keeps the 32px min height honest with the border on top.
   selectedValue: {
     display: "flex",
     alignItems: "center",
     columnGap: tokens.spacingHorizontalXS,
-    paddingTop: tokens.spacingVerticalSNudge,
-    paddingBottom: tokens.spacingVerticalSNudge,
+    minHeight: "32px",
+    boxSizing: "border-box",
+    paddingLeft: tokens.spacingHorizontalMNudge,
+    paddingRight: tokens.spacingHorizontalMNudge,
+    backgroundColor: tokens.colorNeutralBackground3,
+    border: `${tokens.strokeWidthThin} solid ${tokens.colorTransparentStroke}`,
+    borderRadius: tokens.borderRadiusMedium,
+    ":hover": { border: `${tokens.strokeWidthThin} solid ${tokens.colorTransparentStrokeInteractive}` },
+    ":focus-within": { border: `${tokens.strokeWidthThin} solid ${tokens.colorTransparentStrokeInteractive}` },
   },
   selectedName: { flexGrow: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
 });
@@ -164,6 +175,9 @@ const Body: React.FC<
         <div className={styles.row}>
           <Input
             className={styles.combo}
+            // The browse-mode field carries the same filled New Look appearance as
+            // the inline combobox, so both lookup modes read native (measured live).
+            appearance="filled-darker"
             readOnly
             value={current?.name ?? ""}
             placeholder={readOnly ? undefined : placeholder ?? "Select a record"}
@@ -216,14 +230,14 @@ const Body: React.FC<
               />
             ) : null}
             <span className={styles.selectedName}>{valueDisplay}</span>
+            <Button
+              appearance="subtle"
+              size="small"
+              icon={<DismissRegular />}
+              aria-label={kitStrings().clearValue}
+              onClick={props.onClear}
+            />
           </div>
-          <Button
-            appearance="subtle"
-            size="small"
-            icon={<DismissRegular />}
-            aria-label={kitStrings().clearValue}
-            onClick={props.onClear}
-          />
         </div>
       </FieldShell>
     );
@@ -235,6 +249,8 @@ const Body: React.FC<
         <div className={styles.combo}>
           <Combobox
             className={styles.fill}
+            // filled-darker matches the model-driven New Look field styling (measured live).
+            appearance="filled-darker"
             value={text}
             selectedOptions={current ? [current.id] : []}
             onChange={props.onInput}

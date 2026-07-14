@@ -52,6 +52,8 @@ export class OptionSetField extends ObserverComponent<IOptionSetFieldProps> {
           // Fill the field like the Input/Lookup/Date controls, so every control
           // in a form section lines up at the same width (native UCI).
           style={{ width: "100%" }}
+          // filled-darker matches the model-driven New Look field styling (measured live).
+          appearance="filled-darker"
           value={currentLabel}
           selectedOptions={current === null ? [] : [String(current)]}
           onOptionSelect={this.handleSelect}

@@ -96,11 +96,21 @@ export const LocalizedCalendar: Story = {
   ),
 };
 export const NarrowContainer: Story = {
-  name: "Narrow container (360px)",
+  name: "Field-width container (360px)",
   render: () => (
-    // A fixed 360px wrapper shows the date-and-time row wrapping: the time picker
-    // drops onto its own line below the date when the container cannot fit both.
+    // A fixed 360px wrapper (a normal field width) shows the date and time on one
+    // line: the date takes the remaining width beside the compact time.
     <div style={{ width: 360 }}>
+      <DateTimeField label="Scheduled Start" includeTime {...make(sampleDate)} />
+    </div>
+  ),
+};
+export const Stacked: Story = {
+  name: "Stacked (narrow, 280px)",
+  render: () => (
+    // Below the readable threshold the fields stack onto their own full-width
+    // lines, so the time fills its line.
+    <div style={{ width: 280 }}>
       <DateTimeField label="Scheduled Start" includeTime {...make(sampleDate)} />
     </div>
   ),

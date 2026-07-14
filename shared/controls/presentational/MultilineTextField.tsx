@@ -41,6 +41,8 @@ export class MultilineTextField extends ObserverComponent<IMultilineTextFieldPro
           placeholder={readOnly ? undefined : placeholder ?? "---"}
           rows={rows ?? 3}
           resize="vertical"
+          // filled-darker matches the model-driven New Look field styling (measured live).
+          appearance="filled-darker"
         />
       </FieldShell>
     );

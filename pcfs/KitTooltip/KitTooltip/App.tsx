@@ -79,6 +79,8 @@ export class TooltipApp extends SmartComponent<ITooltipAppProps, ITooltipAppStat
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <Input
+          // filled-darker matches the New Look filled field, like every kit field control.
+          appearance="filled-darker"
           style={{ flexGrow: 1 }}
           value={this.props.value.value ?? ""}
           disabled={this.props.disabled}

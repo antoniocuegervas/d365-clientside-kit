@@ -38,7 +38,8 @@ export class TextField extends ObserverComponent<ITextFieldProps> {
           readOnly={readOnly}
           maxLength={maxLength}
           placeholder={readOnly ? undefined : placeholder ?? "---"}
-          appearance="outline"
+          // filled-darker matches the model-driven New Look field styling (measured live).
+          appearance="filled-darker"
         />
       </FieldShell>
     );

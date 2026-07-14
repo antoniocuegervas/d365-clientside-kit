@@ -47,6 +47,8 @@ export class MultiSelectOptionSetField extends ObserverComponent<IMultiSelectOpt
           // Fill the field like the Input/Lookup/Date controls, so every control
           // in a form section lines up at the same width (native UCI).
           style={{ width: "100%" }}
+          // filled-darker matches the model-driven New Look field styling (measured live).
+          appearance="filled-darker"
           value={display}
           selectedOptions={selected.map(String)}
           onOptionSelect={this.handleSelect}

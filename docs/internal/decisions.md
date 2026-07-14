@@ -2500,3 +2500,200 @@ Revisit triggers: a consumer wants LCID resolution for a registered language
 pattern reports the missing zero; a locale whose negative formats matter in
 practice; a fourth format member turning out to be org-level the way the
 first day of week did.
+
+## D-069, kit fields wear the New Look filled appearance: the platform's field styling is stock Fluent filled-darker, and the kit now defaults to it
+
+The owner reported kit fields rendering white beside the platform's grey
+form fields, against the kit's native-look claim. Two questions were settled
+with evidence before touching code. First, whether Dynamics 365 CE apps
+style differently from custom model-driven apps: they do not; the modern
+refreshed look ("New Look") is one platform experience for all model-driven
+apps, first-party included, documented as mandatory as of the 2026 wave 1
+release (users cannot revert, makers cannot switch an app back, only an
+admin environment setting remains). Second, what the grey actually is:
+measured live on a native text input beside the kit's controls on one form,
+the New Look field is Fluent v9's stock `filled-darker` input appearance,
+verbatim: rest background rgb(245,245,245) (colorNeutralBackground3), 1px
+borders present but fully transparent, hover and focus-within borders
+resolving colorTransparentStrokeInteractive (the appearance's own stylesheet
+rules, extracted from the page), the standard Fluent brand focus underline,
+4px radius, 32px height, 14px/400 type, placeholder rgb(112,112,112). No
+custom platform styling is involved, so the kit's divergence was exactly one
+axis: its fields rendered Fluent's implicit `outline` appearance (white,
+visibly bordered). Tokens, sizing, typography, and the focus affordance
+already matched because the components and the theme are shared.
+
+**The shipped shape.** Every presentational field control hardcodes
+`appearance="filled-darker"` on its Fluent input primitive: TextField and
+NumberField (Input, the currency field rides it), MultilineTextField
+(Textarea), OptionSetField and MultiSelectOptionSetField (Dropdown),
+LookupField (its inline Combobox and its dialog-mode browse Input),
+MultiLookupField (Combobox), DateTimeField (the compat DatePicker and
+TimePicker, both of which accept the appearance), and NativeLookupField's
+resting field input. BooleanField renders a Switch, where appearance does
+not apply. The native lookup's full-screen takeover keeps its separately
+measured filled-lighter search input. No new prop: the filled appearance is
+the platform's mandatory field look, and native parity is the kit's point.
+
+**The valued lookup states.** The appearance pass alone left a hole the
+owner caught on the org: both lookups LOST the grey surface the moment they
+held a value, where native keeps the same grey field with the value and its
+inline buttons sitting on it. The causes were structural, not token-level.
+LookupField's valued inline branch swaps the Combobox for a plain flex div
+(icon + name link) with the clear button beside it on an unpainted row, so
+nothing painted a surface. NativeLookupField's field row carried a comment
+claiming the grey while painting nothing; its empty state only looked right
+because the filled-darker search Input paints itself, and the valued chip
+rendered on the bare row. The fix gives the valued state the same recipe
+the filled Input carries (colorNeutralBackground3 rest, strokeWidthThin
+fully transparent border, borderRadiusMedium, 32px min height, hover and
+focus-within border resolving colorTransparentStrokeInteractive), applied
+where each control needs it: LookupField folds it into the valued branch's
+one surface div, now wrapping the value content AND the clear button so the
+button sits on the grey as native does, with the medium input's 10px text
+inset; NativeLookupField gains a valuedField rule merged onto the chip-state
+field row ONLY. Putting the recipe unconditionally on the field row was
+considered and rejected: the search state's Input already paints the
+surface, and two painted surfaces must not nest (double hover border,
+double focus chrome), so the recipe rides the branch and the field row's
+comment now states which branch paints what. The chip keeps its own
+focus-within outline box, the native focused-chip affordance, inside the
+new surface, and the takeover and flyout are untouched.
+
+**Deliberately untouched.** SearchBar (grid and command chrome, not a form
+field; its native reference, the list page's quick find, is unmeasured and
+it stays outline until that reference is captured). DataGrid, Pagination,
+Stepper, FieldShell's label and read-only text, and the takeover surface.
+
+**Alternatives rejected.** An appearance prop with a filled default (no
+consumer asked for outline, and the platform look is mandatory; a prop can
+be added the day a non-model-driven consumer wants it). Custom css over the
+outline appearance (the filled appearance already carries the correct rest,
+hover, focus, and disabled recipes from Fluent itself; restyling outline
+would re-implement what the component ships).
+
+**Verification.** Native reference measured live on the dev org (computed
+styles plus extracted hover and focus stylesheet rules). After redeploying
+the webresources and all five controls (manifest bumps, the platform serves
+cached bundles otherwise), the kit's fields were re-measured on the deployed
+bundle across five field types (text, number, choice dropdown, date, lookup
+combobox): every one renders rgb(245,245,245), 1px fully transparent
+borders, 4px radius, 32px height, matching the native recipe value for
+value. A unit pin renders the text field beside bare filled and outline
+inputs and asserts the filled-only atomic classes are present, without
+pinning hashed class names. Full gate green at the tip; the three
+field-shipping PCF projects typecheck clean.
+
+The valued lookup states were verified the same way, on the master-detail
+webresource app against the deployed bundles (webresources redeployed,
+KitNativeLookup reimported at 1.2.6). Pre-fix, both valued surfaces
+measured fully transparent (background rgba(0,0,0,0), no border, no
+radius). Post-fix, both measure the recipe verbatim: rgb(245,245,245)
+background, 1px fully transparent border, 4px radius, 32px min height,
+with the hover and focus-within rules extracted from the deployed
+stylesheet resolving colorTransparentStrokeInteractive, the clear button
+inside the surface, and the value text within 2px of the empty state's
+input text (no shift on the empty-to-set toggle). Rung note: that is the
+webresource tier measured end to end; the KitNativeLookup PCF ships the
+identical shared source and its registered version was confirmed, but its
+on-form rendering was not re-measured this pass (record forms mount no
+field controls in an unfronted tab).
+
+Revisit trigger: the SearchBar's native quick-find reference gets measured
+(then it follows); a platform wave moves the field appearance again (the
+next fidelity re-verification pass catches it, the README's maintained-claim
+cadence); a consumer embedding the kit outside a model-driven page asks for
+the outline look back (then the appearance becomes a prop with the filled
+default).
+
+## D-070, four datetime and New Look follow-ups the owner caught on the contact form: the tooltip input, the empty time picker, the date/time layout, and the mobile time list overlay
+
+After the appearance and valued-lookup work landed, the owner found more
+rough spots on the sample contact form (three New Look compliance gaps and,
+once those shipped, a mobile layering bug in the time list). All four fixes
+are presentational-tier and ride both the webresource and PCF hosts.
+
+**The tooltip input.** KitTooltip's smart body renders its own Fluent Input
+(not the presentational TextField, because the PCF supplies the field label
+and the hint button chrome itself), so it never saw the appearance sweep and
+rendered Fluent's white outline. It now passes appearance="filled-darker"
+like every kit field. This is the same New Look decision applied to a control
+that composes its own input rather than reusing TextField.
+
+**The empty time picker.** DateTimeField disabled the time picker whenever
+the field held no date value, and a disabled filled field is transparent, so
+an empty datetime showed a grey date beside a white time (the date is never
+disabled that way). The owner's call: the time is always an editable grey
+field, native parity, and picking a time with no date defaults the date to
+today (handleTimeChange), so the two halves always read the same. The disable
+now tracks only the field's own disabled and readOnly state. Styling the
+disabled state to merely look grey was rejected: a disabled field that reads
+as enabled misleads.
+
+**The date/time layout.** The row wrapped the time onto its own line even at
+a normal field width, and the wrapped time did not fill the line. The date
+and time now share one line by default and stack onto their own full-width
+lines only when the container is too narrow for the date to stay readable
+beside the time, a MeasuredWidth-driven switch (the pure decision,
+dateTimeStacked, is unit-pinned; the container width, not the viewport, is
+what matters in an embedded PCF). The forcing constraint is the compat
+TimePicker: it is a Combobox, an inline-grid whose input column is min-content
+sized with a wide default min-width, so by default it will neither fill a wide
+line nor shrink to share a narrow one. Making it a block grid with a
+minmax(0, 1fr) input column and the min-widths relaxed down through the inner
+input (a Griffel "& input" rule) lets it fill its wrapper when stacked and
+stay compact beside the date. The exact CSS chain was found by live
+measurement against the real TimePicker in Storybook; pure flex-wrap was
+rejected because it cannot make the wrapped time fill the line, and fighting
+deeper into the Combobox to shrink the time below its roughly 207px floor was
+rejected as brittle (207px is readable). The threshold (340px) is tuned so
+the date keeps a readable width beside the time before the pair stacks.
+
+**The mobile time list overlay.** Once the empty time picker became openable
+(the enable fix above), the owner hit a layering bug at phone width: opening
+the time list left the form behind it, and the timeline pane painted over the
+bottom of the list. The list is mounted inside the themed form tree (mountNode,
+the D-058-era fix for the transparent portal, kept because in-place anchoring
+had misplaced the combobox listbox), and there it inherited the default
+stacking (z-index auto) and, with no explicit positioning, mis-anchored on a
+narrow form (measured left minus 6, width 160 against a 207 field). The date
+picker beside it does not have the bug because its own popup (inlinePopup) gets
+z-index 1 and a correct anchor. The fix keeps mountNode (so the theme and the
+desktop placement are untouched) and adds to the TimePicker an explicit
+positioning (below, align start, matchTargetSize width) plus a listbox slot
+that lifts it (z-index 1000) and caps its height (40vh) so a long list scrolls
+instead of running off a phone screen. Switching the time list to inlinePopup
+to mirror the date picker was reconsidered and again set aside: the recorded
+reason it was rejected before (misplaced combobox listbox in the form host)
+still stands, and the surgical positioning plus z-index keeps the desktop path
+byte-identical in intent.
+
+**Verification.** Measured live on the dev org against the redeployed bundles
+(webresources; KitTooltip reimported at 1.2.5, KitDatePicker at 1.2.7, under
+the shared fields solution). The tooltip input measures rgb(245,245,245).
+The empty datetime's time picker is now enabled and rgb(245,245,245) (it was
+disabled and fully transparent before), and its valued state stays grey. The
+datetime field renders the date and time on one line at the 377px form cell
+in both the valued and empty states (it was two lines before). Shrinking the
+field container to 300px stacks them onto full-width lines with the time
+filling its own line, driven by the live ResizeObserver on the mounted form.
+The mobile time list was verified at a 400px emulated viewport: the open list
+now measures z-index 1000, matches the field width (207px), anchors to the
+field (flipping above when the field sits low), and a hit test at its center
+returns one of its own options as the topmost element, so the timeline no
+longer paints over it. Desktop was not re-measured this pass (the session's
+browser stayed pinned to the emulated 400px viewport), but the positioning is
+width-agnostic and the desktop mount path (mountNode) is unchanged, and on
+desktop the timeline sits in a side column where the overlap never arose. A
+unit pin covers the stacking decision across the boundary. Full gate green;
+KitTooltip and KitDatePicker typecheck clean.
+
+Revisit trigger: a wide (webresource) datetime consumer appears and wants the
+side-by-side time wider than its compact floor (then the row mode's time
+sizing is revisited); a Fluent version changes the compat TimePicker's
+internal grid structure (the block-grid override is pinned to today's
+Combobox internals, and the next fidelity pass catches a drift); the desktop
+time list wants its own live re-measure once a non-emulated viewport is in
+hand; the surgical z-index plus positioning ever proves insufficient in some
+host (then the inlinePopup path is reopened, with explicit positioning to
+cure the historical misplacement).

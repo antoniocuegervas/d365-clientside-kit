@@ -119,6 +119,8 @@ const Body: React.FC<
         ) : null}
         {interactive ? (
           <Combobox
+            // filled-darker matches the model-driven New Look field styling (measured live).
+            appearance="filled-darker"
             value={state.searchText}
             selectedOptions={[]}
             onChange={props.onInput}

@@ -176,6 +176,8 @@ export class NumberField extends ObserverComponent<INumberFieldProps, INumberFie
           readOnly={readOnly}
           placeholder={readOnly ? undefined : "---"}
           inputMode="decimal"
+          // filled-darker matches the model-driven New Look field styling (measured live).
+          appearance="filled-darker"
         />
       </FieldShell>
     );
