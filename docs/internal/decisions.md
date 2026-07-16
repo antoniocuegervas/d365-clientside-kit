@@ -2766,3 +2766,46 @@ Revisit trigger: the first npm package publish moves the presentational tier
 onto its own strict-semver line, and this milestone-marker policy then governs
 only the solution version; connecting the Package pipeline to a runner closes
 the "built locally, not by CI" caveat.
+
+## D-072, the quality gate stays local by choice: the pipeline file is a reference for forks, and the docs now say so
+
+Context: since the v1.2.0 close-out the repo carried an open decision with
+three exits: connect azure-pipelines.yml to Azure DevOps, port its Package
+stage to GitHub Actions, or soften the docs' CI claims. Every cold evaluation
+run of the public tree (six of six, recorded alongside the public agent-layer
+work) flagged the same gap the same way: the docs described a two-stage CI in
+the present tense, only the Storybook Pages workflow actually runs, and
+nothing gates a pull request server-side.
+
+The decision (owner, 2026-07-16): soften the claims; connect nothing. The
+kit's audience builds enterprise-internal webresources and PCF controls,
+consumed as a template the consumer owns, with every dependency pinned exact
+and a bare local `npm run verify` as the merge bar. In that model a hosted
+pipeline proves little the local gate does not already prove, and it carries
+a real maintenance tax of its own: platform-specific binary dependencies are
+the classic failure, and the owner hit exactly that class attempting the gate
+on a second same-OS machine (binary dependency failures on an AMD Windows
+laptop). Years of shipping this class of component from a lockfile with exact
+pins, without hosted CI, sit behind the call; the kit is not a public-facing
+SPA product, and the rigor budget goes to the gate itself and the live-org
+verification discipline instead.
+
+What changed. docs/deployment.md's CI section states the posture first (the
+gate is local by choice, the Storybook Pages workflow is the one live
+automation) and reframes azure-pipelines.yml as a committed reference
+definition for forks that want hosted CI: executable from the repo, connected
+to no service here, never run. docs/adding-a-pcf.md replaces "CI builds every
+pcfs project" with the honest local instruction (build touched controls
+yourself; the reference pipeline exists for forks). azure-pipelines.yml
+carries the same statement in its header, and its two root installs move from
+npm ci to npm install, matching the recorded lockfile story (the
+Windows-generated lockfile omits Linux-only optional binaries; strict npm ci
+rejects that on a Linux runner, as the Storybook workflow's comment records),
+so the reference is consistent with the repo's own findings; the per-PCF
+npm ci steps stay (each PCF's own lockfile installs in its own context). The
+agent-facing skills' CI-reality notes now state the ruling instead of an open
+decision.
+
+Revisit trigger: external contributions arrive in volume (server-side gating
+starts protecting something real), or a published npm package ships (a
+package earns a pipeline of its own).

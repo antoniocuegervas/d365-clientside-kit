@@ -1,11 +1,17 @@
-# CI for the D365 client-side UI kit, two stages:
+# Reference pipeline for the D365 client-side UI kit. This repo's quality
+# gate is deliberately local (`npm run verify`; see docs/deployment.md, "CI"),
+# so this definition is connected to no service here: it is committed for
+# forks that want hosted CI. Two stages:
 #
 # - Verify mirrors `npm run verify` locally; PCF builds run when shared/
-#   changed (or on manual runs), since PCFs consume shared/ as source.
+#   changed (or on manual runs), since PCFs consume shared/ as source. The
+#   root install is npm install, not npm ci: the Windows-generated lockfile
+#   omits Linux-only optional binaries, and strict npm ci rejects that gap on
+#   a Linux runner (.github/workflows/storybook.yml records the same reason).
 # - Package builds the release artifact: the managed solution zip from
 #   deployment/solution (the five PCF controls plus the shell webresources),
-#   from the repo alone. No org connection and no secrets anywhere in CI;
-#   importing the zip stays a human step on a disposable org.
+#   from the repo alone. No org connection and no secrets anywhere in the
+#   pipeline; importing the zip stays a human step on a disposable org.
 
 trigger:
   branches:
@@ -28,7 +34,7 @@ stages:
               versionSpec: "24.x" # same line the engines field and .nvmrc pin
             displayName: Use Node 24
 
-          - script: npm ci
+          - script: npm install
             displayName: Install main kit dependencies
 
           - script: npm run check:pcf-floor
@@ -95,7 +101,7 @@ stages:
               versionSpec: "24.x"
             displayName: Use Node 24
 
-          - script: npm ci
+          - script: npm install
             displayName: Install main kit dependencies
 
           - script: npm run build

@@ -419,8 +419,10 @@ decision log records the round in full).**
 - Reviewer claims checked and found wrong were recorded so they are not
   re-raised (each with the reasoning that killed it).
 
-The standing open item of this class: the CI claim (the committed pipeline
-yaml runs on no connected service; only the Storybook Pages workflow runs).
+A closed item of this class: the CI claim (the committed pipeline yaml runs
+on no connected service) was resolved by rescoping the docs to the practice:
+the gate is local by choice and the yaml is a reference for forks (the
+decision log records the ruling).
 
 **Cost.** The audit itself is local and free; exercising org-touching claims
 inherits those claims' costs. Done honestly it is days, not hours. Results

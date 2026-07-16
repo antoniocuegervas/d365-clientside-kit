@@ -332,11 +332,10 @@ rejection shapes are documented as host-coupled". Second, reviewer claims
 that failed verification were recorded too, so the next round does not
 re-raise them. Either direction, the check gets written down.
 
-One live gap to respect: the committed `azure-pipelines.yml` runs on no
-connected CI (only the GitHub Actions Storybook-to-Pages workflow runs), so
-deployment.md's two-stage CI section describes machinery that is executable
-from the repo but has never been CI-executed. Do not amplify CI claims in any
-doc edit.
+The CI posture is settled and recorded: the gate is local by choice,
+`azure-pipelines.yml` is a reference definition for forks (connected to no
+service, never run), and deployment.md's CI section states exactly that. Do
+not amplify CI claims past it in any doc edit.
 
 Rule of thumb: write the claim you can point at evidence for today, label the
 rest, and prefer rescoping a claim to defending it.

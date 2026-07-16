@@ -215,8 +215,10 @@ Do not paper over these in docs or reviews; they are recorded limits.
   above) and everyone else's console-warned cold fallback.
 - **The CI story is executable-from-repo, not CI-executed** (the committed
   azure-pipelines.yml is connected to no service; only the Storybook Pages
-  workflow runs). Noted here because reviewers read the docs' CI claims as
-  stronger than reality; the decision log carries the standing gap.
+  workflow runs). This is deliberate and recorded: the gate is local by
+  choice, and the pipeline file is a reference for forks that want hosted CI
+  (the decision log records the ruling; docs/deployment.md's CI section
+  states it).
 
 ## Designed extension seams (for planners)
 

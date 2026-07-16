@@ -275,9 +275,10 @@ the `managed-solution` artifact).
 **Reality note:** that pipeline is connected to no service; the only live CI
 is `.github/workflows/storybook.yml` (push to master + manual dispatch,
 builds Storybook, deploys to GitHub Pages, `npm install` not `npm ci` because
-the Windows-generated lockfile omits the Linux-only native subtree). The
-decision log carries the standing gap. Do not describe the two-stage
-pipeline as running.
+the Windows-generated lockfile omits the Linux-only native subtree). This is
+deliberate: the gate is local by choice and the pipeline file is a reference
+for forks that want hosted CI (the decision log records the ruling). Do not
+describe the two-stage pipeline as running.
 
 ### 13. Deployment templates and render rules
 

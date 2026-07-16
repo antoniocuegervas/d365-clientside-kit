@@ -509,18 +509,34 @@ consumption begins: a published package (the roadmap holds a direction for
 packaging the presentational tier) versions its own line under real semver
 from its first release.
 
-The repo's own pipeline (below) covers the build, verify, and package half of
-this; the import promotion half lives with your fork, since it is bound to
-your environments and connections.
+The committed pipeline definition (below) covers the build, verify, and
+package half of this; the import promotion half lives with your fork, since it
+is bound to your environments and connections.
 
 ## CI
 
-`azure-pipelines.yml` runs two stages, neither holding any org credential:
+The kit's quality gate is deliberately local: `npm run verify`, run bare and
+judged by its own exit code, is the bar for any merge. For this kit's audience
+(enterprise-internal webresources and PCF controls, consumed as a template you
+own, every dependency pinned exact) a hosted pipeline proves little the local
+gate does not already prove, and it adds a real maintenance tax of its own:
+platform-specific binary dependencies are the classic failure, and this
+repo's own lockfile story (below) is an instance. So this repo does not run
+one. The one live automation is `.github/workflows/storybook.yml`, which
+builds Storybook and publishes it to GitHub Pages on push to master.
+
+`azure-pipelines.yml` is a reference pipeline definition, committed for forks
+that do want hosted CI. It is executable from the repo (no org credential, no
+secrets anywhere in it) but it is connected to no service here and has never
+had a real run. Its two stages:
 
 - **Verify** (ubuntu) mirrors the local gate (floor check → lint → typecheck →
   build → unit → smoke → storybook) plus conditional production PCF builds when
   `shared/`, `pcfs/`, or the root dependencies changed, and publishes `dist/`
-  as the `webresources` artifact.
+  as the `webresources` artifact. The root install is `npm install`, not
+  `npm ci`: the Windows-generated lockfile omits the Linux-only optional
+  binaries, and strict `npm ci` rejects that gap on a Linux runner (the
+  Storybook workflow records the same reason).
 - **Package** (windows, where the PowerApps MSBuild targets are exercised and
   the artifact matches a local Release build) rebuilds `dist/` and runs
   `dotnet build deployment/solution -c Release`, publishing the managed zip as

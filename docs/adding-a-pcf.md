@@ -113,8 +113,12 @@ npm install
 npm run build      # pcf-scripts build → out/controls
 ```
 
-CI builds every `pcfs/*` project whenever `shared/` changes, so a shared
-change that breaks a PCF fails fast.
+The local gate does not compile the PCF projects, so build the touched
+controls yourself after a `shared/` change: a shared change can pass
+`npm run verify` and still break a PCF at its own build. (The reference
+pipeline in `azure-pipelines.yml` builds every `pcfs/*` project whenever
+`shared/` changes for exactly this reason, but it is not connected to a
+service in this repo; see docs/deployment.md, "CI".)
 
 ## 4. Deploy
 
@@ -127,7 +131,7 @@ five controls already have a committed wrapper, `deployment/solution` (it also
 stages the shell webresources; see deployment.md), so for THEM use that. For
 your own control set the wrapper is a one-time setup. Worked example, start to
 finish, run from a NEW folder outside the PCF projects (for example
-`pcfs/_myDeploy/`, the underscore keeps the floor checker and CI out of it;
+`pcfs/_myDeploy/`, the underscore keeps the repo's checkers out of it;
 scratch wrappers under `pcfs/_*` stay untracked):
 
 ```powershell

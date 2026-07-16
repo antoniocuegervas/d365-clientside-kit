@@ -144,10 +144,10 @@ means tests were deleted or skipped; treat that as a finding, not a pass.
   shared code a PCF consumes, build the affected PCFs yourself.
 - **It never touches an org.** Rung 6 is manual by design (the repo carries no
   org secret).
-- **CI reality gap (standing):** the committed `azure-pipelines.yml` describes
-  a two-stage CI but is connected to no service; only the GitHub Actions
-  Storybook-to-Pages workflow actually executes. Executable-from-repo, not
-  CI-executed; keep saying it that way.
+- **CI posture (deliberate):** the quality gate is local by choice;
+  `azure-pipelines.yml` is a reference definition for forks, connected to no
+  service and never run; only the GitHub Actions Storybook-to-Pages workflow
+  executes. The docs state it; keep saying it that way.
 
 ## 3. Test authoring rules (docs/testing.md)
 

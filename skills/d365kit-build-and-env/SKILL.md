@@ -209,11 +209,13 @@ Verify stage conditionally builds every PCF when `shared/`, `pcfs/`,
 `package.json`, or `package-lock.json` changed (always on manual runs), and
 inside each project it runs `npm ci` then
 `npm run build -- --buildMode production` (`npm ci` is fine THERE because
-each PCF's own lockfile installs consistently in that context). Reality
-check: that pipeline is executable from the repo but connected to no service;
-the only CI that actually runs is `.github/workflows/storybook.yml`
-(Storybook build to GitHub Pages, on push to master). This is a recorded,
-known gap (the decision log carries it).
+each PCF's own lockfile installs consistently in that context; the root
+installs are `npm install` for the recorded lockfile reason). Reality check:
+that pipeline is executable from the repo but connected to no service; the
+only CI that actually runs is `.github/workflows/storybook.yml` (Storybook
+build to GitHub Pages, on push to master). This is deliberate and recorded:
+the gate is local by choice and the pipeline file is a reference for forks
+(the decision log records the ruling).
 
 ## The .NET side: the solution zip
 
