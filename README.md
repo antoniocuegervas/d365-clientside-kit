@@ -363,7 +363,17 @@ theme tokens against live UCI, roughly twice a year.
 
 ## Contributing and reuse
 
-This repo is meant to be built on. To start your own D365 client-side project,
+This repo is meant to be built on, and the template model is deliberate, not
+a missing feature. The kit's audience builds internal enterprise software on
+Dynamics 365: code that lives inside a client's org, where owning every line
+end to end beats depending on a package that updates on someone else's
+schedule. You take the kit as a starting point (the controls, the samples,
+the guides, the approach) and from there it is your codebase: you control it,
+you extend it, and nothing upstream can change it under you. That also
+reframes the single-maintainer question a careful reader will ask of this
+repo: a dependency needs its author; a starting point you own does not.
+
+To start your own D365 client-side project,
 use it as a template (the "Use this template" button, or copy the repo) and own
 your copy from there; a template copy has no upstream link, so it will not pull
 kit updates automatically. To contribute a fix to the kit itself, fork and open

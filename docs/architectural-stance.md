@@ -19,6 +19,15 @@ not two days of effect-dependency archaeology.
 | Class components, explicit lifecycle | PCF roots and CRM handlers are already class-shaped |
 | Smart controls absorb metadata wiring | ViewModels stay thin for the 99%-native case |
 
+This stance was not arrived at on paper. The pattern ran for about six years
+in production Dynamics implementations, maintained by exactly the mixed,
+intermittent teams described above. The strongest evidence is the
+counterexample: one sustained departure into hooks-first React, on the same
+kind of work and staffed with genuinely senior D365 developers, spent about
+two years accumulating friction before being recognized as a mistake and
+unwound. The rules below are what that experience distilled into, which is
+why reviewer taste alone does not reopen them.
+
 ## Legible to intermittent intelligences, human and model
 
 The point above (that fluency with hooks fades, and you pay to relearn it) is

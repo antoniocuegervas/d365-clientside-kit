@@ -97,6 +97,15 @@ style every virtual root needs, because the platform mounts the control in a
 flex container where a plain div shrinks to its content and the field renders
 narrower than the native ones beside it.
 
+A note on lint scope, for anyone auditing the guardrails: the repo's root
+ESLint config deliberately leaves `pcfs/` out (scaffolded projects carry
+their own generated lint wiring), and that is not a governance gap. A PCF
+root is host glue: it must use the kit's context adapter, and it may read
+host APIs where no adapter path exists. The rails for this tier are the
+platform-floor checker (the first step of `npm run verify`) and the thin-root
+patterns above; the code with logic lives in `shared/`, where the layer lint
+governs.
+
 ## 3. Build
 
 ```powershell

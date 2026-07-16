@@ -199,12 +199,20 @@ that deliberately, to be recorded when picked up).
 
 ### Why later
 
-The release-engineering half it leaned on now exists (versioned artifacts
-build from the repo and CI publishes the managed zip, shipped with v1.2.0);
-what remains is the npm side, a publish step and the package boundary, which
-wants deciding calmly (what of the reactivity surface is public API, how the
-theme tokens ship). Picked up after v1.2.0; a decision entry records the
-boundary when it lands.
+Conditional, not scheduled; it may end up a separate product or nothing. The
+presentational-only package needs no CRM plumbing, but the same spike that
+motivated it also showed the ceiling for anything smarter: the code-apps
+SDK's data contracts are not equivalent to the model-driven host's (the
+metadata read stops short of the full store), so metadata-aware components in
+a code app would ride the kit's own cds client, and that means introducing
+the kit's own authentication into the app. That does not ship without a
+proper security review, and none is scheduled. If the direction ever
+proceeds, the shape is still open: a presentational-only package, a
+presentational-plus-smart package producing an importable artifact for code
+apps, or a code-apps adapter in the kit. The boundary questions from the
+earlier pass stand (what of the reactivity surface is public API, how the
+theme tokens ship); a decision entry records the shape if and when it is
+picked up.
 
 ## Smaller follow-ups (carried out of the 2026-07 hardening round)
 

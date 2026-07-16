@@ -1733,6 +1733,16 @@ briefly on the wave branch and was removed by a reset before anything was
 pushed, so no published history was rewritten. Revisit triggers live with the
 parked entry in the roadmap.
 
+*(2026-07-16 addendum: the npm direction stays conditional, not planned. The
+spike's deeper lesson for any code-app shape: the SDK's data contracts are not
+equivalent to the model-driven host's, so full fidelity would ride the kit's
+own cds client, which would introduce the kit's own authentication into a code
+app; that does not ship without a proper security review, and none is
+scheduled. If it ever proceeds, the shape is undecided between a
+presentational (or presentational plus smart) npm artifact for code-apps
+import and a code-apps adapter in the kit. The roadmap entry carries the same
+status.)*
+
 ## D-061, the release is executable from the repo: the committed solution project and the packaging stage
 
 The ALM block D-055 deferred ("a committed wrapper for the five PCFs plus
