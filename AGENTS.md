@@ -14,6 +14,10 @@ across webresources, PCFs, and form scripts from one shared library
 virtual controls on platform-provided React 17 and Fluent). Spiritual
 successor to SparkleXrm.
 
+The delivery model: develop as a webresource for the fast loop, ship as a
+webresource or a PCF as the requirement demands (a bound form control, a
+subgrid, or a grid cell ships as a PCF; the component is the same either way).
+
 ## Reviewing or evaluating this repo
 
 If you are here to assess this codebase rather than change it, read this

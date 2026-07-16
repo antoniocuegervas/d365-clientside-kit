@@ -173,6 +173,11 @@ portal (make.powerapps.com):
    the client cached the form definition: see the IndexedDB note in
    [gotchas.md](gotchas.md).
 
+One placement rule: the smart-tier PCFs target model-driven FORMS. Custom
+pages and canvas apps do not populate the form-context surfaces those controls
+read (host entity, org URL), so there they render a setup message rather than
+the control.
+
 Either deploy path, **bump the manifest `<control version>` on every redeploy** or the
 platform keeps serving the cached old bundle (the import succeeds and publishes,
 but the form runs the previous build). The bar for a form control is "renders on a

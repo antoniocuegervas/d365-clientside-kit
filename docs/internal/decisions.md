@@ -2884,3 +2884,34 @@ Revisit trigger: an intermediary outside the presentational tree ever
 re-exports a CRM tier (the gate would then want a transitive walk, and
 Storybook-zero-mocks would already be failing), or the presentational scan roots
 move in eslint.config.mjs (keep the gate's roots in step).
+
+## D-074, the readme is the front door: it sells and links, and the essays live in their own homes
+
+Cold evaluators kept reading the kit as webresource-first: the delivery model
+sat inside a collapsed README block, and prompt-friendly-development.md never
+mentioned the PCF hand-off. The owner ruled the earlier folds and collapses
+insufficient and mandated a structural fix.
+
+Decided: the README is a two-to-three-minute front door (sell, orient, link;
+427 -> 286 lines), and every essay lives whole in its own home. The delivery
+model ("Develop as a webresource, ship as webresource or PCF") is a headline
+section; the four comparison essays moved unshortened to the new
+docs/how-it-compares.md; the layer table stays in architecture.md, column
+security in gotchas.md, the Fiddler and platform-floor detail in
+deployment.md; the smart-PCF forms-only caveat moved to adding-a-pcf.md (the
+README block had been its only public home). prompt-friendly-development.md
+and AGENTS.md now state the delivery model, and the agent workflow ends in
+the PCF hand-off with the counterparty pair as the worked example. No public
+claim changed strength in the move (the v8 best-effort label, the
+maintained-fidelity paragraph, and the boundary-enforcement wording carried
+forward verbatim).
+
+Verification: full verify green at the tip (44 suites, 581 unit, 12 smoke),
+sweeps clean. A cold-persona run on a clean clone stated the delivery model
+correctly from the README alone (the misread is fixed), found every in-repo
+link resolving, and ran the install and gate green from cold. Accepted
+residual: moderate density-fatigue at skim depth; cutting further would
+trade against approved positioning text.
+
+Revisit trigger: a cold evaluation again reads webresource-first, or the
+README regrows past the front-door job.

@@ -39,7 +39,7 @@ its home from the map below, then link from everywhere else it matters.
 
 | Doc | Its one job, and what belongs there |
 |---|---|
-| `README.md` | The front door and the positioning home: why the kit exists, when to reach for it (and when not), how it relates to canvas apps, custom pages, and code apps, provenance, getting started, Status. Public claims start here; details live in the owning doc below. |
+| `README.md` | The front door: what the kit is, the delivery model (develop as a webresource, ship as webresource or PCF), when to reach for it (and when not), getting started, provenance, Status. It sells, orients, and links in two to three minutes; public claims start here, details live in the owning doc below. |
 | `CONTRIBUTING.md` | The two ways to engage (template copy vs fork), what is in and out of scope, and the authoring-style rules for contributors and their coding agents. |
 | `AGENTS.md` | The agent guide: the load-bearing constraints and the pointers, for coding agents working in the repo. |
 | `docs/adding-a-webresource-app.md` | Ship your first app: folder, registration, Storybook scenario, launch, RecordReady, rules of the road. |
@@ -50,7 +50,8 @@ its home from the map below, then link from everywhere else it matters.
 | `docs/glossary.md` | The five kit terms (presentational, smart, ViewModel, Observable, observe), defined once. |
 | `docs/architecture.md` | The three-layer contract, the adapter diagram, boot flow, the one-bundle decision, host parity. |
 | `docs/architectural-stance.md` | Why MVVM + Observables + class components, the rules, and the note to future reviewers. The anti-modernize doc. |
-| `docs/prompt-friendly-development.md` | The agent workflow: which sample to few-shot per requirement shape, the patterns agents default to, the prompt template. |
+| `docs/how-it-compares.md` | The comparison home: canvas apps, custom pages, code apps, the UX-parity judgement call, and when the kit is the wrong tool. |
+| `docs/prompt-friendly-development.md` | The agent workflow: which sample to few-shot per requirement shape, the patterns agents default to, the prompt templates, and the webresource-to-PCF hand-off. |
 | `docs/testing.md` | The test layers, commands, shared mocks (reuse, don't reinvent), conventions, the manual sandbox checklist. |
 | `docs/deployment.md` | The operational book: artifacts, SPKL, hosting the shell, the Fiddler inner loop, cache busting, PCF deploy and the platform-library floor, the ALM chapter, the versioning policy, CI. |
 | `docs/gotchas.md` | Sharp edges not obvious from the type signatures, symptom-first. |
@@ -298,7 +299,7 @@ neither):
    holds what is verified, live-verified, and accepted untested.)
 2. Is unproven capability labeled inside the claim itself? Model: the v8 path
    "has not yet been exercised against a live 8.x org; treat it as
-   best-effort until then" (README, Delivery targets).
+   best-effort until then" (README, the delivery-model section).
 3. Does a decaying claim state its re-verification cadence? The
    maintained-claim pattern, README Status verbatim: "Native fidelity is a
    maintained claim, not a static property" and the part to revisit is "the

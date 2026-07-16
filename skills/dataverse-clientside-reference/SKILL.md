@@ -48,8 +48,8 @@ SDK and its connector ecosystem).
 model-driven app. This kit builds INSIDE it. The one line nothing build-beside
 crosses: being a bound control inside a model-driven form (a subgrid, a form
 field, a grid cell). A custom page can render near the form; a PCF from this
-kit can BE the field or the subgrid. That is the kit's whole point (README.md,
-sections "How this relates to canvas apps and custom pages" and "Code apps").
+kit can BE the field or the subgrid. That is the kit's whole point
+(docs/how-it-compares.md, the comparison home).
 
 **In this kit.** The kit ships webresource apps, form/ribbon/grid scripts, and
 PCF controls, all inside the model-driven app. A complete code-app context
@@ -60,14 +60,14 @@ log records the parking and the findings; the surviving build-beside direction
 is packaging the presentational tier as an npm package
 (docs/internal/roadmap.md).
 
-**Repo home.** README.md essays; docs/internal/decisions.md; the roadmap's
-parked entries.
+**Repo home.** docs/how-it-compares.md; docs/internal/decisions.md; the
+roadmap's parked entries.
 
 **The trap.** Reflexively proposing "use a canvas app / custom page" for a
 requirement that lives in the grid or on the field. Also its inverse: the kit's
 smart-tier PCFs target model-driven FORMS; on custom pages and canvas apps the
 form-context surfaces they read do not exist, so there they render a setup
-message, by design (README.md, "Multiple ways to ship the same component").
+message, by design (docs/adding-a-pcf.md, "Bind it in the form designer").
 
 ## 2. Webresources: org-hosted pages and how they get Xrm
 
