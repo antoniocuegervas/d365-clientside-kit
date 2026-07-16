@@ -2,7 +2,8 @@
 
 Human-facing record of non-obvious choices made during the rebuild (section 16.2 ambiguity
 policy). Newest entries at the bottom. Each entry: what was decided, why, and what
-would make us revisit it.
+would make us revisit it. Entries are records, not essays: the decision, the reason,
+one line of verification, the trigger, and stop.
 
 ## D-001, TypeScript pinned to 5.9.x, not 6.x
 
@@ -44,24 +45,19 @@ This keeps the root flat config simple and avoids fighting generated configs.
 ## D-007, One OData-based MetadataService for all three hosts
 
 **REVERSED by D-057 (2026-07-03), do not build on this entry.** The owner
-recorded this decision as a mistake made by the agent on wrong information it
-produced about the native API's completeness, and the "one normalized shape"
-argument below inverted a core kit goal: APIs stay close to the standard so
-people trained on the standard client API can use the kit without learning a
-bespoke model. The metadata surface now mirrors the standard
-`getEntityMetadata` (native pass-through on modern and PCF, the same shape
-synthesized from OData on pre-v9), and `IAttributeMetadata` is retired. The
-spec's per-host allowance, which this entry deviated from, was the right
-call. Kept below as the historical record.
+recorded it as an agent mistake on wrong information about the native API's
+completeness, and the "one normalized shape" argument inverted a core kit goal:
+APIs stay close to the standard so people trained on the standard client API
+need not learn a bespoke model. The metadata surface now mirrors the standard
+`getEntityMetadata` and `IAttributeMetadata` is retired (see D-057).
 
-The spec allows per-host metadata access (Xrm.Utility.getEntityMetadata,
-PCF context.utils.getEntityMetadata, raw OData on legacy). We instead read
-metadata uniformly through the same-origin OData metadata endpoints via
-cds-client, normalized once into IAttributeMetadata, cached per session.
-One implementation + one normalizer + full testability with a fake XHR beats
-three host-specific shapes. Cost: we bypass the platform's own metadata cache
-(mitigated by our cache) and PCF needs a client URL (resolved via the stable
-`page.getClientUrl` with same-origin relative fallback).
+Historical record: the spec allowed per-host metadata access; this entry instead
+read metadata uniformly through the same-origin OData endpoints via cds-client,
+normalized once into IAttributeMetadata, cached per session, on the argument that
+one implementation plus one normalizer plus fake-XHR testability beat three
+host-specific shapes. Cost: bypassed the platform metadata cache (mitigated by
+the kit cache) and PCF needed a client URL (`page.getClientUrl` with same-origin
+relative fallback).
 
 ## D-008, openClientUI defaults to a dialog (navigateTo target 2)
 
@@ -199,28 +195,24 @@ form hooks) stays excluded per spec section 14.
 ## D-020, Option B realized by completing the surface, not renaming it (G-17)
 
 When G-17 began, the v1 context already used Xrm-mirrored method names for the
-common path, `createRecord`/`updateRecord`/`deleteRecord`/`retrieveRecord`/
-`retrieveMultipleRecords` (Xrm.WebApi) and `openForm`/`openAlertDialog`/
-`openConfirmDialog`/`openUrl` (Xrm.Navigation), with Xrm-faithful read shapes
-(`{ entities, nextLink }`, annotated entities). Phase 1 had in practice shipped
-something closer to option B than the narrow "C" originally considered.
-Realizing option B therefore meant **completing** the mirrored surface and
-documenting the contract, not a wholesale rename/migration:
+common path (Xrm.WebApi CRUD + retrieve, Xrm.Navigation `openForm`/
+`openAlertDialog`/`openConfirmDialog`/`openUrl`) with Xrm-faithful read shapes.
+Phase 1 had in practice shipped closer to option B than the narrow "C", so
+realizing option B meant completing the mirrored surface and documenting the
+contract, not a wholesale rename:
 
 - `IWebApi.executeAction(name, params, boundTo?)` + `executeClassicWorkflow(id, recordId)`
-  (folds **G-08**), every adapter delegates to the cds-client implementations
-  that already existed (D-014: production never touches `Xrm.WebApi.execute`'s
-  request-object contract). Deliberately **not** named `execute` to avoid
-  implying Xrm's request-object signature.
-- `INavigation.lookupObjects(options)` (folds the context half of **G-02**)
-  mirrors `Xrm.Utility.lookupObjects` (not in `@types/xrm`, typed structurally
-  in `lookupObjects.ts`); modern + V8 webresources delegate to the host call,
-  PCF throws a clear "not available" error until a host surfaces one.
+  (folds G-08): every adapter delegates to the existing cds-client implementations
+  (D-014: production never touches `Xrm.WebApi.execute`'s request-object contract).
+  Deliberately not named `execute`, to avoid implying that signature.
+- `INavigation.lookupObjects(options)` (folds the context half of G-02) mirrors
+  `Xrm.Utility.lookupObjects` (not in `@types/xrm`, typed structurally in
+  `lookupObjects.ts`); modern + V8 delegate to the host call, PCF throws a clear
+  "not available" until a host surfaces one.
 
-Per-method V8 fidelity stays a dial. The locale/user-settings surface and the
-control-side lookup dialog mode remain their own tasks (G-06, G-02), added in
-the now-established B-shape. The kit's own conveniences (`fetch`, `openClientUI`,
-`utils.alert`) sit atop the mirrored surface as additive extras.
+Per-method V8 fidelity stays a dial. Locale/user-settings (G-06) and the
+control-side lookup dialog mode (G-02) remain their own tasks in the B-shape;
+the kit conveniences (`fetch`, `openClientUI`, `utils.alert`) sit atop as extras.
 
 ## D-021, Locale formatting is a lazily-resolved context surface threaded as presentational props (G-06)
 
@@ -269,19 +261,18 @@ clauses are dropped rather than silently mis-querying.
 
 ## D-023, Lookups offer inline + dialog, switchable; the dialog call stays in the smart tier (G-02/G-03/G-10)
 
-Both lookup experiences ship, switchable by one prop (per the kit owner): the
-inline search-as-you-type stays the default; `SmartLookup mode="dialog"` opens
-the native CRM picker (`lookupObjects`) with the same value Observable and
-onChange contract. A thin standalone `StandardLookupField` covers the
-dialog-only / cross-entity case (no attribute binding). The presentational
-`LookupField` stays pure, in dialog mode it renders the chosen value + a Browse
-button and raises `onBrowse`; the smart tier owns the `lookupObjects` call.
-Cancelling the dialog (empty result) leaves the value unchanged, clearing is
+Both lookup experiences ship, switchable by one prop (owner call): inline
+search-as-you-type is the default; `SmartLookup mode="dialog"` opens the native
+CRM picker (`lookupObjects`) with the same value Observable and onChange contract.
+A thin standalone `StandardLookupField` covers the dialog-only / cross-entity case
+(no attribute binding). The presentational `LookupField` stays pure (dialog mode
+renders the value + a Browse button and raises `onBrowse`); the smart tier owns
+the `lookupObjects` call. Cancelling leaves the value unchanged; clearing is
 explicit. View-driven inline search (G-03) reuses the saved-view source via
-`?savedQuery={id}&$filter=contains(name,…)`, no FetchXML templating. Entity
-icons (G-10, `getEntityIconUrl`, cached) are opt-in (`showIcons`) since they
-cost an extra metadata read; the OOTB `svg_<otc>.svg` path is a tested
-assumption carried from production, not documented platform behavior.
+`?savedQuery={id}&$filter=contains(name,…)`, no FetchXML. Entity icons (G-10,
+`getEntityIconUrl`, cached) are opt-in (`showIcons`, an extra metadata read); the
+OOTB `svg_<otc>.svg` path is a tested assumption from production, not documented
+platform behavior.
 
 > **Refined by D-049.** `StandardLookupField` is retired and replaced by the
 > native-parity `SmartNativeLookup`; the standalone no-attribute-binding mode is
@@ -297,25 +288,22 @@ convention: binding choices and their rationale only.
 
 ## D-024, The grid prefers `layoutjson` and resolves columns against each cell's owning entity (N-01)
 
-The saved view carries both `layoutxml` and `layoutjson`. The grid now prefers
-`layoutjson` (`MetadataService.parseLayoutColumnsFromJson`, falling back to the
-`layoutxml` regex when JSON is absent or yields no columns) because only
-`layoutjson` carries `Cell.RelatedEntityName`, the field that says which entity
-an aliased link-entity column belongs to. `IViewDefinition.columns` became
-`IViewColumn[]` (`{ name, width, relatedEntity?, disableSorting? }`); hidden
-cells are dropped at parse time on both paths so the column list is always
-renderable. `SmartViewGrid` resolves each header/`AttributeKind` against
-`column.relatedEntity ?? view.entityLogicalName` (splitting the `alias.attr`
-key for the metadata lookup, which `MetadataService` already caches per
-entity.attribute, the existing `Promise.all` gives the per-entity parallelism
-the spec asked for). Related-entity lookups read their value from the
-alias-qualified Web API keys (`alias.attr` + its `@…FormattedValue` /
-`@…lookuplogicalname` annotations) via the new `aliasedLookupCell`, not the
-root-only `_attr_value` triplet. Link-entity and `DisableSorting` columns are
-marked unsortable, they can't be sorted through the savedQuery layer (the T-01
-boundary). `CellType` and custom image-provider cells stay an unbuilt follow-on.
-Revisit if a view authored with only a meaningful `layoutxml` (no JSON) needs
-related-entity resolution, that path can't recover the owning entity today.
+The saved view carries both `layoutxml` and `layoutjson`. The grid prefers
+`layoutjson` (`parseLayoutColumnsFromJson`, falling back to the `layoutxml` regex
+when JSON is absent or empty) because only `layoutjson` carries
+`Cell.RelatedEntityName`, which says which entity an aliased link-entity column
+belongs to. `IViewDefinition.columns` became `IViewColumn[]` (`{ name, width,
+relatedEntity?, disableSorting? }`); hidden cells drop at parse time so the list
+is always renderable. `SmartViewGrid` resolves each header/`AttributeKind`
+against `column.relatedEntity ?? view.entityLogicalName` (per-entity `Promise.all`
+parallelism over the cached metadata), and related-entity lookups read their value
+from the alias-qualified Web API keys (`alias.attr` + `@…FormattedValue` /
+`@…lookuplogicalname`) via the new `aliasedLookupCell`, not the root-only
+`_attr_value` triplet. Link-entity and `DisableSorting` columns are unsortable
+through the savedQuery layer (the T-01 boundary); `CellType` and custom
+image-provider cells stay unbuilt. Revisit if a view with only a meaningful
+`layoutxml` (no JSON) needs related-entity resolution: that path can't recover
+the owning entity today.
 
 ## D-025, `INavigation` mirrors the full `Xrm.Navigation` surface; V8 degrades per-method (N-02)
 
@@ -356,66 +344,54 @@ there.
 
 ## D-027, Rich pagination keeps server paging and adds a FetchXML page/count jump path (N-04, extends D-022)
 
-D-022 established the grid's simple paging: forward `@odata.nextLink` cookie,
-visited pages cached, no `$skip` (Dataverse doesn't support it). N-04 adds a
-**rich** mode without abandoning that. The constraint is platform-level: OData
-has no offset jump, so jump-to-any-page can only ride **FetchXML** `page`/`count`
-(the documented server-side random-page mechanism, capped at 50k rows). So
-`pagination="rich"`:
+D-022 established simple paging: forward `@odata.nextLink` cookie, visited pages
+cached, no `$skip` (Dataverse has none). N-04 adds a rich mode without abandoning
+it. OData has no offset jump, so jump-to-any-page can only ride FetchXML
+`page`/`count` (the documented server-side random-page mechanism, capped at 50k
+rows). So `pagination="rich"`:
 
-- runs the saved view's FetchXML with `page`/`count` injected (`setFetchPaging`),
+- runs the view's FetchXML with `page`/`count` injected (`setFetchPaging`),
   requesting `returntotalrecordcount='true'` once to compute `pageCount`;
-- composes quick-find / declarative filters / server sort **into** the FetchXML
-  (`addRootFilter` "and"/"or" + `setRootOrder`), because rich mode is off the
-  `?savedQuery=` path where the simple-mode OData options apply, same
-  root-attribute-only boundary as D-022 (dotted columns dropped);
+- composes quick-find / filters / server sort into the FetchXML (`addRootFilter`
+  + `setRootOrder`), being off the `?savedQuery=` path, same root-attribute-only
+  boundary as D-022 (dotted columns dropped);
 - reads the paging annotations through a new cds-backed `IWebApi.fetchPage`
-  (Xrm.WebApi silently drops `@…totalrecordcount`/`…morerecords`/cookie, so
-  like `retrieveMultipleByUrl` in D-022, this rides cds-client on every host);
-- degrades to next/prev when the total is unknown or over the count cap
-  (the `Pagination` control renders simple chrome whenever `pageCount` is null).
+  (Xrm.WebApi silently drops `@…totalrecordcount`/`…morerecords`/cookie, so like
+  `retrieveMultipleByUrl` this rides cds-client on every host);
+- degrades to next/prev when the total is unknown or over the cap (`Pagination`
+  renders simple chrome whenever `pageCount` is null).
 
-`overrideFetchXml` + rich stays **host-owned**: the grid does not mutate host
-FetchXML. It's a controlled component there, raises `onPageChange(n)`, reads
-host-supplied `pageCount`/`totalRecordCount`/`currentPage`, and the host
-re-supplies the page. The pull-based **FetchXML-paging binding helper** (own the
-`page`/`count` injection + twice-encoded paging-cookie threading for a host's
-base FetchXML) remains an unbuilt follow-on, build it when the first
-override-mode app needs rich paging. `$skip` stays intentionally unused.
+`overrideFetchXml` + rich stays host-owned: the grid does not mutate host
+FetchXML, it is a controlled component there (`onPageChange(n)`, host-supplied
+`pageCount`/`totalRecordCount`/`currentPage`). The pull-based FetchXML-paging
+binding helper (`page`/`count` injection + twice-encoded paging-cookie threading
+for a host's base FetchXML) stays unbuilt until the first override-mode app needs
+it. `$skip` stays intentionally unused.
 
 ## D-028, The platform-mirror surface is added member-by-named-consumer, not wholesale (N-03)
 
-Option B (D-014) committed to mirroring `Xrm` names; N-03 finishes that surface
-so a PL-400 dev reaches for the member they know. The additions and the named
-consumer that justifies each (per the gap doc's scope-discipline note, the bar
-for any member is a concrete consumer, recorded here, not "the platform has it"):
+Option B (D-014) committed to mirroring `Xrm` names; N-03 finishes that surface.
+Each member is justified by a named consumer (the gap doc's bar, not "the
+platform has it"):
 
-- `client.getFormFactor` / `getClient` / `getClientState` / `isOffline`
-  responsive smart controls (grid → cards on phone).
-- `device.captureImage` / `captureAudio` / `captureVideo` / `getBarcodeValue` /
-  `getCurrentPosition` / `pickFile`, mobile-capable smart controls.
-- `utils.getResourceString`, localized UI strings from a RESX webresource
-  (serves G-14, currently impossible).
-- `utils.showProgressIndicator` / `closeProgressIndicator`, busy overlay during
-  long ViewModel operations.
-- `utils.getAllowedStatusTransitions`, status-reason workflow gating.
-- `utils.refreshParentGrid`, refresh the host grid after a ribbon action.
-- `user.isRTL` / `user.timeZoneOffsetMinutes`, RTL layout; correct local↔UTC
-  datetime handling. (Kept on `user`, where `languageId` already lives, rather
-  than a parallel `userSettings` object, consistent with the kit's existing
-  collapse.)
+- `client.getFormFactor`/`getClient`/`getClientState`/`isOffline`: responsive
+  smart controls (grid to cards on phone).
+- `device.captureImage`/`captureAudio`/`captureVideo`/`getBarcodeValue`/
+  `getCurrentPosition`/`pickFile`: mobile-capable smart controls.
+- `utils.getResourceString`: localized UI strings from a RESX webresource (G-14).
+- `utils.showProgressIndicator`/`closeProgressIndicator`: busy overlay.
+- `utils.getAllowedStatusTransitions`: status-reason workflow gating.
+- `utils.refreshParentGrid`: refresh the host grid after a ribbon action.
+- `user.isRTL`/`user.timeZoneOffsetMinutes`: RTL layout; local↔UTC datetime
+  (kept on `user` beside `languageId`, not a parallel `userSettings`).
 
-Mechanics: a single structural `contextSurface.ts` builds `client`/`device`/the
-`utils` extras for both modern and PCF (identical method names on
-`globalContext.client`/`Xrm.Device` vs `context.client`/`context.device`). V8 and
-hosts missing a capability degrade rather than crash a ViewModel, string getters
-return undefined, void methods (`showProgressIndicator`/`refreshParentGrid`)
-no-op, and `device.*` + `getAllowedStatusTransitions` throw/reject a clear "not
-available in the <host>" so the gap is loud where it matters. The surface widens
-the smart tier only; the presentational-purity lint rule is untouched (form
-factor, RTL, etc. reach presentational controls as resolved props). This list is
-deliberately closed: future members need a new named consumer and their own
-D-entry, not accretion.
+Mechanics: one structural `contextSurface.ts` builds these for modern and PCF.
+V8 and hosts missing a capability degrade rather than crash: string getters
+return undefined, void methods no-op, and `device.*` + `getAllowedStatusTransitions`
+throw/reject "not available in the <host>". Smart tier only; presentational-purity
+lint untouched (form factor, RTL reach presentational controls as resolved props).
+The list is deliberately closed: new members need a named consumer and their own
+D-entry.
 
 > **Refined by D-034.** "The platform has it" *is* sufficient for the
 > **commonly-used** host-mirror surface (familiarity is the consumer); the
@@ -452,28 +428,23 @@ hooks stop hand-rolling raw `control.setNotification`.
 
 ## D-031, AdvancedTooltip teaching-bubble variant deferred; KitTooltip covers the section 10.2 pattern (N-09)
 
-A later capability review surfaced one pattern worth supporting that the
-rebuild had not yet recorded: a
-**teaching-bubble** tooltip component (Fluent `TeachingBubble`
-with header/body/**image**/**primary CTA**, plus a metadata smart wrapper), an
-inline help/onboarding affordance. The rebuild's `pcfs/KitTooltip` already
-satisfies the spec's section 10.2 "smart tooltip (*or similar*)" sample, but renders a
-**metadata-description Popover** (the bound attribute's authored description),
-which is a deliberately different and arguably more broadly useful UX. The
-teaching-bubble/image/CTA control is therefore **deferred, pull-based**: it has
-no current consumer, and building it now would be accretion against the
-"presentational controls earn their place when an app needs them" posture (cf.
-D-010 for composites). When a consumer appears it lands as a presentational
-`TeachingTooltip` (header/body/image/CTA) with an optional smart wrapper, mirroring
-the other controls' tier split. Recorded (N-09) so the omission is a logged choice
-rather than a silent gap. Everything else in that cross-check was already
-implemented or already recorded (G-04/G-11/G-12/N-06).
+A capability review surfaced a teaching-bubble tooltip (Fluent `TeachingBubble`
+with header/body/image/primary CTA, plus a metadata smart wrapper), an inline
+help/onboarding affordance. The rebuild's `pcfs/KitTooltip` already satisfies the
+spec's 10.2 "smart tooltip (or similar)" sample but renders a metadata-description
+Popover (the bound attribute's description), a deliberately different and more
+broadly useful UX. The teaching-bubble control is deferred, pull-based: no
+consumer, and building it now is accretion against earn-their-place (cf. D-010).
+When a consumer appears it lands as a presentational `TeachingTooltip`
+(header/body/image/CTA) with an optional smart wrapper. Recorded (N-09) so the
+omission is logged. Everything else in that cross-check was already implemented
+or recorded (G-04/G-11/G-12/N-06).
 
 ---
 
 # Round-3 decisions
 
-An independent re-derivation (not assuming rounds 1–2 were complete) confirmed
+An independent re-derivation (not assuming rounds 1-2 were complete) confirmed
 the review is implemented or recorded except two small, previously
 unrecorded capabilities in already-shipped controls. These entries capture
 only the binding choices.
@@ -513,43 +484,32 @@ the host drives them from a ViewModel. Recorded (N-11) so the omission is logged
 
 ## D-034, Standard-surface criterion: mirror the commonly-used platform surface; common usage is a signal, not the bar (refines D-028)
 
-The kit rebuilds the **idea**, a publishable, low-friction successor where any
-PL-400-certified developer reaches for the platform member they already know and
-finds it, **not** a replica of any specific app. So "is this method commonly
-used" is only a *signal* (it flags what tends to be load-bearing on real
-projects); it is **not** the criterion for whether a member exists. This corrects
-how D-028's scope-discipline note had been read: for the host-mirror surface,
-faithful coverage of the commonly-used platform API *is* the product (option B,
-D-014; the explicit theme of N-02/N-03), so "the platform has it and a CRM dev
-reaches for it" is sufficient justification there.
+Refines D-028. "Is this method commonly used" is only a signal, not the criterion
+for whether a member exists: for the host-mirror surface, faithful coverage of
+the commonly-used platform API IS the product (option B, D-014), so "the platform
+has it and a CRM dev reaches for it" is sufficient there.
 
-The bar therefore splits by layer:
+The bar splits by layer:
 
-- **Host-mirror / standard surface**, the context (`webAPI`/`navigation`/
-  `utils`/`client`/`device`/`user`) and the `LibraryUtils` form/control wrappers.
-  Bar: **is this part of the commonly-used Xrm surface a PL-400 dev reaches
-  for?** If yes, build it; **familiarity itself is the named consumer**, no
-  in-kit caller required. Guardrails (so this is not "mirror all of `Xrm.*`"):
-  (a) *commonly-used*, not exhaustive, the obscure tail
-  (`getLearningPathAttributeName`, niche page types, etc.) still needs a concrete
-  named consumer and its own D-entry; (b) V8/PCF degrade gracefully per the
-  per-method dial (D-025/D-028); (c) mirror members carry fake-context/smoke
-  contract coverage even without an app caller.
-- **Kit-invented tier**, net-new controls, composites, specialized UI, and
-  control feature-props. Bar **unchanged: D-010**, earn their place when a real
-  consumer needs them. (So N-09 teaching-bubble, G-04 relationship counter, and
-  the round-3 N-10 grid view-reactivity / N-11 date bounds stay deferred: a
-  control's internal reactivity model and a Fluent picker bound are kit design
-  choices, not a standard Xrm surface a dev reaches for.)
+- **Host-mirror / standard surface** (the context `webAPI`/`navigation`/`utils`/
+  `client`/`device`/`user` and the `LibraryUtils` form/control wrappers). Bar: is
+  this part of the commonly-used Xrm surface a PL-400 dev reaches for? If yes,
+  build it; familiarity is the named consumer, no in-kit caller required.
+  Guardrails: (a) commonly-used, not exhaustive, the obscure tail
+  (`getLearningPathAttributeName`, niche page types) still needs a named consumer
+  and its own D-entry; (b) V8/PCF degrade per the per-method dial (D-025/D-028);
+  (c) mirror members carry fake-context/smoke coverage without an app caller.
+- **Kit-invented tier** (net-new controls, composites, feature-props). Bar
+  unchanged (D-010): earn their place when a real consumer needs them. So N-09
+  teaching-bubble, G-04 relationship counter, N-10 grid view-reactivity, and N-11
+  date bounds stay deferred.
 
-Consequence: **N-12** (`addFieldNotification` over the platform's
-`control.addNotification`, the rich/actionable form-notification API a CRM dev
-knows) was **built** under this criterion, superseding the earlier "no consumer,
-don't build" read (`LibraryUtils.addFieldNotification`; `AccountForm.onSave`
-reference use; unit-tested). D-028's member list is no longer "closed";
-it is closed *against the obscure tail*, open to the commonly-used surface.
-Revisit only if the commonly-used line proves too fuzzy in practice, then tighten
-with examples rather than reverting to legacy-usage gating.
+Consequence: N-12 (`addFieldNotification` over `control.addNotification`) was
+built under this criterion (`LibraryUtils.addFieldNotification`, `AccountForm.onSave`
+reference, unit-tested), superseding the earlier "no consumer" read. D-028's list
+is now closed only against the obscure tail, open to the commonly-used surface.
+Revisit if the commonly-used line proves too fuzzy; then tighten with examples,
+not revert to legacy-usage gating.
 
 ---
 
@@ -561,33 +521,30 @@ toward the owner's style. These entries record the binding style choices.
 
 ## D-035, Legibility refactors: de-hop, where-you-expect, literal queries
 
-Structural changes made so a control or module is understandable from one file,
-guided by two rules: (a) **big files are fine, big AND scattered is not** (inline a
-helper used by only one consumer into that consumer; keep genuinely-shared ones
-shared), and (b) **abstraction must remove a concern, not relocate one**.
+Structural changes so a control or module is understandable from one file, guided
+by two rules: (a) big files are fine, big AND scattered is not (inline a
+single-consumer helper into its consumer; keep genuinely-shared ones shared), and
+(b) abstraction must remove a concern, not relocate one.
 
 - **Grid de-hop** (`55b0eb5`): the grid-only helpers (`viewGridQuery`,
-  `fetchXmlPaging`, `dynamicColumns`, and the OData cell-readers) were inlined into
-  `SmartViewGrid.tsx` and the three modules deleted. `odata.ts` content later moved
-  into `LibraryUtils`. Grid dependency hops dropped from ~8 to ~4.
+  `fetchXmlPaging`, `dynamicColumns`, the OData cell-readers) were inlined into
+  `SmartViewGrid.tsx` and the three modules deleted (`odata.ts` later moved into
+  `LibraryUtils`). Grid hops dropped from ~8 to ~4.
 - **Utils split into static classes** (`798a07b`): `FormContextUtils` (form/grid
-  manipulation (the pre-`LockForm` group), with a header noting it
-  lives in utils not `ClientHook` because clientui needs it too) and `LibraryUtils`
-  (OData formatting, webresource params, GUID/$batch). Merged the over-split
-  `odata.ts` / `webResourceParams.ts` / `correlation.ts`; `EntityModel` stays its
-  own model file. **Static classes** were chosen over module functions per the kit
-  owner; tree-shaking/bundle size is a non-issue here (enterprise app, cached;
-  Fluent/React dwarf these helpers).
+  manipulation, in utils not `ClientHook` because clientui needs it too) and
+  `LibraryUtils` (OData formatting, webresource params, GUID/$batch); merged the
+  over-split `odata.ts`/`webResourceParams.ts`/`correlation.ts`; `EntityModel`
+  stays its own file. Static classes over module functions per the owner;
+  tree-shaking is a non-issue here (Fluent/React dwarf these helpers).
 - **FetchXML as template literals** (`c3c37b2`, `1f18c39`): deleted the
-  `buildFetchXml` builder (a leaky, incomplete abstraction); ViewModels author
-  `<fetch>` as multi-line, indented, single-quoted template literals that read as
-  XML and paste into a FetchXML tool. Value escaping is `LibraryUtils.escapeXml`.
-- **Context merge** (`9b28f90`): four interdependent host helpers
-  (`contextSurface`, `formatting`, `lookupObjects`, `XrmFormAccess`) merged into one
-  `hostSurface.ts`; `createWebResourceContext` kept as its own discoverable factory.
-  context/ went 10 files to 7.
-- **DRY threshold is roughly 3**: something used <=3 times and unlikely to change
-  may be duplicated locally when it improves readability; >3 uses gets examined.
+  `buildFetchXml` builder; ViewModels author `<fetch>` as multi-line indented
+  single-quoted template literals that paste into a FetchXML tool, escaping via
+  `LibraryUtils.escapeXml`.
+- **Context merge** (`9b28f90`): four host helpers (`contextSurface`, `formatting`,
+  `lookupObjects`, `XrmFormAccess`) merged into `hostSurface.ts`;
+  `createWebResourceContext` kept as its own factory. context/ went 10 files to 7.
+- **DRY threshold is roughly 3**: used <=3 times and stable may be duplicated
+  locally for readability; >3 gets examined.
 
 ## D-036, Authored comment voice (no em dashes, no in-code doc-ID citations)
 
@@ -610,208 +567,137 @@ handover notes.
 
 ## D-037, MVVM/Observables not revisited despite hooks pushback (rationale for a fixed choice)
 
-Recorded because "why not hooks" is the recurring review challenge and spec section 16.2
-lists the MVVM/Observable model as fixed, do not deviate. This entry is the
-standing rebuttal so it isn't re-argued from scratch each pass, not a reopening.
-The full stance lives in docs/ (Architectural stance, spec section 13); this is the
-short pushback log.
+Recorded because "why not hooks" is the recurring review challenge and spec 16.2
+lists the MVVM/Observable model as fixed. This is the standing rebuttal so it is
+not re-argued each pass, not a reopening; the full stance lives in docs/
+(Architectural stance, spec 13). Two load-bearing points:
 
-Two load-bearing points:
+1. Complexity-ceiling as guardrail. Form-designer-shaped Views + thin ViewModels
+   put a deliberate ceiling on per-app complexity: if a requirement cannot be
+   generated cleanly against a `*View.tsx` + `*ViewModel.ts` pair, that is the
+   signal it has left the kit's 99%-native, ship-in-a-day band (spec 1.3), not a
+   signal to reach for hooks. The "MVVM doesn't scale to complex SPAs" critique
+   becomes a feature: the kit is not for complex SPAs, and the readability ceiling
+   finds that out early.
 
-1. Complexity-ceiling as guardrail. Making form-designer-shaped Views + thin
-   ViewModels the idiom puts a deliberate ceiling on per-app complexity. If a
-   requirement is so large that a competent programmer or coding agent can't generate it
-   cleanly against a `*View.tsx` + `*ViewModel.ts` pair, that is the signal the
-   requirement has left the kit's band (the 99%-native, ship-in-a-day zone, spec
-   section 1.3), not a signal to reach for hooks. This turns the usual "MVVM doesn't
-   scale to complex SPAs" critique into a feature: the kit is not for complex
-   SPAs, and the readability ceiling is how you find that out early and cheaply.
+2. Empirical, not aesthetic. The owner built the kit both ways (class+MVVM and
+   functional+hooks) and measured the return cost: after 1-2 months on other work,
+   regaining the hook mindset was prohibitive even for highly competent CRM devs,
+   while the MVVM version was re-legible on a guided walkthrough even for non-devs
+   (the intermittent-React cadence of spec 1.5, confirmed).
 
-2. Empirical, not aesthetic. The owner built the kit both ways (class + MVVM and
-   functional + hooks) and measured the return cost. After 1-2 months on other
-   work, regaining the hook mindset was prohibitive even for highly competent CRM
-   devs, who hit the same wall; the MVVM version was re-legible on a guided
-   walkthrough even for non-devs. This is the intermittent-React cadence of spec
-   section 1.5 confirmed in practice, not a style preference.
-
-Revisit trigger: the premise changes, not the fashion. Reopen only if (a) the
-team becomes a daily-React shop, which breaks the cadence assumption, or (b)
-agent generation of MVVM proves materially worse than agent generation of hooks
-when measured against the sample apps (spec section 17.2 #5), which would undercut
-the prompt-friendly claim in spec section 1.6. React-first reviewer distaste alone is
-explicitly not a trigger; spec section 1.5 already anticipates it.
+Revisit trigger: the premise changes, not the fashion. Reopen only if (a) the team
+becomes a daily-React shop (breaks the cadence assumption), or (b) agent generation
+of MVVM proves materially worse than of hooks against the sample apps (spec 17.2
+#5), undercutting the prompt-friendly claim (spec 1.6). React-first reviewer
+distaste alone is not a trigger (spec 1.5 anticipates it).
 
 ## D-038, ObservableArray for the lists a grid shows, so changing one row updates the view
 
-A plain `Observable` only re-renders the view when you give it a whole new
-value. When it holds a list, that leaves a gap. Replacing the list works, and a
-top-level `rows.value.push(x)` throws in development to warn you, but changing
-one item inside the list does neither: `rows.value[0].selected = true` edits a
-row the list still points at, so the view never refreshes, and because the
-development lock only covers the list itself (not the rows in it), nothing even
-warns you. Grids are exactly where people reach into a row, so the gap sits right
-where it is most likely to be hit.
+A plain `Observable` re-renders the view only when given a whole new value. When
+it holds a list, replacing the list works (and a top-level `rows.value.push(x)`
+throws in development), but editing one item in place
+(`rows.value[0].selected = true`) does neither: the view never refreshes, and the
+development lock covers only the list, not the rows, so nothing warns. Grids are
+exactly where people reach into a row.
 
-`ObservableArray<T>` (shared/reactivity) closes it two ways. You change the list
-through its methods (`push`, `removeAt`, `updateAt`, `replaceWhere`, and so on),
-each of which builds a fresh list, so the view always refreshes. And in
-development the lock goes one level deeper (the list and the rows in it), so an
-accidental in-place edit throws right where you wrote it. You observe it exactly
-like an Observable, so the View, `observe(...)`, and `SubscriptionTracker` all
-take it unchanged. The shape mirrors the list helper proven in hand-built D365
-work over the years, and the one SparkleXrm shipped for the same reason. Plain
-single values and whole objects stay on `Observable`; reach for `ObservableArray`
-only for the list a grid or list view shows.
+`ObservableArray<T>` (shared/reactivity) closes it two ways: its mutating methods
+(`push`, `removeAt`, `updateAt`, `replaceWhere`, ...) each build a fresh list so
+the view always refreshes, and in development the lock goes one level deeper (list
+and rows) so an accidental in-place edit throws where you wrote it. You observe it
+exactly like an Observable, so View, `observe(...)`, and `SubscriptionTracker`
+take it unchanged (the shape mirrors the list helper from hand-built D365 work and
+SparkleXrm's). Plain values and whole objects stay on `Observable`; reach for
+`ObservableArray` only for the list a grid or list view shows.
 
-Adopted in the sample grid/list ViewModels (`searchResults`, `results`,
-`contacts`, `activities`). The View observes the list and reads `.value`, then
-maps the domain rows to the presentational grid rows it hands the control:
-
-```ts
-// ViewModel: owns the domain list
-readonly searchResults = new ObservableArray<IAccountRow>();
-
-// View: observes it, then maps domain rows to grid rows on each render
-this.observe(vm.searchResults);
-const rows: IGridRow[] = vm.searchResults.value.map((r) => ({
-  key: r.id,
-  name: r.name,
-  city: r.city,
-}));
-return <DataGrid rows={rows} columns={columns} />;
-```
-
-So a presentational control never receives the `ObservableArray` itself; it gets
-the plain array the View built from it. That is the layer split working as
-intended (domain shape in the ViewModel, presentational shape in the View), not a
-workaround, which is why the samples needed no change to the controls.
-
-The boundary worth keeping in mind. The ViewModel holds the list in its domain
-shape (`ObservableArray<IAccountRow>`), while the grid wants presentational rows
-(`IGridRow`). So even where `DataGrid.rows` accepts an `ObservableArray` (see
-D-039), it accepts one of grid rows, not domain rows, and the View still maps
-through `.value`:
-
-```tsx
-// Still a type error: IAccountRow has no `key`, so it is not an IGridRow. The
-// View maps domain rows to grid rows through `.value` (as above); it does not
-// hand the domain list to the grid raw.
-return <DataGrid rows={vm.searchResults} columns={columns} />;
-```
-
-Update (D-039). The grid path this entry first deferred is now built:
-`DataGrid.rows` takes an `OrObservableList` (a plain array, an `Observable`, or
-an `ObservableArray`), so `SmartViewGrid` can hold its own rows in an
-`ObservableArray`. The other list props (selection sets, lookup results, option
-items) stay on a plain `Observable` on purpose: they are primitive-id sets or
-wholesale-replaced lists with no per-item editing, so they gain nothing. The
-deeper (all-the-way-down) development lock is still left out, for speed on large
-grids; revisit it if a call site needs nested row objects guarded too.
+Adopted in the sample grid/list ViewModels (`searchResults`, `results`, `contacts`,
+`activities`). The boundary: the ViewModel holds the domain shape
+(`ObservableArray<IAccountRow>`) and the View maps through `.value` to the
+presentational rows (`IGridRow`), so a presentational control never receives the
+`ObservableArray` itself. The grid path this entry first deferred (`DataGrid.rows`
+accepting an `ObservableArray`) is now built; see D-039.
 
 ## D-039, grid rows take an OrObservableList, so a host can bind an ObservableArray
 
 D-038 deferred one piece: the controls did not accept an `ObservableArray`, so a
-smart control could not hold its rows in one. That is now built, scoped to the
-only list state with a real per-item-editing risk: the grid rows. (Selection
-state is primitive ids, which cannot have the in-place-edit problem, and the
-other object lists, lookup results and option items, are replaced wholesale, so
-none of them gain anything.)
+smart control could not hold its rows in one. Now built, scoped to the only list
+state with a real per-item-editing risk: the grid rows. What changed:
 
-What changed:
+- `OrObservableList<T>` (a plain `T[]`, `Observable<T[]>`, or `ObservableArray<T>`)
+  plus `valueOfList` to read the current array out of any of the three, both in
+  `shared/reactivity`.
+- `DataGrid.rows` now takes `OrObservableList<IGridRow>`; reads go through
+  `valueOfList`, `observe(...)` already accepted all three (it only needs
+  `subscribe`), and a plain static array still works for stories.
+- `SmartViewGrid` holds its rows in an `ObservableArray<IGridRow>`. Loads still
+  replace the whole list; the gain is a per-row change is one safe call and an
+  in-place edit throws in development.
 
-- `OrObservableList<T>` (a plain `T[]`, an `Observable<T[]>`, or an
-  `ObservableArray<T>`) plus `valueOfList`, which reads the current array out of
-  whichever of the three it is given. Both live in `shared/reactivity`.
-- `DataGrid.rows` now takes `OrObservableList<IGridRow>`. Reads go through
-  `valueOfList`; `observe(...)` already accepted all three (it only needs
-  `subscribe`), so the subscription path was untouched, and a plain static array
-  still works for the stories.
-- `SmartViewGrid` holds its rows in an `ObservableArray<IGridRow>`. Its loads
-  still replace the whole list; the gain is that a per-row change is now one safe
-  call, and an accidental in-place edit throws in development.
-
-Kept narrow on purpose. `DataGrid.columns` stays an `OrObservable` (columns are
-built once, never edited), and the selection props stay plain `Observable`, so
-the second reactive type shows up only where it earns its place. Revisit if a
-control grows genuine per-item state somewhere other than the grid.
+Kept narrow: `DataGrid.columns` stays `OrObservable` (built once), selection props
+stay plain `Observable`, so the second reactive type shows up only where it earns
+its place. Revisit if a control grows genuine per-item state outside the grid.
 
 ## D-040, the view grid sorts server-side or not at all, never a single page in memory
 
 The saved-view grid was letting the presentational DataGrid sort the loaded rows
-whenever the host had not opted into server sort. With paging on, that sorts one
-page, not the result set, which is simply wrong. The rule is now explicit:
+when the host had not opted into server sort. With paging on, that sorts one page,
+not the result set, which is wrong. The rule is now explicit:
 
 - `SmartViewGrid` sorts only when `serverSort` is set, and only on the query (a
-  re-query with `$orderby`, which resets to page 1). Without `serverSort`, its
-  columns are not sortable at all, so it never sorts a page in memory.
-- The grid owns its sort state internally, so `serverSort` works on its own; a
-  host `orderBy` Observable is optional (it seeds and exposes the spec when the
-  host wants to read or set the sort).
+  re-query with `$orderby`, resetting to page 1). Without it, its columns are not
+  sortable at all, so it never sorts a page in memory.
+- The grid owns its sort state internally, so `serverSort` works alone; a host
+  `orderBy` Observable is optional (seeds and exposes the spec).
 - Only real root attributes are server-sortable. Lookups, link-entity columns,
-  DisableSorting cells, and dynamic/`calc_*` columns are not: a dynamic column
-  derives from several fields, so there is no single server field to order by.
-  The never-wired `IDynamicColumnSpec.sort` hook (a client comparator plus two
-  order builders, none of them used) is removed rather than left as a footgun.
+  DisableSorting cells, and dynamic/`calc_*` columns are not (a dynamic column has
+  no single server field to order by). The never-wired `IDynamicColumnSpec.sort`
+  hook is removed rather than left a footgun.
 
 The presentational `DataGrid` keeps its own in-memory sort for a host that hands
-it the whole result set and opts in: it sorts everything it is given, not a page,
-and a non-sortable column now renders with no click or pointer affordance.
-Filters were never affected: they always rode the query (`$filter`) and re-query
-on change. Revisit if a dynamic column needs sorting: wire a per-spec `$orderby`
-or FetchXML order builder rather than reviving the in-memory path.
+it the whole result set and opts in (it sorts everything it is given, not a page;
+a non-sortable column renders with no click affordance). Filters always rode the
+query (`$filter`) and re-query on change, unaffected. Revisit if a dynamic column
+needs sorting: wire a per-spec `$orderby` or FetchXML order builder, not the
+in-memory path.
 
 ## D-041, Storybook gains a Smart Controls section on an in-memory metadata fake
 
-The spec keeps Storybook on fixture data with zero CRM mocks, which is right for
-the presentational tier (those controls are host-agnostic, so a mock would only
-hide that). But it left the metadata-aware controls, the thing the kit is most
-about, entirely unshown, since they cannot render without metadata. The
-compromise: a "Smart Controls" group that runs them against the existing
-in-memory `createFakeViewModelContext` (a canned slice of contact/account
-metadata plus a few records), provided through a `ViewModelContextProvider`
-decorator. The label/option/format/lookup resolution on screen is the real
-control behaviour; only the metadata behind it is fixture data.
+The spec keeps Storybook on fixture data with zero CRM mocks, right for the
+presentational tier (host-agnostic; a mock would only hide that). But it left the
+metadata-aware controls, the thing the kit is most about, unshown, since they
+cannot render without metadata. The compromise: a "Smart Controls" group that runs
+them against the existing in-memory `createFakeViewModelContext` (a canned slice of
+contact/account metadata plus a few records) through a `ViewModelContextProvider`
+decorator. The label/option/format/lookup resolution on screen is real control
+behaviour; only the metadata behind it is fixture data.
 
-The group mirrors the presentational structure exactly: the presentational
-controls live under a "Presentational Controls" group, one node per component
-with each component's states (required, disabled, read-only, error, and so on)
-grouped beneath it, so "Smart Controls" follows suit with one story file per
-control (`SmartTextField`, `SmartOptionSet`, and the rest) and the same state
-coverage plus control-specific variants. The seeded contexts and helpers are
-shared from a single non-story module (`tests/storybook/smart/smartStoryHarness`).
-
-Scoped on purpose: the presentational stories stay zero-mocks (unchanged), and
-the fake is the same one the smart-control unit tests already use, so there is
-no second mock to maintain. Also enabled autodocs (`@storybook/addon-docs`) with
-the source shown under each sample; each smart story curates its "Show code"
-snippet to include the seeded metadata and the host value Observable, so the
-sample reads like real ViewModel/View code rather than a bare JSX tag. Revisit if
-the smart group starts needing bespoke per-control metadata that the shared fake
-can't express; until then, the shared seeded contexts cover it.
+The group mirrors the presentational structure: one story file per control
+(`SmartTextField`, `SmartOptionSet`, and the rest) with the same state coverage
+plus control-specific variants; the seeded contexts and helpers are shared from
+one non-story module (`tests/storybook/smart/smartStoryHarness`). The
+presentational stories stay zero-mocks, and the fake is the same one the
+smart-control unit tests use, so there is no second mock to maintain. Autodocs
+(`@storybook/addon-docs`) show source under each sample, with each "Show code"
+snippet curated to include the seeded metadata and the host value Observable so it
+reads like real ViewModel/View code. Revisit if the smart group needs bespoke
+per-control metadata the shared fake can't express.
 
 ## D-042, smart fields take a metadata-sourced hint, amending the earlier no-hint decline
 
 **REVISED by D-057 (2026-07-03): the Description default did not stand.** The
 `hint` prop survives but is opt-in, rendering only when passed; the attribute
 Description no longer leaks in as always-on helper text (it stays readable via
-`attributeDescription` for on-demand surfaces, the tooltip direction). The
-reversal entry records the reasoning: this entry conflated where the text
-comes from with when it should show. Kept below as the historical record.
+`attributeDescription` for on-demand surfaces, the tooltip direction). See D-057.
 
-Smart field controls now expose a `hint` that defaults to the attribute's
-Dataverse Description and can be overridden by a prop (or suppressed with `""`).
-This amends the earlier decision to offer neither `placeholder` nor `hint` on the
-smart tier. The reasoning then was that a smart field's presentation should come
-from metadata, not a free-form call-site value, and that still holds for
-`placeholder` (it has no metadata source, so it stays out). A `hint` is different:
-sourced from the field Description it IS metadata-driven, so it fits the smart
-tier; the prop is just the escape hatch for the rare override. The plumbing
-already existed (the presentational `FieldShell` threads `hint` to Fluent
-`Field`), so the change is `SmartFieldBase.resolveHint` (the prop, else
-`metadata.description`) threaded through each smart field control. Description is
-fetched by the MetadataService today and keeps coming from the native
-`getEntityMetadata` after the offline-first metadata rework, so the consumer side
-is unaffected by that.
+Historical record: smart field controls exposed a `hint` defaulting to the
+attribute's Dataverse Description, overridable by a prop (or suppressed with `""`),
+amending the earlier decision to offer neither `placeholder` nor `hint`. The
+reasoning: `placeholder` has no metadata source so it stays out, but a `hint`
+sourced from the Description IS metadata-driven, so it fits the smart tier. The
+plumbing already existed (`FieldShell` threads `hint` to Fluent `Field`); the
+change was `SmartFieldBase.resolveHint` (prop, else `metadata.description`).
+Description keeps coming from the native `getEntityMetadata` after the metadata
+rework, so the consumer side is unaffected.
 
 ## D-043, label position is configurable (top default vs start), RTL-aware via Fluent
 
@@ -827,239 +713,180 @@ needs an end-placed label composes that layout itself.
 
 ## D-044, date picker first day of week is overridable, default matched to native
 
-*(Deferral note, 2026-07-04: the metadata rework this entry defers to shipped
-as D-057 WITHOUT the format-localeid derive; the `firstDayOfWeek` override
-remains the supported path and the automatic derive stays open.)*
+*(Deferral note, 2026-07-04: the metadata rework this entry defers to shipped as
+D-057 WITHOUT the format-localeid derive; the `firstDayOfWeek` override remains
+the supported path and the automatic derive stays open.)*
 
-The calendar's first day of week defaults to what the host reports, which
-Dataverse derives from the user's Language (en-US is the only English that ships),
-not the Format locale. So a UK-format English user gets Sunday-first, and so does
-the native model-driven picker, so the kit matches native rather than "fixing" it:
-a mismatch against the native pickers sitting next to it would be worse than the
-locale quirk. For deployments that do want locale-first behaviour, `SmartDatePicker`
-takes a `firstDayOfWeek` override (0 = Sunday ... 6 = Saturday), computed per
-deployment (for example from `Intl.Locale(...).weekInfo`). An automatic derive
-from the Format locale would need the format `localeid` on the context surface,
-which the kit does not expose yet; that pairs naturally with the offline-first
-metadata rework (which already touches the host surface), so it is deferred there
-rather than bolted on now.
+The calendar's first day of week defaults to what the host reports (originally
+stated as Dataverse deriving it from the user's Language; corrected below). A
+UK-format English user gets Sunday-first, and so does the native model-driven
+picker, so the kit matches native rather than "fixing" it. For locale-first
+deployments, `SmartDatePicker` takes a `firstDayOfWeek` override (0 = Sunday ...
+6 = Saturday), computed per deployment (e.g. from `Intl.Locale(...).weekInfo`). An
+automatic derive would need the format `localeid` on the context surface, which
+the kit does not expose yet, so it is deferred to the metadata rework.
 
-*(Correction, 2026-07-13: the mechanism this entry states is wrong, and it was
-an assumption, not a verified finding. The first day of week is the
-ORGANIZATION-level format setting (System Settings, Formats, the org
-`localeid`), not derived from the user's Language: verified by a controlled
-switch on the dev org, where flipping the org format from English (United
-States) to English (United Kingdom) moved `dateFormattingInfo.FirstDayOfWeek`
-from 0 to 1 with the user's own settings untouched (fully es-ES throughout,
-whose user-driven members all held), and the native picker followed. The
-decision itself stands unchanged: the kit follows the host member, so it
-always matches the native picker, and the `firstDayOfWeek` override remains
-the per-deployment escape hatch. The gotchas entry carries the corrected
-mechanism.)*
+*(Correction, 2026-07-13: the stated mechanism was an assumption and is wrong. The
+first day of week is the ORGANIZATION-level format setting (System Settings,
+Formats, the org `localeid`), not the user's Language: verified by a controlled
+dev-org switch, flipping the org format from English (United States) to English
+(United Kingdom) moved `dateFormattingInfo.FirstDayOfWeek` from 0 to 1 with user
+settings untouched (fully es-ES throughout), and the native picker followed. The
+decision stands: the kit follows the host member, matching the native picker, and
+the `firstDayOfWeek` override remains the escape hatch. gotchas.md carries the
+corrected mechanism.)*
 
 ## D-045, a transactional change-set commit beside the flat executeMultiple, and the wizard is now genuinely atomic
 
-`CdsClient.executeMultiple` is a FLAT $batch by design: each operation is an
-independent top-level part, so one failing does not roll back the others, and
-`IViewModelContext` documents that honestly. That contract is unchanged. Added
-beside it is `executeChangeSet`, a separate transactional method that emits one
-$batch with a single change-set boundary, so the operations all commit or all
-roll back. It supports content-id references ("$1", the 1-based request position)
-so a later operation can bind to a record created earlier in the same change set,
-either as the PATCH/DELETE target or inside an `@odata.bind` value, and it returns
-the created ids in request order. It rides cds-client on every host (including the
-modern one): the native execute surface cannot express content-id references, so a
+`CdsClient.executeMultiple` is a FLAT $batch by design (each operation an
+independent top-level part, no rollback), documented honestly and unchanged.
+Added beside it is `executeChangeSet`, a transactional method emitting one $batch
+with a single change-set boundary, so operations all commit or all roll back. It
+supports content-id references ("$1", the 1-based request position) so a later
+operation binds to a record created earlier (as the PATCH/DELETE target or inside
+`@odata.bind`), returning created ids in request order. It rides cds-client on
+every host: the native execute surface cannot express content-id references, so a
 uniform path is both simpler and the only one that supports the feature.
 
-Verified against a live dev org before relying on it: a change set that creates an
-account, creates a contact bound to that account at "$1", and patches the account's
-primary contact to the contact at "$2" commits all three as a unit (three 204s),
-and a change set with a failing operation rolls the whole thing back (the would-be
-account does not persist). Two platform behaviours worth recording, both found in
-that check: Dataverse PATCH is an upsert (patching a non-existent id creates it, so
-a "patch a missing record" probe is not a valid failure test), and a failing change
-set returns a non-2xx status at the $batch envelope (unlike the flat batch, which
-returns 200 even when a part fails), so a single status check is the all-or-nothing
-signal.
+Verified against a live dev org: a change set creating an account, a contact bound
+to it at "$1", and patching the account's primary contact to "$2" commits all
+three as a unit (three 204s); a failing operation rolls the whole thing back. Two
+platform behaviours recorded from that check: Dataverse PATCH is an upsert
+(patching a non-existent id creates it, so "patch a missing record" is not a valid
+failure test), and a failing change set returns a non-2xx at the $batch envelope
+(unlike the flat batch, which returns 200 even when a part fails), so a single
+status check is the all-or-nothing signal.
 
 With this, `sample-new-account-wizard`'s `commit()` is one `executeChangeSet`
-instead of three sequential writes, so the sample is genuinely atomic with zero
-server code, and "atomic" is now an earned word for it rather than a deferred
-aspiration. The honest config baseline for the wizard is a custom page plus a
-commit, or a Business Process Flow when one fits (BPF is the cheapest answer when
-the record is not already on a different process, the data density suits a stage
-bar, and mutating the target record is acceptable). The kit's edge here is narrow
-but real: a custom page has no client-side atomic multi-entity write (Power Fx
-cannot), so config would need a Custom API to match the guarantee, while the kit
-needs none. The fallback the kit does NOT replace: commits that need real server
-logic, or ordering beyond what content-id expresses, still want a plugin or a
-Custom API. Revisit if the platform ever exposes a client-side multi-entity
-transactional write outside $batch, or if a host's native execute grows
-content-id support worth special-casing.
+instead of three sequential writes, genuinely atomic with zero server code. The
+config baseline is a custom page plus a commit, or a BPF when one fits; the kit's
+edge is narrow but real (a custom page has no client-side atomic multi-entity
+write, so config would need a Custom API). The kit does NOT replace commits needing
+real server logic or ordering beyond content-id (still a plugin or Custom API).
+Revisit if the platform exposes a client-side multi-entity transactional write
+outside $batch, or a host's native execute grows content-id support.
 
 ## D-046, Seam A counterparty dataset PCF, and its logic lives WITH the control, not in shared
 
 Seam A is the flagship Tier 1 capability proof: a cross-type activity grid for an
-account with a synthesized COUNTERPARTY column (the external party on the other
-end) and a ROLE column (its participationtypemask), neither expressible in the
-supertype-bound native view. It ships as a dataset PCF (`pcfs/KitCounterpartyGrid`)
-because the point is host placement: a PCF can BE the account's Activities subgrid,
-a slot a custom page cannot occupy. That is a capability line, not a convenience
-one.
+account with a synthesized COUNTERPARTY column (the external party) and a ROLE
+column (participationtypemask), neither expressible in the supertype-bound native
+view. It ships as a dataset PCF (`pcfs/KitCounterpartyGrid`) because the point is
+host placement: a PCF can BE the account's Activities subgrid, a slot a custom
+page cannot occupy. That is a capability line, not a convenience one.
 
-The party-resolution logic (classify by target type, one activityparty query per
-page, summarize to a counterparty + role) is application-specific to this control,
-so it lives WITH the control (`KitCounterpartyGrid/counterparty.ts`), not in
-`shared`. It is a showcase of what the kit makes easy, not a kit capability;
-hoisting it into the portable library would be a context-free abstraction for a
-single consumer. The kit pieces it reuses (the IViewModelContext data surface,
-LibraryUtils, the presentational DataGrid) are the reuse story; the resolver is
-not. The presentational side is covered by a Storybook scenario over fixtures
-(the cross-type list with the single/multi-party/internal-only cases); the PCF
-itself, like every control under `pcfs/`, builds with its own toolchain outside
-the root verify gate.
+The party-resolution logic lives WITH the control
+(`KitCounterpartyGrid/counterparty.ts`), not in `shared`: it is
+application-specific, a showcase of what the kit makes easy, not a kit capability.
+The kit pieces it reuses (IViewModelContext, LibraryUtils, the presentational
+DataGrid) are the reuse story; the resolver is not. The presentational side has a
+Storybook scenario over fixtures.
 
-Mechanism verified against a live org before building: one `activityparty` query
-filtered by the page's activity ids returns, inline as annotations, the party name
-(`_partyid_value@OData.Community.Display.V1.FormattedValue`), the party target type
-(`_partyid_value@Microsoft.Dynamics.CRM.lookuplogicalname`), and the role label
-(`participationtypemask@...FormattedValue`) for account/contact parties, so there
-are no N+1 lookups. Resolving by TARGET TYPE (account/contact external,
-systemuser/team/queue internal) rather than by `directioncode` (which is
-subtype-only, absent on the supertype) is what makes it cover every activity type,
-custom ones included. The auto-created systemuser "Owner" party has no inline name,
-which is moot because it is internal and never a counterparty. Testing against a
-live org with seeded data surfaced one disambiguation rule that theory missed:
-every activity regarding the account auto-carries that account as a party with the
-"Regarding" role (participationtypemask 8), and account is an external type, so the
-host record would show as its own counterparty (and its Regarding party has no
-inline name). The resolver excludes the Regarding party from the candidates, which
-is also what makes a genuinely internal-only activity (a task with only an owner)
-fall through to blank. The honest caveats
-(internal-only rows blank, multi-party "(+N more)", non-person targets ignored,
-the host record excluded as a counterparty, render-only columns not available to
-Export/Advanced Find/views, two-phase render, FLS degrades to blank, the native
-"Include related" rollup not reproduced) are in the control's README, beside the config-counterpart description (the Open Activity
-Associated View, which cannot add either column: a PartyList is not an addable grid
-column and participationtypemask is not on the supertype). The config route to
-match it is a shadow column + a plugin per activity type + a backfill + perpetual
-drift; the control synthesizes the columns read-time with no schema and automatic
-coverage.
+Mechanism verified against a live org: one `activityparty` query filtered by the
+page's activity ids returns, inline as annotations, the party name
+(`_partyid_value@...FormattedValue`), target type
+(`_partyid_value@...lookuplogicalname`), and role
+(`participationtypemask@...FormattedValue`), so no N+1. Resolving by TARGET TYPE
+(account/contact external, systemuser/team/queue internal), not `directioncode`
+(subtype-only, absent on the supertype), covers every activity type. One
+disambiguation live testing surfaced: every activity regarding the account
+auto-carries it as a "Regarding" party (participationtypemask 8), account being
+external, so the resolver excludes the Regarding party (which is also why a
+genuinely internal-only activity falls through to blank). The honest caveats
+(internal-only rows blank, multi-party "(+N more)", render-only columns not in
+Export/Advanced Find, two-phase render, FLS degrades to blank, no "Include related"
+rollup) are in the control's README, beside the config-counterpart (the Open
+Activity Associated View cannot add either column: a PartyList is not an addable
+grid column and participationtypemask is not on the supertype).
 
-Fluent v9 platform-library finding (this also resolves the open question flagged in
-D-002). The verify-first answer was initially optimistic and live testing corrected
-it. The Microsoft Learn doc does list `@fluentui/react-components` as a platform
-library for `control-type="virtual"` controls, so Seam A was first built as a
-virtual control declaring React and Fluent platform libraries (the build duly
-externalized `Reactv16` and `FluentUIReactv940`). Deployed to the dev org, it
-rendered to NOTHING. The reason: the platform pins the Fluent v9 platform library at
-**9.46.2**, and anything introduced after that is absent at runtime; this kit is on
-`9.74.1`, so the platform copy cannot satisfy it and the control silently fails to
-render. (Andrew Butenko documents this and the workaround: drop the Fluent
-platform-library line so the bundler includes the project's own Fluent.)
-
-So Seam A is a `control-type="standard"` control that BUNDLES React 18 + Fluent v9,
-exactly like the kit's existing field PCFs (which is why they work). The reviewer's
-original "a Fluent v9 control must ship its own bundle, accepted" was right in
-practice for any kit past 9.46.2; the platform-library path is only viable if you
-hold Fluent at or below 9.46.2, which the kit does not. The cost (React + Fluent v9
-in the control bundle) is accepted. Lesson logged honestly: a capability the docs
-list is not a capability until it renders on the target org, and the verify-first
-check for this should have deployed a trivial virtual control before trusting the
-doc.
+Fluent v9 platform-library finding (resolves the D-002 open question; later
+re-tested OPEN, see D-053): built first as a virtual control declaring React and
+Fluent platform libraries, it deployed and rendered to NOTHING, because the
+platform pins Fluent v9 at **9.46.2** and the kit is on `9.74.1`, so the platform
+copy cannot satisfy it (Andrew Butenko documents the drop-the-platform-line
+workaround). So Seam A is a `control-type="standard"` control bundling React 18 +
+Fluent v9, like the kit's field PCFs; the platform-library path is only viable at
+or below 9.46.2, which the kit is not. Lesson: a capability the docs list is not a
+capability until it renders on the target org.
 
 ## D-047, two fixes every kit PCF that renders shared Fluent components needs (found deploying Seam A to a real form)
 
-Seam A only surfaced these once it ran inside a model-driven form (the field PCFs
-were never exercised on a deployed form, only in the harness, so they would hit the
-same issues). Both are now in `KitCounterpartyGrid` and should be copied to any kit
+Both surfaced only once Seam A ran inside a model-driven form (the field PCFs were
+harness-only). Both are in `KitCounterpartyGrid` and should be copied to any kit
 PCF that mounts shared presentational controls.
 
 1. Dedupe React and Fluent in webpack. A kit PCF imports shared source from OUTSIDE
-   the project (`../../../shared`), so webpack resolves React/Fluent for that shared
-   code to the REPO-ROOT `node_modules`, while the control's own files and Fluent
-   resolve to the PCF's `node_modules`. The bundle then carries TWO copies of React
-   (and Fluent), giving two hook dispatchers; Fluent v9's griffel hooks throw
-   "Invalid hook call / more than one copy of React" and the control renders blank.
-   Fix: a `webpack.config.js` (enabled via `featureconfig.json`
-   `pcfAllowCustomWebpack: "on"`) that aliases `react`, `react-dom`,
-   `@fluentui/react-components`, and `@fluentui/react-icons` to the PCF's own
-   `node_modules`, forcing one copy.
+   the project (`../../../shared`), so webpack resolves React/Fluent for that code
+   to the REPO-ROOT `node_modules` while the control's own files resolve to the
+   PCF's, giving two React copies and two hook dispatchers; Fluent v9's griffel
+   hooks throw "Invalid hook call / more than one copy of React" and the control
+   renders blank. Fix: a `webpack.config.js` (enabled via `featureconfig.json`
+   `pcfAllowCustomWebpack: "on"`) aliasing `react`, `react-dom`,
+   `@fluentui/react-components`, `@fluentui/react-icons` to the PCF's own
+   `node_modules`.
 
-2. Never write an observed Observable from `componentDidUpdate`. The first cut of the
-   control's view set its `rows`/`columns` Observables in `componentDidUpdate` while
-   also observing them; each write forced an update, which ran `componentDidUpdate`
-   again, looping until React's "Maximum update depth exceeded" and a blank control.
-   For a dataset PCF the host pushes new data by re-rendering (updateView), so the
-   view now derives columns/rows directly in `render()` from the dataset and keeps
-   only the async-resolved counterparty map in React state, set once per visible page
-   (guarded by the id signature) so it cannot retrigger.
+2. Never write an observed Observable from `componentDidUpdate`. The first cut set
+   its `rows`/`columns` Observables there while observing them; each write forced an
+   update that ran `componentDidUpdate` again, looping to "Maximum update depth
+   exceeded" and a blank control. For a dataset PCF the host pushes data by
+   re-rendering (updateView), so the view now derives columns/rows in `render()`
+   and keeps only the async counterparty map in React state, set once per visible
+   page (guarded by the id signature).
 
-Process lesson: a PCF "builds" and even renders in the test harness without exposing
-either bug; both only appeared on a real form. Treat "deployed to a form and observed
-rendering" as the bar for a PCF, not "compiles" or "renders in the harness".
-Verified: the control deployed to the account's Activities subgrid resolves and shows
-the counterparty/role columns for single-party, internal-only (blank), and
-multi-party "(+N more)" activities. Remaining caveat is cosmetic: the bound subgrid
-view's own columns plus the two synthesized ones overflow a narrow form section, so
-the demo wants a wide tab or a trimmed view.
+Process lesson: a PCF builds and even renders in the harness without exposing
+either bug; both appeared only on a real form. Treat "deployed to a form and
+observed rendering" as the bar, not "compiles" or "renders in the harness".
+Verified: deployed to the account's Activities subgrid, it resolves and shows the
+counterparty/role columns for single-party, internal-only (blank), and multi-party
+"(+N more)" activities. Cosmetic caveat: the subgrid view's columns plus the two
+synthesized ones overflow a narrow form section, so the demo wants a wide tab.
 
 ## D-048, two more things a kit PCF needs to actually ship and run on a form (found enriching Seam A)
 
-D-047 got the counterparty PCF rendering. Enriching it (clickable counterparty
-lookups, a "(+N more)" hover popover, a persona collapse on narrow hosts, drag
-column resize) then surfaced two further issues that only bite a real form, both
-now solved in `KitCounterpartyGrid` and applicable to any kit PCF that bundles
-Fluent v9.
+D-047 got the counterparty PCF rendering. Enriching it (clickable lookups, a "(+N
+more)" hover popover, a persona collapse on narrow hosts, drag column resize) then
+surfaced two further issues that only bite a real form, both now solved in
+`KitCounterpartyGrid` and applicable to any kit PCF that bundles Fluent v9.
 
 1. Ship a PRODUCTION build, not `pac pcf push`. `pac pcf push` builds a DEBUG,
-   unminified bundle. Once the control pulled in `Popover` and `Avatar`, that
-   bundle hit 5.7 MB and the import failed with "Webresource content size is too
-   big" (Dataverse's 5 MB webresource ceiling). The same control built for
-   production (`pcf-scripts build --buildMode production`, i.e. a Release solution)
-   is 0.62 MB. `pac pcf push` has no production switch, so deploy via a solution
-   wrapper instead: `pac solution init` + `pac solution add-reference` once, then
-   `dotnet build -c Release -p:SolutionPackageType=Unmanaged` and
-   `pac solution import --force-overwrite --publish-changes`. Use the webresource
-   showcase (`sample-counterparty-grid`) for fast iteration (its bundle cache-busts
-   on reload via a `?v=` hash) and reserve the PCF solution-import loop for
-   integration checkpoints.
+   unminified bundle. Once the control pulled in `Popover` and `Avatar` that bundle
+   hit 5.7 MB and the import failed with "Webresource content size is too big"
+   (Dataverse's 5 MB ceiling). The same control built for production
+   (`pcf-scripts build --buildMode production`) is 0.62 MB. `pac pcf push` has no
+   production switch, so deploy via a solution wrapper: `pac solution init` +
+   `add-reference` once, then `dotnet build -c Release
+   -p:SolutionPackageType=Unmanaged` and `pac solution import --force-overwrite
+   --publish-changes`. Iterate on the webresource showcase
+   (`sample-counterparty-grid`, its bundle cache-busts via a `?v=` hash); reserve
+   the PCF solution-import loop for checkpoints.
 
 2. Pin the bundled Fluent v9 to the host's platform-library version so tabster
-   does not collide. Fluent v9's `tabster` (focus management) registers ONE
-   instance on `window`. A model-driven form already has one from the platform
-   library, and a kit PCF bundles its own. When the bundled `tabster` is NEWER than
-   the host's, a component that augments the instance (here `Popover`'s focus trap,
-   via getModalizer/getRestorer, but getGroupper/getMover too) writes a shape the
-   host's older instance lacks and throws `Cannot read properties of undefined
-   (reading 'set')` from inside a layout effect. React then unmounts the whole
-   control, so it renders for one frame and vanishes. It is invisible in the test
-   harness and in the webresource showcase (no second Fluent there), and the host
-   swallows the console error, so it was diagnosed by building the control WITH a
-   source map (`devtool: "source-map"` in the custom webpack config) and decoding
-   the minified stack: every frame was `@fluentui/react-tabster`. The host's
-   platform library was 9.68.0 with a frozen `tabster` 8.2.0 instance on the
-   window; the PCF, on 9.74.1, bundled `tabster` 8.8.0. Fix: pin the PCF to the
-   host's floor, `@fluentui/react-components` 9.68.0 with an `overrides` block
-   forcing `@fluentui/react-tabster` 9.26.1 and `tabster` 8.5.5 (today's caret
-   ranges otherwise resolve `tabster` up to 8.8.0). The kit and the webresource
-   showcase stay on 9.74.1, since there is no host tabster to collide with there;
-   only the embedded PCF is pinned. Read the host's live version before pinning
-   (`window.__tabsterInstance._version`); the platform library moves, so the pin is
-   to the CURRENT platform version and may need revisiting after a platform bump.
+   does not collide. Fluent v9's `tabster` registers ONE instance on `window`; a
+   form already has one from the platform library and a kit PCF bundles its own.
+   When the bundled `tabster` is NEWER, a component that augments the instance
+   (here `Popover`'s focus trap) writes a shape the host's older instance lacks and
+   throws `Cannot read properties of undefined (reading 'set')` from a layout
+   effect, and React unmounts the whole control (one frame, then vanishes).
+   Invisible in the harness and the webresource showcase; diagnosed by building
+   WITH a source map (`devtool: "source-map"`) and decoding the minified stack
+   (every frame `@fluentui/react-tabster`). The host was 9.68.0 with tabster 8.2.0;
+   the PCF, on 9.74.1, bundled tabster 8.8.0. Fix: pin the PCF to
+   `@fluentui/react-components` 9.68.0 with an `overrides` block forcing
+   `@fluentui/react-tabster` 9.26.1 and `tabster` 8.5.5. The kit and webresource
+   showcase stay on 9.74.1 (no host tabster there). Read the host's live version
+   (`window.__tabsterInstance._version`) before pinning; the platform library
+   moves, so the pin may need revisiting after a platform bump.
 
-Two smaller calls made in the same pass, both in the shared `DataGrid`:
+Two smaller calls, both in the shared `DataGrid`:
 
 - Column resize is hand-rolled, not Fluent's. Fluent v9 `DataGrid`'s
-  `resizableColumns` never applied widths in the embedded host (its
-  `getColumnById` returned undefined, so header cells fell back to equal flex and a
-  stray scrollbar appeared, and the drag did nothing). The grid now owns widths
-  through inline flex styles and renders its own drag handle on the header edge
-  that writes a per-column width override in component state; the handle stops
-  event propagation so a drag never triggers the header's sort.
-
-- Narrow hosts collapse to a persona list, not a horizontal scroll. Below ~560 px
-  the grid (measured by a `ResizeObserver` on the view's own element, not the PCF
+  `resizableColumns` never applied widths in the embedded host (`getColumnById`
+  returned undefined, header cells fell to equal flex, a stray scrollbar appeared).
+  The grid now owns widths through inline flex styles and renders its own drag
+  handle that writes a per-column width override in state; the handle stops
+  propagation so a drag never triggers the header sort.
+- Narrow hosts collapse to a persona list, not horizontal scroll. Below ~560px the
+  grid (measured by a `ResizeObserver` on the view's own element, not the PCF
   `trackContainerResize`, which deferred first-paint sizing) renders each row as a
   `PersonaList` card. `IPersonaItem` gained up to five secondary lines and the
   avatar grows with the line count.
@@ -1067,225 +894,157 @@ Two smaller calls made in the same pass, both in the shared `DataGrid`:
 ## D-049, native-parity lookup (NativeLookupField + SmartNativeLookup) replaces StandardLookupField
 
 The native single-record lookup is rebuilt with parity: `NativeLookupField`
-(presentational) plus `SmartNativeLookup` (smart), replacing the old
-`StandardLookupField` (a Browse button straight to the `lookupObjects` dialog,
-which is nothing like the inline native lookup). The presentational control is a
-resting chip with clickthrough and an inline flyout that opens on click, loads the
-lookup view's first page, filters as you type with the matched substring bolded
-across the name and the secondary columns, and expands per-row detail (the lookup
-view's columns, name over the first column, the rest behind a conditional chevron
-that appears only when a row has more than one populated column). `lookupObjects`
-is relegated to the footer "Advanced" escalation on UX grounds, not capability.
+(presentational) plus `SmartNativeLookup` (smart) replace `StandardLookupField` (a
+Browse button straight to the `lookupObjects` dialog). The presentational control is
+a resting chip with an inline flyout that opens on click, loads the lookup view's
+first page, filters as you type (matched substring bolded across name and secondary
+columns), and expands per-row detail behind a conditional chevron. `lookupObjects`
+is relegated to a footer "Advanced" escalation on UX grounds, not capability.
 
-Two lookups by intent, refining D-023. The kit now ships two single-record
-lookups: `SmartLookup` (the combobox, simpler and often the better data-entry
-experience) and `SmartNativeLookup` (native look and feel for muscle-memory
-parity). This is the UX-parity tier from the README applied to a control: parity
-is a UX goal, not a config-options goal. The choice is the consumer's per field.
+Two lookups by intent (refines D-023): `SmartLookup` (combobox) and
+`SmartNativeLookup` (native look and feel for muscle-memory parity), the UX-parity
+tier applied to a control; the choice is the consumer's per field. Attribute-bound
+only (D-010): `SmartNativeLookup` extends `SmartFieldBase`; the speculative
+no-attribute / `entityTypes` mode is dropped (no consumer, met by the attribute's
+metadata target). Add an `entityTypes` variant if a genuine cross-entity
+no-attribute picker appears.
 
-Attribute-bound only (earn-their-place, D-010). `SmartNativeLookup` extends
-`SmartFieldBase` (entity + attribute), like `SmartLookup`. The speculative
-no-attribute / explicit-`entityTypes` mode that `StandardLookupField` had was
-dropped: the only consumer (the sample) bound it via `entityTypes=["systemuser"]`
-purely because the old control had no attribute binding, but that need is met
-exactly by the attribute `preferredsystemuserid`'s metadata target. No real
-consumer needs the attribute-less mode, so it is not built; add an `entityTypes`
-variant if a genuine cross-entity, no-attribute picker appears.
+Both default search to the entity's lookup view (querytype 64) via
+`IMetadataApi.getLookupView` (falls back to the default grid view). This corrects
+two divergences: `getView` (no id) returns the default GRID view (different filter
+and columns, e.g. systemuser's "Enabled Users" excludes application users via
+`applicationid IS NULL`), and `SmartLookup` previously searched the unfiltered
+table. `viewId`/`viewName` override. Caveat: a form lookup control configured with
+a specific view cannot be read by a field-bound webresource/PCF, so the kit matches
+the entity default.
 
-Both lookups default their search to the entity's lookup view (querytype 64), via
-the new `IMetadataApi.getLookupView` (falls back to the default grid view when an
-entity has none). This corrects two divergences found in testing: the native lookup
-uses the lookup view, but `getView` (no id) returns the default GRID view (whose
-filter and columns differ, e.g. systemuser's "Enabled Users" excludes application
-users via `applicationid IS NULL`, leaving almost nobody), and `SmartLookup`
-previously searched the unfiltered table (surfacing non-interactive/application
-users the platform hides). `viewId`/`viewName` still override. Honest caveat: a
-form's lookup control can be configured with a specific (non-default) view, which a
-field-bound webresource/PCF cannot read, so the kit matches the entity's default
-lookup view.
+Two Fluent quirks: focus stays on the input (`PopoverTrigger` makes its wrapper a
+tab stop, so the wrapper carries `tabIndex={-1}`; the surface pulls focus on open,
+so the control re-focuses via a deferred `setTimeout(0)`; arrow-key row nav rides
+`aria-activedescendant`; open is click / typing / ArrowDown). And Combobox /
+DatePicker / Dropdown carry intrinsic widths where Input fills its Field, so each is
+set to `width: 100%` (the `BooleanField` Switch stays compact).
 
-Two presentational mechanics worth recording, both Fluent quirks the rework hit:
+PCF target (`pcfs/KitNativeLookup`): a field-bound `Lookup.Simple` PCF rendering
+`SmartNativeLookup` through `PCFContext`, with the D-046/D-047/D-048 fixes (host
+entity from `mode.contextInfo`, bound column from a maker-supplied `attribute`
+property). Two form-only findings: the Popover surface was transparent (it portals
+outside the themed FluentProvider, so the theme CSS variables
+`--colorNeutralBackground1`/`--shadow16` are undefined), fixed by rendering it
+`inline` (safe, Fluent positions it `fixed`; this also let the width track the field
+via `matchTargetSize: "width"`); and a PCF MUST get a manifest `<control version>`
+bump on every redeploy or the platform serves the cached bundle (a hard requirement,
+separate from the webresource cache lag). The modern designer's "Error loading
+control" is expected and benign (the preview sandbox cannot supply runtime context);
+it renders once published (D-047).
 
-- Focus stays on the input. `PopoverTrigger` makes its wrapper a `role="button"`
-  `tabIndex=0` tab stop (via `useARIAButtonProps`, even with
-  `disableButtonEnhancement`), so the wrapper carries `tabIndex={-1}` (respected
-  because `useARIAButtonProps` spreads the child props after its own default) to
-  keep the input the single tab stop. And Fluent's surface pulls focus to its first
-  control on open (tabster's legacy trap, even with `trapFocus={false}`), so the
-  control re-focuses the input on the open transition via a deferred `setTimeout(0)`
-  that wins the race; arrow-key row navigation rides `aria-activedescendant`, not
-  real focus. Opening is by click / typing / ArrowDown (the trigger's click-toggle
-  and focus-to-open fight each other, so focus-to-open was dropped; click-to-open
-  matches native anyway).
-
-- Field width consistency. Fluent `Input` fills its `Field`, but `Combobox`,
-  `DatePicker`, and `Dropdown` have intrinsic widths and do not, so they were
-  narrower than the text fields in a form section. Each is set to `width: 100%`
-  (`LookupField`/`DateTimeField` via a `fill` makeStyles class; the option-set
-  `Dropdown`s via an inline style, as they have no styles hook). The `BooleanField`
-  Switch stays compact on purpose. Verified live in the master/detail sample (the
-  model-driven app's webresource resource-cache token lags a publish, so a fresh
-  session or cache clear is needed to see the very latest bundle).
-
-Verified against the live v9 org: the flyout queries the systemuser lookup view,
-renders the two-line rows + conditional chevron + entity icon, search-as-you-type
-filters with the bold highlight while the input keeps focus, and a pick commits to
-the shared value Observable (the sample binds `SmartLookup` and `SmartNativeLookup`
-to one `preferredsystemuserid` reference, side by side). Revisit triggers: a real
-no-attribute cross-entity picker (add the `entityTypes` variant), or a host that
-exposes the form lookup control's configured view (prefer it over the entity
-default).
-
-PCF target (`pcfs/KitNativeLookup`), and two findings only a real form surfaced.
-The control ships also as a field-bound `Lookup.Simple` PCF that renders
-`SmartNativeLookup` through `PCFContext` (the same data path as the webresource),
-with the D-046/D-047/D-048 fixes (React/Fluent webpack dedupe, Fluent pinned to the
-host tabster floor, production solution build). A field-bound PCF does not expose
-its own attribute name, so the host entity comes from `mode.contextInfo` and the
-bound column logical name is a maker-supplied `attribute` property (the smart
-control needs entity + attribute to resolve targets, the lookup view, and the
-icon). The two findings, both invisible until the control ran on a deployed form:
-
-- The Popover surface was transparent (the form behind it showed through). The
-  flyout portals by default, and in a PCF the default portal mounts OUTSIDE the
-  control's themed FluentProvider, so the theme CSS variables
-  (`--colorNeutralBackground1`, `--shadow16`) are undefined there and the
-  token-based background/shadow resolve to nothing. Fix: render the Popover
-  `inline` (it then stays inside the themed provider), which is safe because
-  Fluent positions the surface `fixed`, so an overflow ancestor never clips it.
-  The same change made the flyout width track the field via positioning
-  `matchTargetSize: "width"`, which the webresource benefits from too.
-
-- A PCF MUST get a manifest version bump (`<control version>`) on every redeploy,
-  or the platform serves the cached old bundle forever (the import succeeds and
-  publishes, but the form keeps running the previous build). This is separate from
-  the webresource resource-cache lag; it is a hard requirement, not a propagation
-  delay.
-
-The modern form designer shows "Error loading control" for this PCF, which is
-expected and benign: the designer's preview sandbox cannot supply the runtime
-context (the bound value, `contextInfo`, the Web API the metadata resolution
-needs), so the control cannot render at design time. It renders correctly once
-published, which is the bar (D-047). Verified on the live account form: bound to a
-second `parentaccountid` field beside the native one, the flyout queries the
-account lookup view, renders the opaque two-line rows at the field width, filters
-as you type with focus retained, and commits the pick to the bound column.
+Verified against the live v9 org on both surfaces: the flyout queries the lookup
+view, renders two-line rows + chevron + icon, filters with the bold highlight while
+the input keeps focus, and a pick commits to the shared value Observable. The sample
+binds `SmartLookup` and `SmartNativeLookup` to one `preferredsystemuserid` side by
+side; the PCF, bound to a second `parentaccountid` beside the native one, queries
+the account lookup view and commits the pick. Revisit triggers: a real no-attribute
+cross-entity picker (add the `entityTypes` variant), or a host that exposes a form
+lookup control's configured view (prefer it over the entity default).
 
 ## D-050, polymorphic (Customer/Owner) lookup made real on both surfaces (refines D-049/D-023)
 
-The native lookup advertised a polymorphic target switcher (Customer/Owner pick
-between several targets), but it had never been exercised against a live org, only
-shown in a Storybook story over fixture metadata. Testing it live on
-`contact.parentcustomerid` (a Customer lookup, account or contact) surfaced two
-independent defects, both now fixed and verified on both delivery surfaces.
+The native lookup advertised a polymorphic target switcher (Customer/Owner between
+several targets) but had only been shown in a Storybook story over fixture
+metadata. Testing live on `contact.parentcustomerid` (account or contact) surfaced
+two independent defects, both now fixed and verified on both surfaces.
 
 The switcher never rendered (a reactivity gap). `SmartNativeLookup` resolves the
-switcher target labels asynchronously (one `getEntityMetadata` per target, after
-the first render) and was passing the result down as a one-time snapshot
-(`targets={this.switcherTargets.value}`). Every other dynamic input the smart
-control feeds the presentational `NativeLookupField` (results, searching,
-activeTarget, tableLabel, the selected icon) is an Observable the presentational
-control observes, so it re-renders when the value lands; `targets` alone was a
-plain value, and `SmartFieldBase` only observes `value`/`errorMessage`, so nothing
-re-rendered after the labels resolved. The list reached the view as `undefined`,
-`targets.length > 1` was never true, and the switcher never appeared. This is
-exactly why the Storybook story "passed" (it renders the flyout; nobody clicked a
-switcher that was not there) while the real org failed. Fix: `targets` becomes an
-`OrObservable` the presentational control observes, like `activeTarget`
-(`targets={this.switcherTargets}`). A unit test now asserts the switcher appears
-after the async label resolution and that picking a target re-queries it; it fails
-against the snapshot version, so the regression cannot return silently.
+switcher target labels asynchronously (one `getEntityMetadata` per target) and was
+passing them down as a one-time snapshot (`targets={this.switcherTargets.value}`).
+Every other dynamic input to `NativeLookupField` is an Observable it observes, but
+`targets` was a plain value and `SmartFieldBase` only observes `value`/`errorMessage`,
+so nothing re-rendered after the labels resolved and the switcher never appeared
+(which is why the Storybook story "passed"). Fix: `targets` becomes an `OrObservable`
+the presentational control observes. A unit test asserts the switcher appears after
+async label resolution and that picking a target re-queries; it fails against the
+snapshot version.
 
-The PCF could not bind to a Customer field (a manifest contract gap). `KitNativeLookup`
-declared its bound value `of-type="Lookup.Simple"`, which the form designer offers
-only on single-target lookup columns; a Customer field is a distinct binding type,
-so the control was never listed for `parentcustomerid` even with the switcher fixed.
+The PCF could not bind to a Customer field (a manifest gap). `KitNativeLookup`
+declared its bound value `of-type="Lookup.Simple"`, which the designer offers only
+on single-target columns, so the control was never listed for `parentcustomerid`.
 Fix: the value property binds an `of-type-group` covering `Lookup.Simple` +
-`Lookup.Customer` + `Lookup.Owner`, so the one control serves single-target and
-polymorphic columns alike. Manifest `<control version>` bumped (1.0.3) per the
-redeploy rule (D-047/D-049). The polymorphic *write* needs no kit code on the PCF
-path: the platform routes the `@odata.bind` from the `entityType` the control
-outputs. On the webresource path the consumer's ViewModel owns the write and must
-target the suffixed navigation property (`parentcustomerid_<target>@odata.bind`,
-e.g. `parentcustomerid_contact`), since `LibraryUtils.odataBind` resolves the URL
-but not the property name; this is recorded as a gotcha.
+`Lookup.Customer` + `Lookup.Owner`. Manifest `<control version>` bumped (1.0.3) per
+the redeploy rule (D-047/D-049). The polymorphic write needs no kit code on the PCF
+path (the platform routes `@odata.bind` from the `entityType` the control outputs);
+on the webresource path the consumer's ViewModel must target the suffixed nav
+property (`parentcustomerid_<target>@odata.bind`, e.g. `parentcustomerid_contact`),
+since `LibraryUtils.odataBind` resolves the URL but not the property name (recorded
+as a gotcha).
 
-Verified live on `contact.parentcustomerid` on both surfaces: the switcher renders
-and lists Account/Contact, switching re-queries each target's lookup view, the pick
-commits the correct reference, and the write persists to the right target (read
-back `lookuplogicalname` = the picked entity). Webresource: the `sample-master-detail`
-app now binds `parentcustomerid` beside `preferredsystemuserid` as the polymorphic
-showcase, writing through the suffixed nav property. PCF: `KitNativeLookup` bound to
-the Contact form's Company Name field commits the pick and the platform persists it.
-Revisit triggers: an Owner field (systemuser/team) exercised in anger, ownership
-writes can differ from a plain attribute write; or a host that exposes a form lookup
-control's configured (non-default) view, prefer it over the entity default.
+Verified live on `contact.parentcustomerid` on both surfaces: the switcher lists
+Account/Contact, switching re-queries each target's lookup view, the pick commits
+the correct reference, and the write persists to the right target (read-back
+`lookuplogicalname` matches). Webresource: `sample-master-detail` binds
+`parentcustomerid` beside `preferredsystemuserid`. PCF: `KitNativeLookup` bound to
+the Contact form's Company Name field. Revisit: an Owner field (systemuser/team)
+exercised in anger (ownership writes can differ), or a host exposing a form lookup
+control's configured view.
 
 ## D-051, the 2026-07 hardening round: tabster handled in two tiers, and three edges accepted deliberately
 
-An adversarial review round (two models, three reviewer roles each) was consolidated,
-verified against the code, and remediated in mid-2026. The correctness fixes speak for
-themselves in the history; what belongs in the decision log is the posture that came out
-of it, so it is not re-litigated.
+An adversarial review round (two models, three reviewer roles each) was
+consolidated and remediated in mid-2026. The correctness fixes speak for themselves
+in the history; what belongs here is the posture.
 
-**Tabster is handled in two tiers: eliminate where possible, pin and guard where not.**
-The shared-window tabster collision (D-048) cannot be permanently fixed for controls
-that genuinely need focus management (Dropdown, Combobox, DatePicker, DataGrid, Menu,
-the interactive lookup flyout) while the kit bundles React 18 plus Fluent 9: the one
-collision-proof supported path, platform-library, would bind the kit to the platform's
-React, and the reactivity core assumes React 18. So those controls keep the conservative
-pin to the host's platform-library floor, wrapped in the shared error boundary so a
-drift degrades loudly instead of blanking, with the re-pin runbook in `deployment.md`
-tied to the release waves. The tooltip path, by contrast, needs no focus management at
-all, so it was made permanently collision-free: `KitTooltip` was rebuilt off `Popover`
-onto the plain Fluent `Tooltip` (positioning only, the pattern `FieldShell` already
-used), and a deliberate skew test (bundling the exact tabster version D-048 diagnosed
-as the collision, against the older host copy) rendered cleanly on a live form. On that
-evidence the tooltip carries no pin at all and stands as the reference that a
-tooltip-only PCF needs none. Reproducibility still comes from its committed lockfile.
+**Tabster is handled in two tiers: eliminate where possible, pin and guard where
+not.** The shared-window tabster collision (D-048) cannot be permanently fixed for
+controls that genuinely need focus management (Dropdown, Combobox, DatePicker,
+DataGrid, Menu, the lookup flyout) while the kit bundles React 18 plus Fluent 9:
+the one collision-proof supported path, platform-library, would bind the kit to the
+platform's React, which the reactivity core assumes is 18. So those controls keep
+the conservative pin to the host's platform-library floor, wrapped in the shared
+error boundary so a drift degrades loudly, with the re-pin runbook in
+`deployment.md`. The tooltip path needs no focus management, so it was made
+permanently collision-free: `KitTooltip` was rebuilt off `Popover` onto the plain
+Fluent `Tooltip`, and a deliberate skew test (bundling the exact tabster version
+D-048 diagnosed, against the older host copy) rendered cleanly on a live form. On
+that evidence the tooltip carries no pin.
 
-**Three reviewer-raised edges are accepted, with their conditions recorded:**
-- The Web API version stays pinned to 9.2. It is the long-lived stable version, and
-  deriving it per-org buys nothing today. Optional hardening if it ever matters: read
-  `getGlobalContext().getVersion()` on the modern adapter and keep 9.2 as the fallback.
-- Dark mode stays unhandled, as a revisit trigger rather than a permanent non-goal: the
-  day the target orgs run dark UCI at any real rate, the theme layer is where it lands.
-- The cds-client's hand-rolled multipart `$batch` parsing stays. It is bespoke protocol
-  code carrying correctness weight, so the live-org verification that D-045 established
-  remains the standing regression gate whenever that parser is touched.
+**Three reviewer-raised edges are accepted, with conditions recorded:**
+- The Web API version stays pinned to 9.2 (the long-lived stable version). Optional
+  hardening: read `getGlobalContext().getVersion()` on the modern adapter, keep 9.2
+  as fallback.
+- Dark mode stays unhandled, as a revisit trigger not a permanent non-goal: the day
+  target orgs run dark UCI at any real rate, the theme layer is where it lands.
+- The cds-client's hand-rolled multipart `$batch` parsing stays. It is bespoke
+  protocol code carrying correctness weight, so the live-org verification D-045
+  established remains the standing regression gate whenever that parser is touched.
 
 ## D-052, the shell stays a single bundle; the app manifest is the size lever, not code-splitting
 
 A reviewer flagged that the shell statically imports every sample app into one
-entry, so the bundle grows with app count. Measured while deciding this (production
-build, minified): the full ten-app shell is 889 KB, and a shell trimmed to just the
-template and the samples hub is 425 KB. So the sample apps cost about 474 KB, over
-half the bundle, mostly the grid and wizard stacks and the extra Fluent surface they
-pull in. The growth claim is real, not theoretical.
+entry, so the bundle grows with app count. Measured (production, minified): the full
+ten-app shell is 889 KB, a shell trimmed to the template and the samples hub is
+425 KB, so the sample apps cost about 474 KB, over half the bundle. The growth is
+real.
 
-Per-app `React.lazy` chunks were considered and rejected for now, not on the
-savings (real) but on what chunking does to the webresource delivery contract.
-The whole pipeline leans on ONE stable artifact name: the SPKL mapping deploys one
-script webresource, the HTML entry cache-busts that one URL with the compilation
-hash, and the Fiddler autoresponder dev loop matches on that one name. Chunks break
-each of those: every chunk becomes its own named webresource to register and deploy,
-chunk requests carry no cache-bust token so the platform's aggressive webresource
-caching applies to them unguarded, the jsdom smoke tests cannot execute dynamic
-chunk loads, and, decisive for this round, whether webpack's runtime resolves chunk
-URLs correctly under the versionstamped webresource path can only be proven on a
-live form, and the kit's own bar says platform-touching changes are not done until
-they are seen working there.
+Per-app `React.lazy` chunks were considered and rejected for now, not on the savings
+(real) but on what chunking does to the webresource delivery contract. The pipeline
+leans on ONE stable artifact name: SPKL deploys one script webresource, the HTML
+entry cache-busts that one URL with the compilation hash, the Fiddler dev loop
+matches that one name. Chunks break each: every chunk becomes its own named
+webresource to register and deploy, chunk requests carry no cache-bust token (so the
+platform's aggressive caching applies unguarded), the jsdom smoke tests cannot
+execute dynamic chunk loads, and whether webpack's runtime resolves chunk URLs under
+the versionstamped webresource path can only be proven on a live form, which the
+kit's bar requires before relying on it.
 
-The consumer-facing cost has a simpler, already-working lever: the app manifest
+The consumer-facing cost has a simpler lever: the app manifest
 (`clientui/apps/index.ts`) registers each app with one import line, and deleting a
-line removes that app's code from the bundle entirely (that is how the 425 KB
-number was measured). A fork ships its own two to five apps, not the ten samples,
-so the realistic consumer bundle sits near the trimmed number, not the full one.
+line removes that app's code entirely (that is how the 425 KB was measured). A fork
+ships its own two to five apps, not the ten samples, so a realistic consumer bundle
+sits near the trimmed number.
 
-Revisit trigger: a deployment that genuinely needs many apps behind one shell, with
-boot latency that matters. The path then is per-app chunks with stable chunk names,
-one webresource per chunk in the deploy mapping, and a live-form verification of
-chunk URL resolution and caching before anything relies on it.
+Revisit: a deployment that genuinely needs many apps behind one shell with boot
+latency that matters. The path is then per-app chunks with stable chunk names, one
+webresource per chunk in the deploy mapping, and a live-form verification of chunk
+URL resolution and caching first.
 
 ## D-053, the platform-library path re-tested and found OPEN: virtual controls now receive the platform's current Fluent
 
@@ -1313,95 +1072,79 @@ local-only under pcfs/_virtualSpike, excluded from the repo):
   standard PCFs bundle 350 to 750 KB each.
 
 What this opens: the PCF tier can migrate to virtual controls and drop bundling
-React and Fluent entirely. That retires the tabster pin and its per-wave re-pin
-runbook, collapses the per-form bundle budget, and makes native fidelity track
-the host automatically. The webresource shell is unaffected (own iframe, keeps
-bundling React 18).
+React and Fluent, retiring the tabster pin and its re-pin runbook, collapsing the
+bundle budget, and making native fidelity track the host. The webresource shell is
+unaffected (own iframe, keeps React 18).
 
-What the migration costs, measured this session: shared code contains NO
-React-18-only API usage (verified by grep; createRoot appears only at the six
-entry points). The work is per-PCF index.ts rewrites to the ReactControl shape
-(updateView returns the element, no root management), a notification batching
-shim in the reactivity core to replace React 18 automatic batching on the
-React 17 host (the same work the metadata rework's render-count acceptance
-already wants), dev-time-only React and Fluent in the PCF manifests, and the pin
-checker repurposed as a compatibility-floor checker (kit code must not use
-Fluent APIs newer than the lowest platform library across target orgs, and the
-declared manifest version must be one the target org accepts, which varies by
-wave, as the 9.68.0 rejection shows).
+Migration cost, measured: shared code contains NO React-18-only API usage (grep;
+createRoot only at the six entry points). The work is per-PCF index.ts rewrites to
+the ReactControl shape (updateView returns the element), a notification batching
+shim in the reactivity core to replace React 18 automatic batching on the React 17
+host, dev-time-only React and Fluent in the manifests, and the pin checker
+repurposed as a compatibility-floor checker (kit code must not use Fluent APIs newer
+than the lowest platform library across target orgs, and the declared manifest
+version must be one the target org accepts, which varies by wave).
 
-Not decided here: the migration itself. This entry records the evidence and the
-open path; the migration is its own piece of work with its own live-form done
-bar per control. The probe control remains registered in the dev org (the pac
-push temp solution), off all forms, reusable for the migration round.
+Not decided here: the migration itself, its own work with its own live-form done bar
+per control. The probe remains registered in the dev org (off all forms), reusable
+for the migration round.
 
 ## D-054, the PCF tier is virtual: platform-provided React and Fluent, and the pin posture retired
 
 The migration D-053 opened is done. All five kit PCFs (KitOptionSet, KitDatePicker,
 KitTooltip, KitNativeLookup, KitCounterpartyGrid) are control-type="virtual"
 ReactControls: updateView returns the element, the platform owns the React root and
-hands the control the host page''s own React (17.0.2 on the dev org) and its current
-Fluent at runtime. Each control was verified end to end on the live dev org, the
-kit''s done bar: renders on the form, commits its value to the bound column and
-saves, repaints on a host-driven value change, no console errors. Bundles fell from
-350-750 KB per control to 7-82 KB, except the date picker (380 KB, the compat
-exception below). This supersedes the pinned tier of D-051: with the platform
-providing Fluent there is exactly one tabster instance on the page, the host''s, so
-the version-skew collision is structurally impossible, the per-wave re-pin runbook
-is retired, and the tabster-free tooltip tier stops being special. D-047 and D-048
-remain true for any control-type="standard" PCF a consumer builds; the standard
-machinery stays documented as the historical note in deployment.md.
+serves the host page's own React (17.0.2 on the dev org) and current Fluent. Each was
+verified end to end on the live dev org (renders, commits its value and saves,
+repaints on a host-driven change, no console errors). Bundles fell from 350-750 KB to
+7-82 KB, except the date picker (380 KB, the compat exception below). This supersedes
+the pinned tier of D-051: with the platform providing Fluent there is exactly one
+tabster on the page, so version-skew collision is structurally impossible and the
+re-pin runbook is retired. D-047 and D-048 remain true for any control-type="standard"
+PCF (documented as the historical note in deployment.md).
 
-Two version floors, deliberately different numbers, both in pcfs/platform-floor.json
-and enforced by scripts/check-pcf-floor.mjs (the repurposed pin checker, still first
-in verify). The DECLARED floor (manifest platform-library lines, React 16.14.0 and
-Fluent 9.46.2) is only what the org must accept at solution import; the runtime
-serves its current copy regardless (declare low, receive current, per D-053). The
-API floor (Fluent 9.61.0) is the oldest delivery the kit''s code actually works
-against, and its enforcement is compilation, not a hand-kept list: every PCF carries
-exactly that version in devDependencies, so an API the floor does not export fails
-the build. The number is 9.61.0 because SearchBox (the grid''s search bar) first
-ships there; the floor check caught that within minutes of existing, which is the
-point. The checker also scans shared/ for React-18-only APIs (the shell bundles
-React 18, the PCF host serves 16/17, shared code runs on both).
+Two version floors, both in pcfs/platform-floor.json and enforced by
+scripts/check-pcf-floor.mjs (still first in verify). The DECLARED floor (manifest
+platform-library lines, React 16.14.0 and Fluent 9.46.2) is only what the org must
+accept at import; the runtime serves its current copy (declare low, receive current,
+D-053). The API floor (Fluent 9.61.0) is the oldest delivery the kit's code works
+against, enforced by compilation not a hand-kept list: every PCF carries that version
+in devDependencies, so an API the floor does not export fails the build. It is 9.61.0
+because SearchBox (the grid's search bar) first ships there. The checker also scans
+shared/ for React-18-only APIs (the shell bundles React 18, the PCF host serves
+16/17).
 
 What the migration itself surfaced, each found on the live form and none in the
 harness:
 
-- react-dom only externalizes behind the pcfReactPlatformLibraries feature flag in
-  featureconfig.json; without it the bundle silently carries the repo root''s
-  react-dom (the build succeeds, 130 KB heavier, and batched updates would run
-  against the wrong renderer). Verified live that the platform''s ReactDOM global
-  (ReactDOMv16) exists and exposes unstable_batchedUpdates before relying on it.
+- react-dom only externalizes behind the pcfReactPlatformLibraries flag in
+  featureconfig.json; without it the bundle silently carries the repo root's
+  react-dom (130 KB heavier, batched updates against the wrong renderer). Verified
+  live that the platform's ReactDOMv16 exposes unstable_batchedUpdates.
 - The platform Fluent library carries no DatePicker/TimePicker (checked against the
-  live org''s module: 1199 exports, none of them the pickers; the one serving a
-  DatePicker is the v8 library). The compat packages therefore stay bundled in
-  KitDatePicker, with their tabster chain pinned via overrides and the packages
-  aliased in webpack.config.js, exactly the D-048 discipline scoped down to the one
-  place that still bundles focus management.
-- Overlay surfaces must not portal to the document in an embedded host. The page
-  carries the UCI shell''s own Fluent plus the platform library, and a portal mounts
-  where the theme''s CSS variables do not reach (and the numbered provider classes
-  cannot be trusted across copies), so the surface renders transparent. The date
-  picker calendar renders in place (inlinePopup), the time list keeps its portal but
-  mounts it inside the themed tree (mountNode, because in-place anchoring misplaced
-  a combobox listbox in the form host), and the counterparty hovercard renders in
-  place (inline), joining the native lookup flyout which already did (D-049).
-- The platform mounts a virtual control''s tree inside a flex container, where a
-  plain div shrinks to its content. The grid measures its own width to choose the
-  table or the card layout, so its root now stretches (width 100 percent); the old
-  standard control rendered into a block container and never saw this.
+  live org's module: 1199 exports, none the pickers; the one serving a DatePicker is
+  the v8 library). The compat packages stay bundled in KitDatePicker, tabster chain
+  pinned via overrides and aliased in webpack.config.js, the D-048 discipline scoped
+  to the one place that still bundles focus management.
+- Overlay surfaces must not portal to the document in an embedded host (the page
+  carries the UCI shell's Fluent plus the platform library, and a portal mounts where
+  the theme's CSS variables do not reach, so it renders transparent). The date picker
+  calendar renders in place (inlinePopup), the time list keeps its portal but mounts
+  inside the themed tree (mountNode), and the counterparty hovercard renders inline,
+  joining the native lookup flyout (D-049).
+- The platform mounts a virtual control's tree inside a flex container, where a plain
+  div shrinks to its content. The grid measures its own width to choose table or card
+  layout, so its root now stretches (width 100 percent).
 
 The reactivity core gained the batching shim the migration needed (and the metadata
-rework''s render-count acceptance wanted): observer components hand a stable render
-request to a shared queue that flushes once per pass, wrapped in react-dom''s
-batched-updates call (real merging on React 16/17, a passthrough on 18, one code
-path for both hosts). Only the repaint coalesces; Observable values and subscriber
+rework's render-count acceptance wanted): observer components hand a stable render
+request to a shared queue that flushes once per pass, wrapped in react-dom's
+batched-updates call (real merging on React 16/17, a passthrough on 18, one code path
+for both hosts). Only the repaint coalesces; Observable values and subscriber
 callbacks stay synchronous. Inside DOM event delivery the repaint stays synchronous
-too, both because React already merges there and because a delayed render fights
-React''s controlled-input text restore (the caret jumps). Verified live by typing
-through the tooltip control''s input on the React 17 host with no character or caret
-loss.
+too (React already merges there, and a delayed render fights React's controlled-input
+text restore, the caret jumps). Verified live by typing through the tooltip control's
+input on the React 17 host with no character or caret loss.
 
 Revisit triggers: a target org whose wave serves a platform Fluent older than the
 API floor (lower the floor or gate the affected control), a platform wave that
@@ -1412,1478 +1155,951 @@ deployment.md historical note).
 ## D-055, the third adversarial round: what was deliberately not fixed, and the claims that did not survive verification
 
 The 2026-07 adversarial round (six reviews, two models by three roles) was
-consolidated and remediated on the block-b branch; the fixes speak for
-themselves in the history. This entry records the other half, the decisions
-NOT to act, so none of them is re-litigated from the same findings later.
+consolidated and remediated on the block-b branch; the fixes speak for themselves.
+This entry records the other half, the decisions NOT to act.
 
 Deliberate non-fixes, each with its reason:
 
-- **`npm run verify` still does not compile the PCFs.** Five npm ci runs plus
-  five production webpack builds would multiply the gate's runtime past the
-  "cheap question" bar that makes verify get run at all. The floor checker
-  guards the manifests, dependencies, and the shared import graph statically,
-  and CI builds all five in production mode whenever shared/, pcfs/, or the
-  root dependency set changes. Revisit if a shared change ever breaks a PCF
-  in a way the floor checker and typecheck both miss. (A concrete instance of
-  that trigger: the root typechecks shared code against a newer Fluent than
-  the 9.61 PCF floor, so a shared change using a newer Fluent API passes
-  verify locally and only the CI PCF build catches it. Known, and the reason
-  the CI conditional build exists.)
-- **SmartViewGrid still binds once on mount.** The supported rebind is a React
-  key derived from the binding. Full rebind support would re-run initialize
-  for a case the key pattern already covers in one line; instead the contract
-  is documented on the class and a development-build warning fires when a
-  binding prop changes identity. (The field controls rebind because a wizard
-  step legitimately swaps attributes under one mounted control; a grid swap
+- **`npm run verify` still does not compile the PCFs.** Five npm ci plus five
+  production webpack builds would push the gate past the "cheap question" bar. The
+  floor checker guards the manifests, dependencies, and shared import graph
+  statically, and CI builds all five in production whenever shared/, pcfs/, or the
+  root dependency set changes. Revisit if a shared change breaks a PCF in a way the
+  floor checker and typecheck both miss (concrete instance: the root typechecks
+  shared code against a newer Fluent than the 9.61 floor, so a newer-API shared
+  change passes verify locally and only the CI PCF build catches it, which is why
+  the conditional CI build exists).
+- **SmartViewGrid still binds once on mount.** The supported rebind is a React key
+  derived from the binding; full rebind support would re-run initialize for a case
+  the key pattern covers in one line, so the contract is documented and a
+  development-build warning fires when a binding prop changes identity. (Field
+  controls rebind because a wizard step legitimately swaps attributes; a grid swap
   is a different screen.)
 - **Rejected-promise shapes stay host-specific.** Normalizing every adapter
-  method's rejection into one kit error type would be a breaking contract
-  change across three hosts, out of proportion to the gap. The claim in
-  gotchas was rescoped instead: parity is promised for success shapes and
-  flow control, and the rejection shapes are documented as host-coupled.
+  method's rejection into one kit error type is a breaking change across three
+  hosts, out of proportion. gotchas was rescoped: parity is promised for success
+  shapes and flow control, rejection shapes are host-coupled.
 - **The 9.2 API-version constants stay** (PCFContext.orgVersion, the CdsClient
-  default), per D-051's acceptance. The V8 adapter now derives its endpoint
-  version from the org's real version string, which was the half with a
-  concrete failure mode (8.0/8.1 orgs).
-- **No committed solution project or managed-zip pipeline stage yet.** The ALM
-  chapter's prose is right but the repo cannot execute it; making it
-  executable (a committed wrapper for the five PCFs plus webresources, a
-  pipeline stage emitting a managed zip, an import verification) is a
-  coherent block of its own and was cut from this round rather than shipped
-  untested. The spkl solution name is at least parameterized now. Trigger:
-  the next time a release is cut, or the first consumer who asks for a
-  managed artifact of their fork.
-- **The change-set parser keeps its live-org regression protocol** (D-045)
-  instead of a CI-gated integration test: a public portfolio repo does not
-  get a dev-org secret in CI. The protocol is recorded where the code is.
-- **Metadata fan-out is deferred INTO the native-first metadata rework.** Its
-  two cheap sub-findings (XHR timeout, 429 Retry-After) were pulled forward
-  and shipped. *(Resolved 2026-07: the rework shipped as D-057; the roadmap's
-  Shipped entry records where the fan-out landed. The native store is
-  client-cached with one call per attribute, the grid batches a whole
-  entity's columns into one call, and the two-requests-per-attribute shape
-  survives only on the pre-v9/fallback OData synthesis, by choice.)*
+  default), per D-051. The V8 adapter now derives its endpoint version from the
+  org's real version string (the half with a concrete failure mode, 8.0/8.1 orgs).
+- **No committed solution project or managed-zip pipeline stage yet.** Making the
+  ALM chapter executable (a committed wrapper for the five PCFs plus webresources, a
+  managed-zip stage, an import verification) is a coherent block cut from this round
+  rather than shipped untested; the spkl solution name is parameterized now. Trigger:
+  the next release cut, or the first consumer asking for a managed artifact of their
+  fork.
+- **The change-set parser keeps its live-org regression protocol** (D-045) instead
+  of a CI-gated integration test: a public portfolio repo gets no dev-org secret in
+  CI. The protocol is recorded where the code is.
+- **Metadata fan-out is deferred INTO the native-first metadata rework.** Its two
+  cheap sub-findings (XHR timeout, 429 Retry-After) were pulled forward and shipped.
+  *(Resolved 2026-07: the rework shipped as D-057; the native store is client-cached
+  with one call per attribute, the grid batches a whole entity's columns into one
+  call, and the two-requests-per-attribute shape survives only on the pre-v9/fallback
+  OData synthesis, by choice.)*
 
 Reviewer claims checked and found wrong, recorded so the next round does not
 re-raise them:
 
-- "loadFormatting needs a rebind sequence guard": the mechanism is real (no
-  guard), but getFormatting() is user-settings-level and binding-independent,
-  so a stale write sets identical data. No defect.
+- "loadFormatting needs a rebind sequence guard": real mechanism (no guard), but
+  getFormatting() is user-settings-level and binding-independent, so a stale write
+  sets identical data. No defect.
 - "the SmartNativeLookup target switcher shows the previous target's rows":
-  switching targets immediately starts the new target's first-page search,
-  which bumps the search sequence synchronously, so the old response is
-  already discarded. The REBIND path did have the gap and was fixed.
-- "PCFContext should fail fast on an empty client URL": relative same-origin
-  URLs are correct in the embedded host and the empty URL is a deliberate,
-  commented fallback; it now warns for diagnosability instead of throwing.
-- "production strips the dev freeze so in-place mutation fails silently":
-  that is D-038's recorded trade, not a regression.
+  switching bumps the search sequence synchronously, so the old response is already
+  discarded. The REBIND path did have the gap and was fixed.
+- "PCFContext should fail fast on an empty client URL": relative same-origin URLs
+  are correct in the embedded host and the empty URL is a deliberate fallback; it
+  now warns instead of throwing.
+- "production strips the dev freeze so in-place mutation fails silently": that is
+  D-038's recorded trade, not a regression.
 
-One posture note: the modern host cannot distinguish a network failure from a
-business error on execute (the native API rejects identically for both), so
-on that host both resolve ok=false while the cds hosts reject on network
-failure. Documented on the contract; there is nothing better available on
-that surface.
+Posture note: the modern host cannot distinguish a network failure from a business
+error on execute (the native API rejects identically), so there both resolve
+ok=false while the cds hosts reject on network failure. Documented on the contract;
+nothing better is available on that surface.
 
 ## D-056, the fourth adversarial round: the decision items and where each landed
 
-The 2026-07 pass-3 round's defects were fixed outright (the history speaks for
-them: the number field's focus/blur corruption under European separators, the
-rich-override paging degrade, the metadata view-filter encoding, the lookup
-search failure state, the column-security claim, the stale pcfs/README). This
-entry records the items that were decisions rather than defects, so the choice
-and its reasoning are auditable and none is re-litigated from the same finding.
+The 2026-07 pass-3 round's defects were fixed outright (the number field's
+focus/blur corruption under European separators, the rich-override paging degrade,
+the metadata view-filter encoding, the lookup search failure state, the
+column-security claim, the stale pcfs/README). This entry records the items that
+were decisions rather than defects.
 
-- **The platform Fluent floor gets a runtime probe, at the point of actual
-  exposure only.** The manifests declare Fluent 9.46.2 (the import ceiling)
-  while the kit's code floor is 9.61 (SearchBox), so an org trailing the
-  commercial wave imports cleanly and breaks at first render. The grid's root
-  now feature-detects the floor export and renders the wave requirement as a
-  readable message. The other roots stay unprobed on purpose: their code stays
-  within the declared surface, and blocking a working control on a floor it
-  does not use would manufacture the very failure the probe exists to soften.
-  If the floor ever rises to an export another control uses, that control's
-  root gets the same probe (deployment.md carries the rule).
-- **execute() now serializes function parameters by their declared types** on
-  the cds-backed hosts (Guid and non-string primitives unquoted, enums
-  qualified, entity references as @odata.id), matching what the native execute
-  derives from the same request metadata. Undeclared parameters keep the
-  JavaScript-type heuristic, which matches the native behavior for strings,
-  numbers, and booleans; a GUID passed without a declaration cannot be told
-  apart from a string, so requests with typed parameters should carry
-  parameterTypes. Verified against the Web API docs; unit-pinned per type.
+- **The platform Fluent floor gets a runtime probe, at the point of actual exposure
+  only.** The manifests declare Fluent 9.46.2 (import ceiling) while the kit's code
+  floor is 9.61 (SearchBox), so an org trailing the wave imports cleanly and breaks
+  at first render. The grid's root feature-detects the floor export and renders the
+  wave requirement as a readable message. Other roots stay unprobed: their code stays
+  within the declared surface, and blocking a working control on a floor it does not
+  use would manufacture the failure the probe softens. If the floor rises to an
+  export another control uses, that root gets the same probe (deployment.md carries
+  the rule).
+- **execute() now serializes function parameters by their declared types** on the
+  cds-backed hosts (Guid and non-string primitives unquoted, enums qualified, entity
+  references as @odata.id), matching the native execute. Undeclared parameters keep
+  the JavaScript-type heuristic (correct for strings, numbers, booleans; a GUID
+  without a declaration cannot be told from a string, so typed requests should carry
+  parameterTypes). Verified against the Web API docs; unit-pinned per type.
 - **The PCF savedQuery passthrough stays on the native webAPI, as recorded
-  reliance.** The native ComponentFramework options contract does not document
-  `savedQuery`, but the passthrough is live-verified on the model-driven host
-  and rerouting through the cds-client is a one-line delegation held in
-  reserve (gotchas states it). The broader fallback sentence in gotchas was
-  rescoped: the FetchXML escape hatch covers the grid, not the lookups, and
-  building a view-to-FetchXML translation for lookup search now would be
-  insurance against a regression that has never been observed.
-- **Quick find and lookup search default to begins-with**, the native default,
-  with `quickFindOperator="contains"` as the grid's opt-in (the native
-  leading-`*` affordance). Begins-with also keeps the default search an index
-  seek instead of a per-keystroke scan on large tables. Two divergences are
-  documented rather than closed: the kit searches `quickFindFields` (default
-  primary name), not the Quick Find view's find columns (reading that view
-  would add a metadata fetch per grid for a default any deployment can set in
-  one prop), and the fields contract is string-columns-only rather than
-  kind-filtered through metadata (a wrong column fails loudly into the
-  banner, and the prop doc now says so).
-- **The smart-tier PCFs are scoped to model-driven forms, and the undocumented
-  host reads live behind one seam.** README says the scope out loud; the
+  reliance.** The native options contract does not document `savedQuery`, but the
+  passthrough is live-verified on the model-driven host and rerouting through
+  cds-client is a one-line delegation held in reserve (gotchas states it). The
+  broader gotchas fallback sentence was rescoped: the FetchXML escape hatch covers
+  the grid, not the lookups, and a view-to-FetchXML translation for lookup search
+  would be insurance against a regression never observed.
+- **Quick find and lookup search default to begins-with**, the native default, with
+  `quickFindOperator="contains"` as the grid's opt-in (the leading-`*` affordance).
+  Begins-with also keeps the default an index seek, not a per-keystroke scan. Two
+  divergences documented rather than closed: the kit searches `quickFindFields`
+  (default primary name), not the Quick Find view's find columns (reading it would
+  add a metadata fetch per grid for a default any deployment sets in one prop), and
+  the fields contract is string-columns-only, not kind-filtered (a wrong column fails
+  loudly into the banner, and the prop doc says so).
+- **The smart-tier PCFs are scoped to model-driven forms, and the undocumented host
+  reads live behind one seam.** README says the scope out loud; the
   `mode.contextInfo`/`page` reads and the bound-parameter security read are
-  centralized in `shared/context/pcfHostReads.ts` so a platform reshape is a
-  one-file fix. Deferred: a manifest `entity` override property on the
-  host-aware controls (the attribute already has one). Trigger: the first
-  consumer who needs a kit control on a surface where the host reads are
-  absent but a maker could supply the entity by hand.
-- **The observe() contract now has a development-time check.** Observable's
-  value getter reports reads to a render tracker; a read during an observer's
-  render of an Observable missing from its observe() list warns once per
-  component and observable, and production builds strip the whole mechanism.
-  The check's first run caught a real gap: a smart field rebind reused the
-  mounted presentational child, which had subscribed to the PREVIOUS binding's
-  observables in its constructor (masked by the parent's own re-render).
-  Fixed structurally: the smart field keys its presentational child by the
-  binding, so a rebind remounts a fresh child. Presentational controls keep
-  the identity-stable-props contract (observe once, in the constructor)
-  instead of growing per-control reobserve plumbing.
+  centralized in `shared/context/pcfHostReads.ts` so a platform reshape is a one-file
+  fix. Deferred: a manifest `entity` override property on the host-aware controls
+  (the attribute already has one). Trigger: the first consumer needing a kit control
+  on a surface where the host reads are absent but a maker could supply the entity.
+- **The observe() contract now has a development-time check.** Observable's value
+  getter reports reads to a render tracker; a read during an observer's render of an
+  Observable missing from its observe() list warns once per component and observable,
+  and production strips the mechanism. Its first run caught a real gap: a smart field
+  rebind reused the mounted presentational child, which had subscribed to the
+  PREVIOUS binding's observables in its constructor (masked by the parent's
+  re-render). Fixed structurally: the smart field keys its presentational child by
+  the binding, so a rebind remounts a fresh child. Presentational controls keep the
+  identity-stable-props contract (observe once, in the constructor).
 
 ## D-057, metadata goes native-first and standard-shaped; the hint default reverses
 
 The native-first metadata rework shipped (feature/native-first-metadata,
-2026-07-03), and mid-build the owner corrected its direction in a way that
-reverses D-007 outright, so both the what and the why are recorded here.
+2026-07-03), and mid-build the owner corrected its direction in a way that reverses
+D-007 outright.
 
-**D-007 is reversed, and not only on transport.** The original decision built a
-custom metadata provider over raw EntityDefinitions OData and normalized
-everything into a kit-private shape (`IAttributeMetadata`). Two things were
-wrong with it. The transport half was already recorded by the roadmap: the
-native `getEntityMetadata` store returns a strict superset of what the OData
-path hand-fetched, offline-capable and client-cached, so raw OData bought
-nothing and cost offline (the original choice was made by the agent on wrong
-information it produced about the native API's completeness). The rework's
-first cut fixed only that half, adapting the native shape INTO the kit's
-custom contract; the owner stopped it: a core goal of the kit is to keep its
-APIs as close to the standard client API as possible, because a bespoke data
-model is a barrier of entry for people trained on the standard, and the kit's
-other surfaces (IWebApi, INavigation, utils) already mirror the native
-signatures. The metadata contract was the odd one out, so the CONTRACT moved,
-not just the transport.
+**D-007 is reversed, not only on transport.** The original built a custom provider
+over raw EntityDefinitions OData normalized into a kit-private shape
+(`IAttributeMetadata`). Transport: the native `getEntityMetadata` store returns a
+strict superset, offline-capable and client-cached, so raw OData bought nothing and
+cost offline (the original was an agent choice on wrong information about the native
+API). Contract: a core kit goal is APIs as close to the standard client API as
+possible (a bespoke model is a barrier for people trained on the standard, and
+IWebApi/INavigation/utils already mirror the native signatures), so the CONTRACT
+moved, not just the transport.
 
-**The shipped shape.** `context.utils.getEntityMetadata(entityName,
-attributes?)` resolves the platform's EntityMetadata shape, sitting exactly
-where both hosts put the native call (Xrm.Utility on the modern host, the PCF
-context.utils). On modern and PCF the native object passes through untouched,
-with a runtime fallback to OData (console-warned) should the native read
-fail. Pre-v9, and that fallback, synthesize the SAME standard shape from the
-OData endpoints (`CdsEntityMetadataProvider`: entity strings and an
-ItemCollection of `attributeDescriptor` items, labels resolved to strings the
-way the store serves them, OData encodings kept where the store's encoding is
-unverified). `getAttributeMetadata` and the bespoke `IAttributeMetadata`
-model retired with no sugar accessor: the kit-wide idiom is the standard one,
-`getEntityMetadata(entity, [attr])` then `Attributes.get(attr)`. The risk the
-roadmap wanted isolated (the descriptor shape is undocumented PascalCase and
-not contractual) still lives in exactly one file, but the direction inverted:
-`attributeMetadataReads` is the single sanctioned reader of the
-under-documented members, tolerant across every observed encoding (plain
-string or label object, numeric or string or Value-wrapped enums, array or
-keyed or Options-wrapped option lists), and the OData path adapts TOWARD the
-standard rather than everyone adapting away from it.
+**The shipped shape.** `context.utils.getEntityMetadata(entityName, attributes?)`
+resolves the platform EntityMetadata shape, where both hosts put the native call
+(Xrm.Utility on modern, PCF context.utils). Modern and PCF pass the native object
+through untouched, with a console-warned OData fallback on native failure. Pre-v9 and
+that fallback synthesize the SAME shape from OData (`CdsEntityMetadataProvider`:
+entity strings and an ItemCollection of `attributeDescriptor` items).
+`getAttributeMetadata` and the bespoke `IAttributeMetadata` model retired: the idiom
+is `getEntityMetadata(entity, [attr])` then `Attributes.get(attr)`. The undocumented
+descriptor risk still lives in one file, but the direction inverted:
+`attributeMetadataReads` is the single sanctioned reader, tolerant across every
+observed encoding (plain string or label object; numeric/string/Value-wrapped enums;
+array/keyed/Options-wrapped option lists), and the OData path adapts TOWARD the
+standard.
 
 **Views, currency, and the org read are data, not metadata.** savedquery,
-transactioncurrency, and organization.pricingdecimalprecision rows ride the
-adapter's own IWebApi (native Xrm.WebApi on modern, the PCF webAPI there, the
-cds emulation on pre-v9), which makes them offline-capable on the modern
-hosts for free. `KitMetadataSource` is the one IMetadataSource left, holding
-the kit value-add helpers with no standard equivalent; only the activity-type
-listing and entity icons stay on cds-client on every host, being
-EntityDefinitions queries only OData can express. `MetadataService` is now
-the session cache for those helpers, and `clearCache` chains the OData
-synthesis cache so the one documented escape hatch still clears everything
-kit-side (the native store is platform-owned).
+transactioncurrency, and organization.pricingdecimalprecision ride the adapter's own
+IWebApi (native on modern/PCF, cds emulation pre-v9), offline-capable on the modern
+hosts for free. `KitMetadataSource` is the one IMetadataSource left (kit value-add
+helpers with no standard equivalent); only the activity-type listing and entity icons
+stay on cds-client (EntityDefinitions queries only OData can express).
+`MetadataService` is the session cache for those helpers; `clearCache` chains the
+OData synthesis cache.
 
-**Fold-ins.** EntitySetName teaches the LibraryUtils pluralizer cache on
-every native read and synthesis (the proposed async cds entity-set resolver
-stays unbuilt, superseded per the roadmap). PrecisionSource 2 money rounds by
-the real org pricing precision via `getPricingDecimalPrecision`. Column
-security: the synthesis carries `CanBeSecuredForCreate/Read/Update` beside
-`IsSecured` (the native store already has them), and the webresource
-read-only default is now scoped by capability: a secured column defaults to
-read-only only when its update can actually be restricted, so a
-read-only-securable column stops locking for everyone (gotchas.md updated).
+**Fold-ins.** EntitySetName teaches the LibraryUtils pluralizer cache on every read
+(the async cds entity-set resolver stays unbuilt, superseded). PrecisionSource 2
+money rounds by the real org pricing precision via `getPricingDecimalPrecision`.
+Column security: the synthesis carries `CanBeSecuredForCreate/Read/Update` beside
+`IsSecured`, and the webresource read-only default is now scoped by capability (a
+secured column defaults read-only only when its update can be restricted, so a
+read-only-securable column stops locking for everyone; gotchas.md updated).
 
-**The hint default reverses (revises D-042).** `hint` is opt-in: it renders
-only when the prop is passed, and the attribute's Dataverse Description no
-longer leaks in as always-on helper text. D-042's reasoning (metadata-driven,
-so it fits the smart tier) conflated where the text COMES FROM with when it
-should SHOW: an authored description is on-demand help, which belongs to a
-tooltip affordance, not permanent text under every described field. The
-Description stays mapped and readable (`attributeDescription`), which is what
-the roadmap's tooltip direction will opt into; this branch delivers that
-direction's first half only, the tooltip control itself stays open.
+**The hint default reverses (revises D-042).** `hint` is opt-in, and the attribute
+Description no longer leaks in as always-on helper text: an authored description is
+on-demand help (a tooltip affordance), not permanent text under every field. The
+Description stays mapped and readable (`attributeDescription`) for the roadmap's
+tooltip direction; this branch delivers that direction's first half only.
 
-**Render batching.** Each async resolution used to land in its own write and
-each write was a render (the perf monitor showed the lookup PCF at five
-form-load renders versus three native). SmartFieldBase now resolves the
-metadata, the formatting, and a subclass's `loadExtras` before ONE commit,
-with the extras applied synchronously just before it (the presentational
-child is not mounted yet, so its constructor-time subscriptions see final
-values). Contract tests pin the heaviest field and the polymorphic lookup at
-two Profiler commits: one loading paint, one content paint.
+**Render batching.** Each async resolution used to be its own write and render (the
+perf monitor showed the lookup PCF at five form-load renders versus three native).
+SmartFieldBase now resolves metadata, formatting, and a subclass's `loadExtras`
+before ONE commit (extras applied synchronously just before it, so the
+not-yet-mounted child's constructor subscriptions see final values). Contract tests
+pin the heaviest field and the polymorphic lookup at two Profiler commits: one
+loading paint, one content paint.
 
 **Deliberately not built, with reasons:**
 
-- The async cds entity-set resolver (superseded by native EntitySetName, per
-  the roadmap's own note).
-- Native-store sourcing for entity icons and the activity-type listing: both
-  need EntityDefinitions queries (IsActivity filter, IconVectorName), which
-  the per-entity native store does not answer, and the icon members were
-  never live-verified on the store. They stay online-only.
-- Folding the synthesis's two-requests-per-attribute into one $batch: the
-  OData path is now the pre-v9 primary and everyone else's cold fallback, so
-  the fan-out D-055 deferred here is dissolved on the hosts that mattered
-  (the native store is client-cached, one call per attribute, and
-  SmartViewGrid batches a whole entity's columns into one call); a $batch
-  fold would optimize only the niche path.
-- `IsValidForCreate/Read/Update`-based read-only detection: available on the
-  store, unconsumed; the FLS capability scoping was this round's posture
-  change, and stacking a second inferred-read-only source without a concrete
-  consumer invites false locks.
-- Custom metadata persistence (IndexedDB): the platform cache IS the
-  offline persistence on the hosts that go offline, per the roadmap.
-- Per-user column-access resolution in webresources: unchanged D-051-era
-  posture, the form runtime owns that; gotchas.md still says so.
+- The async cds entity-set resolver (superseded by native EntitySetName).
+- Native-store sourcing for entity icons and the activity-type listing: both need
+  EntityDefinitions queries (IsActivity, IconVectorName) the per-entity store does
+  not answer, and the icon members were never live-verified there. Online-only.
+- Folding the synthesis's two-requests-per-attribute into one $batch: the OData path
+  is now the pre-v9 primary and everyone else's cold fallback, so the D-055 fan-out
+  is dissolved on the hosts that mattered (native store client-cached, one call per
+  attribute; SmartViewGrid batches an entity's columns into one call); a $batch fold
+  would optimize only the niche path.
+- `IsValidForCreate/Read/Update`-based read-only detection: on the store, unconsumed;
+  stacking a second inferred-read-only source without a consumer invites false locks.
+- Custom metadata persistence (IndexedDB): the platform cache IS the offline
+  persistence on the hosts that go offline.
+- Per-user column-access resolution in webresources: unchanged D-051-era posture, the
+  form runtime owns that; gotchas.md still says so.
 
 ## D-058, in-app "what's new" moves out of the kit: a product built on the kit, not a sample inside it
 
-The in-app release-communication direction is retired from the kit's roadmap.
-Two of the kit's own rules decide this, and the feature crosses both. First,
-samples must run on out-of-box entities, and contributions that need custom
-schema to run are excluded; a release-notes digest cannot exist without its
-schema (the notes table and the per-user acknowledgement store ARE the
-feature). The planned compromise, schema shipped as documentation with the
-app rendering a readable "not installed" state on a plain org, kept the
-letter of that rule while breaking its spirit: it would have been the only
-sample in clientui/apps that cannot actually run on a fresh org. Second,
-CONTRIBUTING's own line says a sample that grows into a full product is
-outside the kit's scope, and a versioned changelog with acknowledgement
-tracking and authoring aids is a product trajectory, not an illustration of
-one idea.
+The in-app release-communication direction is retired from the kit's roadmap. Two
+of the kit's own rules decide this. First, samples must run on out-of-box entities
+and contributions needing custom schema are excluded; a release-notes digest cannot
+exist without its schema (the notes table and per-user acknowledgement store ARE the
+feature). The planned compromise (schema as documentation, the app rendering a "not
+installed" state on a plain org) kept the letter but broke the spirit: it would be
+the only clientui/apps sample that cannot run on a fresh org. Second, CONTRIBUTING
+says a sample that grows into a full product is outside the kit's scope, and a
+versioned changelog with acknowledgement tracking and authoring aids is a product
+trajectory.
 
-So it ships as a standalone managed solution built ON the kit: its own
-project, consuming the kit the way any downstream consumer would, with real
-solution files for the schema instead of documentation, and the degrade path
-demoted from load-bearing workaround to ordinary robustness. That packaging
-is also better for its users: the deliverable becomes "import this solution",
-not "create these tables per a doc". The kit gains a true downstream
-consumer, which validates the delivery claim better than an eleventh sample
-would, and the repo stays schema-free and precedent-clean: nobody can point
-at a what's-new sample to argue the next custom-schema sample in.
+So it ships as a standalone managed solution built ON the kit: its own project
+consuming the kit as any downstream consumer would, with real solution files for the
+schema, the degrade path demoted to ordinary robustness. Better for its users too
+("import this solution", not "create these tables per a doc"), it gives the kit a
+true downstream consumer that validates the delivery claim better than an eleventh
+sample, and the repo stays schema-free and precedent-clean.
 
-Deliberately, nothing lands kit-side ahead of need: no presentational digest
-control enters shared/ without an in-kit consumer (the earn-their-place bar,
-D-010), and the proposed README "when to reach for it" row goes with the
-product. Revisit trigger: a genuinely schema-free slice of the surface with a
-real in-kit consumer, or the product generalizing a control worth
-contributing back.
+Nothing lands kit-side ahead of need: no presentational digest control enters
+shared/ without an in-kit consumer (D-010), and the proposed README "when to reach
+for it" row goes with the product. Revisit: a genuinely schema-free slice with a
+real in-kit consumer, or the product generalizing a control worth contributing back.
 
 ## D-060, the code-app adapter is parked: a complete spike on its reference branch, not a v1.2.0 host
 
-(Numbering note: D-059 is the adapter's own decision entry and lives with the
-work on the reference branch `spike/code-app-adapter`; the number stays
-reserved for it so a future revival merges without a collision. This entry
-records the parking on the release line.)
+(Numbering note: D-059 is the adapter's own decision entry and lives with the work
+on the reference branch `spike/code-app-adapter`; the number stays reserved for it
+so a future revival merges without a collision. This entry records the parking.)
 
-The v1.2.0 wave's second feature built the code-app context adapter end to
-end and to the kit's bar short of one step: a spike design doc before any
-code, CodeAppContext over the code-apps SDK, a sample app under its own
-toolchain, a host guide, unit suites over a scripted SDK fake, and the verify
-gate green at the tip. It was merged to the wave branch and then UNMERGED by
-owner decision the same day: the wave branch was rewound, and the work now
-lives, complete, on `spike/code-app-adapter` (five commits ending e9c4b0f).
+The v1.2.0 wave's second feature built the code-app context adapter end to end and
+to the kit's bar short of one step (spike design doc, CodeAppContext over the
+code-apps SDK, a sample app, a host guide, unit suites over a scripted SDK fake,
+verify green). It was merged to the wave branch and UNMERGED by owner decision the
+same day; the work now lives complete on `spike/code-app-adapter` (five commits
+ending e9c4b0f).
 
-Why parked rather than shipped. The build itself surfaced the host's
-capability ceiling, and the honest reading is that the ceiling caps exactly
-the tiers that differentiate the kit. The SDK executes no FetchXML, which
-rules out SmartViewGrid and the native lookup's search (the flagship
-surfaces); its metadata read stops at the base attribute types, so choice
-options had to be rescued from stringmap reads and lookup targets
-reconstructed from relationships; there is no $batch or change set, no
-platform dialog surface, no form surface; and every table needs design-time
-registration. What remains viable (CRUD, OData list queries, thin smart
-fields) is real but small, and it does not justify carrying a fourth shipped
-host adapter, with its docs, its sample, and its maintenance weight, for the
-marginal consumer it would serve. Treating the work as a paid-for spike is
-the better account: the design doc plus the working adapter is a complete,
-tested answer to "what would this cost and what would it buy", kept warm on
-its branch.
+Why parked: the build surfaced the host's capability ceiling, and the ceiling caps
+exactly the tiers that differentiate the kit. The SDK executes no FetchXML (ruling
+out SmartViewGrid and the native lookup search); its metadata read stops at base
+attribute types (choice options rescued from stringmap reads, lookup targets
+reconstructed from relationships); there is no $batch/change set, no dialog surface,
+no form surface; and every table needs design-time registration. What remains viable
+(CRUD, OData list queries, thin smart fields) does not justify a fourth shipped host
+adapter with its docs, sample, and maintenance weight. Treated as a paid-for spike:
+a complete, tested answer to "what would this cost and buy", kept warm on its branch.
 
-What the spike buys the roadmap. The presentational tier needed NO adapter
-anywhere in this work, which sharpened the real build-beside opportunity:
-package the presentational controls (with the theme and the reactivity
-primitives) as an npm package any standalone React app can consume, code
-apps included. That is now a roadmap direction; it supersedes "run the whole
-kit inside a code app" as the build-beside story.
+What the spike buys the roadmap: the presentational tier needed NO adapter anywhere,
+sharpening the build-beside opportunity, package the presentational controls (with
+theme and reactivity primitives) as an npm package any standalone React app can
+consume, code apps included. That supersedes "run the whole kit inside a code app".
+Mechanics: the squash merge (a5a0e0c) existed briefly and was removed by a reset
+before anything was pushed, so no published history was rewritten. Revisit triggers
+live with the parked roadmap entry.
 
-Mechanics, so the history reads honestly: the squash merge (a5a0e0c) existed
-briefly on the wave branch and was removed by a reset before anything was
-pushed, so no published history was rewritten. Revisit triggers live with the
-parked entry in the roadmap.
-
-*(2026-07-16 addendum: the npm direction stays conditional, not planned. The
-spike's deeper lesson for any code-app shape: the SDK's data contracts are not
-equivalent to the model-driven host's, so full fidelity would ride the kit's
-own cds client, which would introduce the kit's own authentication into a code
-app; that does not ship without a proper security review, and none is
-scheduled. If it ever proceeds, the shape is undecided between a
-presentational (or presentational plus smart) npm artifact for code-apps
-import and a code-apps adapter in the kit. The roadmap entry carries the same
-status.)*
+*(2026-07-16 addendum: the npm direction stays conditional, not planned. The SDK's
+data contracts are not equivalent to the model-driven host's, so full fidelity would
+ride the kit's own cds client, introducing the kit's own authentication into a code
+app; that does not ship without a security review, and none is scheduled. If it
+proceeds, the shape is undecided between a presentational (or presentational plus
+smart) npm artifact and a code-apps adapter in the kit.)*
 
 ## D-061, the release is executable from the repo: the committed solution project and the packaging stage
 
-The ALM block D-055 deferred ("a committed wrapper for the five PCFs plus
-webresources, a pipeline stage emitting a managed zip, an import
-verification") is closed on its recorded trigger, the v1.2.0 release being
-cut. What shipped:
+The ALM block D-055 deferred (a committed wrapper for the five PCFs plus
+webresources, a managed-zip pipeline stage, an import verification) is closed on its
+trigger, the v1.2.0 release. What shipped:
 
-- **A committed solution project, `deployment/solution/D365UIKit.cdsproj`.**
-  It references the five PCF projects (built in Release, so production
-  bundles by construction) and stages the three shell webresources from
-  `dist/`, so `npm run build` plus `dotnet build -c Release` produce the
-  managed zip from the repo alone, no org connection, no secrets.
-  `SolutionPackageType` defaults to Managed; the unmanaged override is the
-  dev-import variant. It lives under `deployment/`, not `pcfs/`, because CI
-  and the floor checker iterate `pcfs/*/` as npm PCF projects (the untracked
-  `pcfs/_*` scratch wrappers remain local conveniences, not the pattern).
-- **Nothing org-specific is hardcoded.** `render-src.mjs` renders
-  `src/Other/Solution.xml` and the webresource metadata at build time from
-  `kit.config.json` (publisher, prefix, optional solution and publisher
-  names) and the root `package.json` (the solution version), the same
-  single-source pattern `spkl.template.json` set. A static Solution.xml was
-  rejected because the prefix is configuration, not source: the committed
-  config says `new_`, a fork says its own, and the packed component names
-  must follow the same value that named the built artifacts.
-- **Webresource component ids are deterministic** (name-derived UUIDs), so a
-  rebuilt zip carries the same ids and a managed update upgrades a previous
-  import instead of colliding with it; a renamed resource (a different
-  prefix) is honestly a different component.
-- **The version pass is one rule now.** package.json carries the release
-  version, the rendered solution version reads it, and each control manifest
-  aligns to it (all five moved to 1.2.0, the counterparty grid up from its
-  0.1.x line). Shared code changed under every control this wave and the
-  platform serves a cached bundle when the manifest version does not move,
-  so the bump is load-bearing, not cosmetic.
-- **CI packages in a second stage** after the existing gate: a Windows agent
-  (the documented local path is dotnet build on the project, and the
-  PowerApps MSBuild targets are exercised on Windows; the artifact matches a
-  local Release build) rebuilds `dist/`, builds the solution, and publishes
-  the `managed-solution` artifact. No org credential enters CI, the same
-  posture D-055 recorded for the change-set parser: a public portfolio repo
-  does not get a dev-org secret. Import verification therefore stays a human
-  step, and on a CLEAN org: the dev org already carries these webresources
-  and controls unmanaged, so a managed import there would conflict with or
-  layer under them and prove nothing.
+- **A committed solution project, `deployment/solution/D365UIKit.cdsproj`.** It
+  references the five PCF projects (built Release) and stages the three shell
+  webresources from `dist/`, so `npm run build` plus `dotnet build -c Release`
+  produce the managed zip from the repo alone, no org, no secrets.
+  `SolutionPackageType` defaults Managed (unmanaged override for dev). It lives under
+  `deployment/`, not `pcfs/`, because CI and the floor checker iterate `pcfs/*/`.
+- **Nothing org-specific is hardcoded.** `render-src.mjs` renders `Solution.xml` and
+  the webresource metadata at build time from `kit.config.json` (publisher, prefix,
+  optional solution/publisher names) and `package.json` (solution version), the
+  `spkl.template.json` pattern. A static Solution.xml was rejected because the prefix
+  is configuration.
+- **Webresource component ids are deterministic** (name-derived UUIDs), so a managed
+  update upgrades a previous import instead of colliding.
+- **The version pass is one rule.** package.json carries the release version, the
+  rendered solution reads it, and each control manifest aligns (all five to 1.2.0,
+  the counterparty grid up from 0.1.x). The bump is load-bearing (cached bundle
+  otherwise).
+- **CI packages in a second stage:** a Windows agent rebuilds `dist/`, builds the
+  solution, and publishes the `managed-solution` artifact. No org credential enters
+  CI (the D-055 posture), so import verification stays a human step on a clean org
+  (the dev org carries these components unmanaged, so a managed import there proves
+  nothing).
 
-One packing mechanic worth recording so nobody "simplifies" it away: the
-committed `src/Other/Customizations.xml` must carry the empty
-`<WebResources />` placeholder node. SolutionPackager only reassembles the
-webresource metadata (the `.data.xml` files) into customizations.xml when
-that node exists; without it the packer copies the staged files into the zip
-verbatim, emits no component metadata, and the import would create nothing.
-Found empirically against the org-exported solution as ground truth.
+One packing mechanic: the committed `src/Other/Customizations.xml` must carry the
+empty `<WebResources />` node, or SolutionPackager copies the staged files verbatim,
+emits no component metadata, and the import creates nothing. Found empirically
+against the org-exported solution.
 
-Verified at the branch tip: the managed zip builds locally via the
-documented commands and unpacks with the five virtual controls, the three
-webresources, and root components for all eight; the unmanaged override
-builds; the full local gate is green. Pending, recorded in the roadmap's
-shipped entry: the packaging stage's first real pipeline run (yaml can only
-be proven by execution), and the clean-org import verification (install,
-exercise, uninstall) before the v1.2.0 zip is published as a release
-artifact.
+Verified at the branch tip: the managed zip builds locally and unpacks with the five
+virtual controls, three webresources, and root components for all eight; the
+unmanaged override builds; the local gate is green. Pending: the packaging stage's
+first pipeline run and the clean-org import verification (install, exercise,
+uninstall).
 
-*(2026-07-04, the import verification was attempted against the dev org and
-remains pending; the attempt is worth its record because it sharpened the
-clean-org criterion. The idea was prefix disjointness: the org runs the kit
-under its own publisher prefix, so the release zip's components (the default
-prefix throughout) exist nowhere there, and the read-only pre-checks agreed,
-no webresource and no custom control carrying the zip's prefix. The third
-pre-check stopped the run: the org already carries an UNMANAGED solution
-named D365UIKit, the SPKL webresource deploy target (deploy.ps1 and
-render-src.mjs read the same solutionName default, so the dev deploy and the
-release zip share a unique name by construction), holding the org's three
-live shell webresources. Solution unique names are org-global and prefix
-independent, a managed import cannot layer over an unmanaged solution with
-the same name, and the deploy target is live infrastructure, so nothing was
-imported and the org was left untouched. Conclusion, folded into
-deployment.md: clean-for-this-zip is two checks, no components with the
-zip's prefix AND no existing solution with the zip's unique name; an org
-running the kit under a different publisher passes the first and can still
-fail the second exactly this way. The verification still needs a genuinely
-clean org, or a release built with a solutionName the target org has never
-used.)*
+*(2026-07-04, import verification attempted and pending: the prefix-disjointness idea
+(the org runs the kit under its own prefix, so the zip's default-prefix components
+exist nowhere there) passed the first two pre-checks, but the third stopped the run,
+the org already carries an UNMANAGED solution named D365UIKit (the SPKL deploy
+target, sharing the solutionName default), and solution unique names are org-global
+and prefix-independent, so a managed import cannot layer over it. Nothing imported.
+Conclusion folded into deployment.md: clean-for-this-zip is no zip-prefix components
+AND no existing solution with the zip's unique name.)*
 
-*(Same day, second attempt, after the owner deleted the unmanaged
-deploy-target solution: all three pre-checks came back empty, the import ran
-(pac, the browser upload being unavailable to the session), and the platform
-rejected it on an identity the criterion had not counted: "Custom Control
-with name D365Kit.KitCounterpartyGrid already created by another publisher.
-Please change your control's name and try importing again." Custom-control
-identity is the UNPREFIXED namespace.constructor pair and it is org-global
-across publishers; webresources are prefix-scoped, PCF controls are not. So
-prefix disjointness cannot make an org clean for the zip's controls: an org
-that carries the kit's PCFs under any publisher can never import the release
-zip's, under any solution name. The failed import rolled back clean,
-verified: no D365UIKit solution, no zip-prefix components, the org's own
-D365Kit controls and webresources untouched. The criterion in deployment.md
-is now three checks (control namespace under any publisher, zip-prefix
-components, solution unique name), adding-a-pcf.md records the
-cross-publisher identity rule for forks, and the "solutionName the org has
-never used" alternative above is withdrawn, it would not get past the
-controls. The import verification needs a genuinely clean trial org,
-nothing less.)*
+*(Same day, second attempt, after the owner deleted the unmanaged deploy-target
+solution: all pre-checks empty, the import ran (pac), and the platform rejected it,
+"Custom Control with name D365Kit.KitCounterpartyGrid already created by another
+publisher." Custom-control identity is the UNPREFIXED namespace.constructor pair,
+org-global across publishers (webresources are prefix-scoped, PCF controls are not),
+so an org carrying the kit's PCFs under any publisher can never import the zip's
+controls under any solution name. The failed import rolled back clean. The criterion
+in deployment.md is now three checks (control namespace under any publisher,
+zip-prefix components, solution unique name); adding-a-pcf.md records the
+cross-publisher identity rule; the "solutionName never used" alternative is
+withdrawn.)*
 
-*(Third pass, same day, and the verification is DONE. The owner challenged
-the clean-trial-org conclusion on the right ground: the repo must be able to
-verify its own artifact with repo means, because a consumer in the same spot
-needs the same path. The answer is a verification-only build, identical to
-the release zip in everything except the five manifest namespaces (a
-throwaway one in place of D365Kit), which steps around the org-global
-control identity without touching what ships. That zip imported cleanly
-into the dev org (pac; the browser upload was unavailable to the session);
-the three webresources landed carrying the renderer's deterministic ids
-verbatim; the KitOptionSet control was bound to a samples-form choice
-column and, on the live form, rendered, resolved its options from metadata,
-and committed a value the Web API confirmed persisted, with no console
-errors; the shell webresource booted the samples hub inside the app and the
-company-search sample loaded live rows, also error-free; the binding was
-then removed (the one deliberate exception to hide-don't-remove, because a
-lingering binding is a dependency and the uninstall IS the test) and the
-solution deleted on the first try, after which every pre-check query
-returned to baseline and the org's own controls, webresources, and
-publishers were confirmed untouched. What this proves: the entire release
-machinery, import through uninstall; the literal release zip differs from
-the exercised artifact by the namespace string alone, and the platform had
-already validated the literal zip up to the identity check in the second
-pass. The technique is recorded in deployment.md for consumers whose only
-org already runs the kit. Remaining open on the release: the Package
-stage's first real pipeline run.)*
+*(Third pass, same day, verification DONE. A verification-only build, identical to
+the release zip except the five manifest namespaces (a throwaway in place of
+D365Kit), steps around the org-global control identity without touching what ships.
+That zip imported cleanly into the dev org (pac); the three webresources landed with
+the renderer's deterministic ids; the KitOptionSet control, bound to a samples-form
+choice column, rendered, resolved options from metadata, and committed a value the
+Web API confirmed, no console errors; the shell booted the samples hub and
+company-search loaded live rows; the binding was removed (the one exception to
+hide-don't-remove, since the uninstall IS the test) and the solution deleted first
+try, the org re-queried to baseline. This proves the entire release machinery, import
+through uninstall; the literal zip differs by the namespace string alone and the
+platform had validated it up to the identity check in the second pass. Technique
+recorded in deployment.md. Remaining: the Package stage's first pipeline run.)*
 
-*(2026-07-05, distribution decision: the kit zip is deliberately NOT
-published as a release download after all. The kit is consumed as source; a
-fork builds the zip under its own publisher, and publishing a reference
-build would invite importing it as-is, which pins the controls' org-global
-namespace (the identity rule above) against any later fork in the same org.
-Releases carry the sample solution only, and the README and the ALM chapter
-now say so. The solution project itself is unchanged: it remains the fork's
-importable build shape, proven end to end by the verification above.)*
+*(2026-07-05, distribution decision: the kit zip is NOT published as a release
+download. The kit is consumed as source; publishing a reference build would invite
+importing it as-is, pinning the controls' org-global namespace against any later fork
+in the same org. Releases carry the sample solution only, and the README and ALM
+chapter say so. The solution project is unchanged: it remains the fork's importable
+build shape, proven end to end above.)*
 
 ## D-062, the release stays 1.2.0: the repo version is a milestone marker until a package is published
 
-A review agent proposed versioning this release 2.0.0 because the metadata
-rework retires public surface, which strict semver reads as a major. The
-letter of that reading is correct, and the number still stays 1.2.0, for a
-reason worth recording once so it is not re-argued per release: semver's
-major signal exists to protect consumers whose tooling resolves versions
-automatically, and the kit has none by design. It is consumed source-first
-through template copies that pull nothing automatically; every upgrade is a
-human merge made with the decision log open. The one machine-read version,
-the solution version, only needs to increase. A 2.0.0 weeks after 1.0.0
-would spend the number's signal on an audience it cannot protect, and read
-as churn to the audience that actually sees it.
+A review agent proposed versioning this release 2.0.0 because the metadata rework
+retires public surface, which strict semver reads as a major. The reading is correct
+in letter, but the number stays 1.2.0: semver's major signal protects consumers whose
+tooling resolves versions automatically, and the kit has none by design. It is
+consumed source-first through template copies that pull nothing automatically; every
+upgrade is a human merge made with the decision log open, and the one machine-read
+version (the solution version) only needs to increase. A 2.0.0 weeks after 1.0.0
+would spend the signal on an audience it cannot protect and read as churn to the one
+that sees it.
 
-The policy now stated in deployment.md: until the kit publishes a package,
-the repo version is a release milestone marker, not a semver API contract.
-What a breaking change obligates is disclosure, whatever the number says:
-a prominent breaking-changes section in the release notes, and the decision
-entry recording the change (for this release, the metadata contract and the
-hint default). Strict semver begins where machine consumption begins: the
-first published package (the roadmap's presentational npm package
-direction) versions its own line under real semver from its first release,
-and this policy hands over to it there. Revisit trigger: that first
-published package, or the first external consumer who demonstrates an
-automated-upgrade path the policy wrongly assumes away.
+The policy (in deployment.md): until the kit publishes a package, the repo version is
+a release milestone marker, not a semver API contract. A breaking change obligates
+disclosure regardless of the number: a breaking-changes section in the release notes
+and the decision entry recording it (here, the metadata contract and the hint
+default). Strict semver begins where machine consumption begins: the first published
+package (the presentational npm direction) versions its own line under real semver,
+and this policy hands over there. Revisit: that first published package, or an
+external consumer demonstrating an automated-upgrade path the policy wrongly assumes
+away.
 
 ## D-063, the injected form page is a live source: the boot race a downstream consumer reported
 
-A downstream form-embedded consumer of the injected-host contract reported a
-design-level boot race, and the mechanism held up on inspection: the shell
-polls findXrm from bootstrap, findXrm prefers the injected globals and falls
-back to the ancestor-frame walk, and the injected FORM PAGE was captured
-exactly once, at context creation. KitShell.connect injects asynchronously,
-through getContentWindow's promise, from the form's OnLoad. When the embedded
-page's first poll found a walked Xrm before the injection landed (a warm
-boot: cached bundle, fast first poll), the context was built from the walk
-with no form page, and the injection arriving milliseconds later was never
-adopted. The walked and the injected Xrm are typically the same same-origin
-object; the real casualty of losing the race is the form page, the record
-identity, which is exactly what a form-embedded consumer needs. With the
-hook correctly registered, formAccess and formContext could stay undefined
-for the page's whole life, and deployment.md's claim that the shell prefers
-the injected path held only when injection won the race.
+A downstream form-embedded consumer of the injected-host contract reported a boot
+race. The shell polls findXrm from bootstrap (preferring injected globals, falling
+back to the ancestor-frame walk), and the injected FORM PAGE was captured once, at
+context creation. KitShell.connect injects asynchronously from the form's OnLoad, so
+on a warm boot (cached bundle, fast first poll) the context built from the walk with
+no form page, and the injection arriving milliseconds later was never adopted. The
+walked and injected Xrm are typically the same object; the casualty is the form page
+(the record identity), which is exactly what a form-embedded consumer needs. So
+formAccess/formContext could stay undefined for the page's life, and deployment.md's
+"shell prefers the injected path" held only when injection won the race.
 
-**What shipped.** The form page parameter of the webresource adapters now
-also takes a FUNCTION, re-read on every formAccess/formContext access until
-a page with a real form appears, then cached so identities stay stable once
-resolved (LazyFormBinding in hostSurface, shared by the modern and V8
-adapters; this Xrm's own Page stays the last fallback). The bootstrap and
-createWebResourceContext pass live sources, so a late-landing injection is
-adopted the moment a polling consumer looks again; RecordReady needed no
-change, polling form access was already its contract. The samples hub grew
-one line of chrome, the hosting entity and record id, so the injected-host
-path finally has a surface visible to the naked eye; standalone hostings
-render nothing there. Boot itself never waits on anything: sitemap, quick
-test, dialogs, and the V8 popup boot exactly as before, and PCF is
-untouched.
+**What shipped.** The form page parameter of the webresource adapters now also takes
+a FUNCTION, re-read on every formAccess/formContext access until a page with a real
+form appears, then cached (LazyFormBinding in hostSurface, shared by modern and V8;
+this Xrm's own Page stays the last fallback). Bootstrap and createWebResourceContext
+pass live sources, so a late injection is adopted the moment a polling consumer looks
+again; RecordReady needed no change. The samples hub grew one chrome line (hosting
+entity and record id), the injected-host path's first visible surface. Boot never
+waits: sitemap, quick test, dialogs, and the V8 popup boot as before, PCF untouched.
 
-**Alternatives rejected.**
+**Alternatives rejected:** a grace window before accepting a walk-only resolution
+(delays everyone, and any length is a guess a slow form can outlast); a handshake in
+the contract (closes the race but versions KitShell.connect and the bootstrap
+together, and pages predating it need the compat path anyway); documenting the race
+and moving on (cache-temperature-dependent, not a contract).
 
-- A grace window before accepting a walk-only resolution. It fixes the form
-  page by delaying everyone: sitemap-hosted and quick-test shells never
-  receive an injection and would eat the full window on every boot, and any
-  window length is a guess a slow form load can outlast.
-- A handshake in the injected-host contract (the hook invokes a well-known
-  callback when it injects, the page adopts deterministically). It closes
-  the race but moves the contract: KitShell.connect and the bootstrap would
-  have to version together, and pages predating the callback would need the
-  compat path anyway. The live source gets the same adoption with no new
-  surface.
-- Documenting the race and moving on. With the hook correctly registered
-  the outcome depended on cache temperature; that is not a contract anyone
-  can build on.
+**Verification.** Unit tests pin all three orders (injection before first poll, after
+context creation, never injected) plus the walked own-form fallback; the
+after-creation case fails pre-fix (the reproduction). Live on the dev org
+(2026-07-06): the shell embedded in a sample Contact form section with
+KitShell.connect on OnLoad, closing the v1.2.0 gap that shipped the injection path
+"accepted untested". The losing order never occurred naturally (current UCI still
+serves a deprecated Xrm.Page through the walk, masking the race), so it was staged
+deterministically: a shell booted with no injection and no usable walked Page showed
+no form access and adopted the injected form page seconds after it was supplied
+post-boot, resolving the correct record id; a sitemap-hosted shell booted over the
+walk with no delay. The control stays on the form HIDDEN; the OnLoad registration
+stays.
 
-**Verification.** Unit tests pin all three orders at bootstrap level
-(injection before the first poll, injection after context creation, never
-injected) plus the walked own-form fallback and the source semantics on
-both adapters; the after-creation case fails on the pre-fix code, which is
-the reproduction. Live, on the dev org (2026-07-06): the shell was embedded
-in a section of the sample Contact form with KitShell.connect on OnLoad,
-which also closes the v1.2.0 gap that shipped the hook's injection path
-"accepted untested". Observed: on every boot where the platform mounted the
-control (cold and warm), the injection had already landed by first poll and
-form access resolved, hub line included; the LOSING order never occurred
-naturally there because current UCI still serves a functional deprecated
-Xrm.Page through the walk, which masks the race today. It was therefore
-staged deterministically on the live form against the deployed fixed
-bundle: a shell booted with no injection and no usable walked Page showed
-no form access, and adopted the injected form page seconds after it was
-supplied post-boot, resolving the correct record id. A sitemap-hosted shell
-booted over the walk with no injection, no hosted-record line, and no added
-delay. The webresource control stays on the form HIDDEN per the house
-convention; the OnLoad registration stays for retests.
-
-**Recorded for the next visitor.** Two host behaviors observed during the
-live pass, kit-independent: UCI mounts a below-the-fold webresource control
-lazily and on some warm or soft navigations not at all until a cold
-hydration, and a burst of rapid publishes can leave the form definition
-serving empty sections until a full publish plus a cleared service worker
-cache settles it (the gotchas cache guidance, plus Cache Storage, which
-sits beside the IndexedDB store it already names).
+**Recorded for the next visitor** (kit-independent): UCI mounts a below-the-fold
+webresource control lazily and on some warm/soft navigations not at all until a cold
+hydration, and a burst of rapid publishes can serve empty sections until a full
+publish plus a cleared service worker cache (Cache Storage, beside the IndexedDB
+store the gotchas cache guidance already names) settles it.
 
 ## D-064, openClientUI gains a full-page mode and an auto default: the shell launches phone-safe
 
-A downstream product built on the kit (a form-embedded consumer of the shell)
-found that on the model-driven NARROW (phone) reflow, Xrm.Navigation.navigateTo
-to a webresource DIALOG does not render: the platform opens the dialog chrome
-but shows an empty "No data available." with no webresource iframe. openClientUI
-launched exactly that call (target 2), so every shell dialog (preview, paste,
-company search) was dead on a phone. The product shipped a local special case,
-live-verified at phone width, and this entry folds it into the kit so the
-product can drop the special case and call openClientUI directly.
+A downstream product (a form-embedded consumer of the shell) found that on the
+model-driven NARROW (phone) reflow, navigateTo to a webresource DIALOG does not
+render: the platform opens dialog chrome but shows an empty "No data available." with
+no iframe. openClientUI launched exactly that (target 2), so every shell dialog was
+dead on a phone. The product shipped a local special case, live-verified at phone
+width; this folds it into the kit.
 
-**Platform findings (verified live at phone width, kept here because they are
-non-obvious and cost real probing).**
+**Platform findings (verified live at phone width, non-obvious and costly to probe):**
 
-- A webresource DIALOG (target 2) fails at narrow: empty "No data available.",
-  no iframe.
-- A full page (target 1) with the payload as navigateTo's SEPARATE `data`
-  property ALSO fails the same way. target 1 alone is not enough; this is the
-  trap.
+- A webresource DIALOG (target 2) fails at narrow: empty "No data available.", no
+  iframe.
+- A full page (target 1) with the payload as navigateTo's SEPARATE `data` property
+  ALSO fails the same way. target 1 alone is not enough (the trap).
 - What renders at narrow is a full page (target 1) with the payload on the
-  webresource's OWN query string, `<name>?data=<encoded>`, and no `data`
-  property. This is the shape the sitemap subarea carries; the platform
-  double-encodes it into the final URL, which is expected and works.
-- getFormFactor() is device/UA-based: it returns Desktop even at phone width in
-  a narrow window or browser device emulation. "Am I narrow?" is therefore
-  VIEWPORT-driven (matchMedia), never form factor.
-- A full-page webresource gets no platform back chrome on the phone client, so
-  the launcher marks the payload fullPage:true and the APP supplies its own
-  Back. App responsibility, not the kit's.
+  webresource's OWN query string, `<name>?data=<encoded>`, no `data` property (the
+  sitemap-subarea shape; the platform double-encodes it, expected).
+- getFormFactor() is device/UA-based (returns Desktop even at phone width in a narrow
+  window or emulation), so "am I narrow?" is VIEWPORT-driven (matchMedia), never form
+  factor.
+- A full-page webresource gets no platform back chrome on phone, so the launcher marks
+  the payload fullPage:true and the APP supplies its own Back.
 
-**What shipped.** IClientUILaunchOptions.mode widened from "modal" | "side" to
-"modal" | "side" | "fullpage" | "auto". On the modern host, "fullpage" (and
-"auto" when the viewport is narrow) launches the tested shape: target 1, payload
-on the webresource query string, payload marked fullPage:true; it returns before
-the dialog path, which is left exactly as it was (the dialog works fine at
-desktop width). "auto" is the DEFAULT when a caller passes no mode (owner
-decision): it resolves to a dialog on a normal viewport and a full page on a
-narrow one, so every consumer, including the kit's own
-AccountRibbon.openCompanySearch, becomes phone-safe with no viewport check of
-its own. The only behavior this changes is on a narrow viewport, where the
-previous dialog was already a dead empty page; explicit "modal"/"side" still
-force the dialog. LibraryUtils.isNarrowViewport(win?) is the one
-matchMedia("(max-width: 768px)") check, exposed so callers that want to branch
-themselves do not hand-roll it (768px is the platform's conventional narrow
-breakpoint; absent matchMedia reads as not narrow, so unit and SSR paths keep
-the dialog).
+**What shipped.** IClientUILaunchOptions.mode widened to "modal" | "side" | "fullpage"
+| "auto". On modern, "fullpage" (and "auto" when narrow) launches the tested shape
+(target 1, payload on the query string, marked fullPage:true) and returns before the
+dialog path (left as it was). "auto" is the DEFAULT (owner decision): dialog on a
+normal viewport, full page on a narrow one, so every consumer (incl.
+AccountRibbon.openCompanySearch) is phone-safe with no viewport check; the only changed
+behavior is on a narrow viewport, where the dialog was already a dead empty page.
+Explicit "modal"/"side" still force the dialog. LibraryUtils.isNarrowViewport(win?) is
+the one matchMedia("(max-width: 768px)") check (absent matchMedia reads as not narrow,
+so unit/SSR keep the dialog).
 
-**The V8 and PCF hosts keep the popup.** Neither has navigateTo's dialog, so
-neither has the narrow-dialog failure; both already opened a popup window and
-ignored mode. "fullpage"/"auto" join "modal"/"side" as modes they accept and
-resolve to that one popup (a quiet degrade, consistent with the per-method
-posture, not a thrown "not supported": launching the shell is a capability they
-have, the launch surface is a refinement they lack). The payload is NOT marked
-fullPage on these hosts: the popup is neither the modern dialog that fails nor a
-chrome-less full page, so the back affordance the marker requests does not apply.
+V8 and PCF keep the popup (neither has navigateTo's dialog, so neither has the
+failure): "fullpage"/"auto" resolve to the popup they already opened, a quiet degrade,
+and the payload is NOT marked fullPage there.
 
-**Alternatives rejected.**
+**Alternatives rejected:** leave the product's special case (a portable kit fixes a
+phone-dead dialog once, centrally); explicit "fullpage" only, no "auto" (leaves every
+caller to hand-roll isNarrowViewport); "auto" opt-in with the dialog default (the only
+viewport where auto differs is narrow, where the default is already broken, so
+auto-as-default is strictly better); drive the decision from getFormFactor() (reports
+the device, returns Desktop in a narrow window, misses the failing case).
 
-- Keep full-page out of the kit and leave the product's special case. The whole
-  point of a portable kit is that a phone-dead dialog is fixed once, centrally;
-  the product proved the shape, the kit is where it belongs.
-- Explicit "fullpage" only, no "auto", so callers keep their own narrow check.
-  It works but leaves every caller to hand-roll isNarrowViewport and to remember
-  to; auto folds the decision into the one place that knows the platform quirk.
-- Make "auto" opt-in and leave the dialog as the silent default. Considered and
-  put to the owner: rejected because the only viewport where auto differs from
-  today is the narrow one, and there today's default is already broken, so
-  auto-as-default is strictly an improvement where it differs.
-- Drive the narrow decision from getFormFactor(). It reports the device, not the
-  reflow, and returns Desktop in a narrow window, so it would miss exactly the
-  case that fails.
+**Verification.** Unit tests: the modern "fullpage" branch asserts the query-string
+webresourceName, `data` undefined, target 1; an "auto" test stubs matchMedia narrow
+and asserts the same; the default test still asserts the dialog (jsdom has no
+matchMedia); isNarrowViewport pinned both ways. Full local verify green. Live at phone
+width is the product's, deferred here (the kit change is a superset of the shape the
+product verified). Revisit if the platform starts hosting webresource dialogs at
+narrow (auto stops diverging, full-page becomes opt-in), or a real V8/PCF
+narrow-launch need appears.
 
-**Verification.** Unit tests (contextAdapters, LibraryUtils): the modern
-"fullpage" branch asserts the query-string webresourceName, `data` undefined,
-and target 1; an "auto" test stubs matchMedia narrow and asserts the same shape;
-the pre-existing default test still asserts the dialog (jsdom has no matchMedia,
-so auto resolves to the dialog there, which also proves the default did not
-regress at desktop); isNarrowViewport is pinned for absent matchMedia and for
-the match both ways. Full local verify green at the tip. Live at phone width is
-the product's, deferred here: the product owner retests on the live org and
-deletes the product special case (the kit change is a superset of the shape the
-product already verified live).
-
-**Revisit** if the platform starts hosting webresource dialogs on the narrow
-reflow (then "auto" could stop diverging and full-page becomes opt-in), or if a
-real V8/PCF narrow-launch need appears (then the popup-for-every-mode choice
-reopens).
-
-*(2026-07-11: the isNarrowViewport half of this entry shipped with a
-viewport-detection defect: it measured the CALLING window, and modern UCI runs
-ribbon and command-bar handlers in a hidden iframe that always reads narrow,
-so every ribbon-initiated auto launch opened the full page even at desktop
-width, reported by a downstream consumer. Fixed by measuring the top window;
-D-066 records the defect, mechanism, fix, and live verification. A same-day
-observation extends the findings above: the separate-`data` failure applies to
-the URL form too. main.aspx with pagetype=webresource and a separate `data`
-query parameter, the quick-test recipe, renders the same empty "No data
-available." at narrow, while the sitemap's query-string-on-webresourceName
-form renders fine there.)*
+*(2026-07-11: the isNarrowViewport half shipped with a defect, it measured the CALLING
+window, and modern UCI runs ribbon/command-bar handlers in a hidden iframe that always
+reads narrow, so every ribbon-initiated auto launch opened the full page even at
+desktop width. Fixed by measuring the top window; D-066 records it. Same-day: the
+separate-`data` failure applies to the URL form too, main.aspx with
+pagetype=webresource and a separate `data` parameter (the quick-test recipe) renders
+the same empty page at narrow, while the sitemap query-string form renders.)*
 
 ## D-065, the solution packer is pinned to 2.x: the retired 1.x SolutionPackager silently drops AI models
 
-`deployment/solution/D365UIKit.cdsproj` referenced
-`Microsoft.PowerApps.MSBuild.Solution` at `1.*`, which resolves to 1.52.1.
-Packing from unpacked source, that packer silently drops an `msdyn_aimodel`
-(an AI Builder prompt): it prints only a `Following root components are not
-defined in customizations: Type='AIModel'` warning, no error, and writes the
-zip without the component. The pac CLI's own SolutionPackager (2.8.1) packs the
-same source correctly. The package's 2.x line tops out at 2.8.1, the same
-version as the installed pac CLI; the 1.x line caps at 1.52.1. This surfaced
-while fixing a product built on the kit, one that ships an AI model and hit the
-drop (2026-07-08).
+`deployment/solution/D365UIKit.cdsproj` referenced `Microsoft.PowerApps.MSBuild.Solution`
+at `1.*` (resolves to 1.52.1). Packing from unpacked source, that packer silently
+drops an `msdyn_aimodel` (AI Builder prompt): it prints only a `Following root
+components are not defined in customizations: Type='AIModel'` warning, no error, and
+writes the zip without the component. The pac CLI's own SolutionPackager (2.8.1) packs
+it correctly. Surfaced while fixing a product built on the kit that ships an AI model
+(2026-07-08).
 
-The pin is now `2.8.1` exactly, matching the pac CLI this kit's lifecycle
-already uses to export, unpack, and import, so the build packer and the CLI
-packer agree. This is a preventive fix to the reference pattern, not a repair
-of a broken kit artifact: the kit's own solution ships only PCF controls and
-webresources, no AI model, so its managed zip was never affected. Products copy
-this cdsproj, so the stale pin would have propagated; pinning it current here
-stops that. It is the only tracked cdsproj that references this package, so
-nothing else changed. deployment.md's ALM chapter now records the
-packer-version requirement and, for a fork that adds an AI model, the staging
-rule: customizations.xml needs the childless `<AIModels />` node as the
-insertion point plus an `aimodel.xml` staged beside it (`pac solution unpack`
-writes `aimodel.yml`, which SolutionPackager does not read back when it packs).
-No AI-model staging code was added to the kit; it ships no AI model.
+The pin is now `2.8.1` exactly, matching the pac CLI this kit's lifecycle uses to
+export, unpack, and import, so the build packer and CLI packer agree. Preventive, not
+a repair: the kit's own solution ships only PCF controls and webresources, no AI
+model, so its zip was never affected, but products copy this cdsproj, so the stale pin
+would propagate. It is the only tracked cdsproj referencing this package.
+deployment.md now records the packer-version requirement and, for a fork adding an AI
+model, the staging rule: customizations.xml needs the childless `<AIModels />` node
+plus an `aimodel.xml` staged beside it (`pac solution unpack` writes `aimodel.yml`,
+which SolutionPackager does not read back). No AI-model staging code was added.
 
-**Verification.** The kit's managed and unmanaged zips were built both before
-(1.52.1) and after (2.8.1) the bump, from the same `dist/`. All four zips carry
-the five PCF CustomControls and the three shell webresources in both the
-manifest and the definitions, with the correct Managed flag (1 managed, 0
-unmanaged) and zero packer warnings and zero errors. The 2.8.1 managed zip and
-the 1.52.1 managed zip carry the same entries, and their `solution.xml`,
-`customizations.xml`, and `[Content_Types].xml` are byte-identical (SHA256), so
-the bump does not regress the kit artifact. Full `npm run verify` is green
-(floor check, lint, typecheck, build, 506 unit tests, 12 smoke tests, Storybook
-build). The 1.x silent drop of `msdyn_aimodel` was observed in a product built
-on the kit, not re-staged here, since the kit ships nothing that would exercise
-it.
+**Verification.** The kit's managed and unmanaged zips were built before (1.52.1) and
+after (2.8.1) the bump from the same `dist/`. All four carry the five PCF
+CustomControls and three shell webresources in manifest and definitions, correct
+Managed flag, zero warnings/errors. The 2.8.1 and 1.52.1 managed zips carry the same
+entries, and their `solution.xml`, `customizations.xml`, and `[Content_Types].xml` are
+byte-identical (SHA256), so the bump does not regress the artifact. Full verify green
+(floor check, lint, typecheck, build, 506 unit, 12 smoke, Storybook). The 1.x silent
+drop was observed in a product, not re-staged here.
 
-Revisit trigger: pac ships a SolutionPackager past 2.8.1 that the kit's
-lifecycle adopts (keep the cdsproj pin matched to the pac CLI the lifecycle
-runs).
+Revisit: pac ships a SolutionPackager past 2.8.1 the lifecycle adopts (keep the pin
+matched to the pac CLI the lifecycle runs).
 
 ## D-066, the narrow check measures the top window: a hidden ribbon frame no longer reads as a phone
 
-A downstream consumer of openClientUI's auto mode reported that two of its
-ribbon commands opened the FULL PAGE on every launch at desktop width, while
-the same call from a visible embedded webresource opened the dialog. The
-mechanism: modern UCI executes ribbon and command-bar handlers inside a hidden
-iframe (the ClientApiFrame) whose own viewport is effectively 0x0, where
-matchMedia("(max-width: 768px)") always matches. LibraryUtils.isNarrowViewport
-measured its default `window`, the calling window, so every ribbon-initiated
-auto launch resolved narrow and went full page. Present since the mode shipped
-(D-064); the kit's own AccountRibbon.openCompanySearch (auto by default) was
-affected identically.
+A downstream consumer of openClientUI's auto mode reported two ribbon commands
+opening the FULL PAGE on every launch at desktop width, while the same call from a
+visible embedded webresource opened the dialog. Mechanism: modern UCI executes ribbon
+and command-bar handlers inside a hidden iframe (the ClientApiFrame) whose viewport is
+effectively 0x0, where matchMedia("(max-width: 768px)") always matches, and
+LibraryUtils.isNarrowViewport measured its default `window` (the calling window), so
+every ribbon-initiated auto launch resolved narrow. Present since D-064;
+AccountRibbon.openCompanySearch was affected identically.
 
-**What shipped.** isNarrowViewport(win?) now resolves the top-most same-origin
-window from the given win and runs the media query there. The question the
-check answers is whether the APPLICATION viewport is in the narrow (phone)
-reflow, because that is what decides whether the platform can host a
-webresource dialog, and that property belongs to the top window, not the
-caller's iframe. The resolution is guarded: a cross-origin top throws on
-member access and falls back to the caller's own window, and a null or absent
-top reads as the caller's window. Kept on purpose: the 768px breakpoint, the
-injectable win parameter (the tests drive it), the viewport-not-getFormFactor
-posture, and absent matchMedia reading as not narrow. The modern adapter's
-auto path (WebResourceContext.openClientUI) is the one caller and needed no
-change; a sweep found no other matchMedia or viewport read in the runtime
-tiers.
+**What shipped.** isNarrowViewport(win?) now resolves the top-most same-origin window
+and runs the media query there, because whether the APPLICATION viewport is in the
+narrow reflow (what decides if the platform can host a webresource dialog) belongs to
+the top window, not the caller's iframe. Guarded: a cross-origin top throws on member
+access and falls back to the caller, and a null/absent top reads as the caller. Kept:
+the 768px breakpoint, the injectable win parameter, viewport-not-getFormFactor, absent
+matchMedia as not narrow. The modern auto path is the one caller; a sweep found no
+other viewport read.
 
-**The behavior change.** A visible iframe that is itself narrow inside a
-desktop app no longer reads as narrow. That is the correct semantics (the
-dialog hosts over the app viewport regardless of the caller's own width), and
-it moves narrow-viewport SIMULATION: narrowing an iframe around the shell no
-longer triggers the full page; narrow the top window instead (browser device
-emulation or a window resize). Stated in adding-a-client-hook.md beside the
-launch modes and in the isNarrowViewport JSDoc.
+**Behavior change.** A visible iframe that is itself narrow inside a desktop app no
+longer reads as narrow (correct: the dialog hosts over the app viewport). Narrow
+SIMULATION moves accordingly: narrow the top window (device emulation or resize), not
+an iframe around the shell. Stated in adding-a-client-hook.md and the isNarrowViewport
+JSDoc.
 
-**Alternatives rejected.**
+**Alternatives rejected:** each ribbon hook passing an explicit visible window (spreads
+the quirk to every caller, and a handler cannot know its frame is hidden without the
+same resolution); detecting the hidden frame and walking up only then (more moving
+parts for the same answer).
 
-- Each ribbon hook passes an explicit visible window into openClientUI. That
-  spreads the platform quirk to every caller, exactly what auto exists to
-  absorb, and a handler cannot know its frame is hidden without the same
-  top-window resolution.
-- Detect the hidden frame (zero size, visibility) and walk up only then. More
-  moving parts for the same answer; the app viewport is the top window's
-  whether or not the caller is hidden.
+**Verification.** Unit pins in LibraryUtils.test.ts (top-window pin failing pre-fix):
+caller narrow with top wide is not narrow; top narrow is narrow; a throwing/cross-origin
+top falls back to the caller; no matchMedia is not narrow. Full verify green. Live on
+the dev org (2026-07-11), staged because the kit ribbon commands are not on the org's
+Account command bar: the DEPLOYED clienthooks ran inside a hidden 0x0 iframe on the
+Account form, and the 400px-pinned tab meant the desktop condition was staged by
+stubbing the TOP window's matchMedia wide for the synchronous resolution (the frame's
+own query left real). Pre-fix: the full page opened while the top read wide (the defect
+verbatim). Post-fix: the centered dialog opened over the form with live rows; the
+side-pane variant stayed a side pane (its content showed the platform's "No data
+available." at the real 400px, the D-064 narrow limitation, not a regression); the
+narrow half ran REAL (400px emulation as genuine device emulation, auto resolved to
+full page and rendered). The sitemap hub boots clean. A true desktop-viewport ribbon
+click is carried by the unit pins plus the consumer's report.
 
-**Verification.** Unit pins in LibraryUtils.test.ts, the top-window pin
-failing pre-fix: caller narrow with top wide is not narrow; top narrow is
-narrow (even when the caller has no matchMedia); a throwing top accessor and a
-top whose member access throws (the browser's actual cross-origin shape) both
-fall back to the caller's window; no matchMedia anywhere is not narrow. The
-pre-existing suites, the D-064 auto/fullpage pins included, stay green
-(jsdom's window is its own top). Full verify green at the branch tip. Live on
-the dev org (2026-07-11), with the session's constraints stated plainly: the
-kit ribbon commands are not registered on the org's Account command bar, so
-the ClientApiFrame condition was staged deterministically, the DEPLOYED
-clienthooks bundle loaded inside a hidden 0x0 same-origin iframe on the
-Account form and AccountRibbon.openCompanySearch invoked there; and the
-session's browser tooling pinned the tab to a 400px emulated viewport, so the
-desktop condition was staged by stubbing the TOP window's matchMedia to report
-wide for the synchronous mode resolution only, the frame's own media query
-left real (0x0, matches). Pre-fix bundle: the full page opened (pagetype
-webresource, payload on the webresource query string, fullPage marked) while
-the top read wide, the defect verbatim. Post-fix bundle, same staging: the
-centered dialog opened over the record form and loaded live rows. The
-side-pane variant stayed a side pane (its content showed the platform's "No
-data available." at the real 400px width, the narrow dialog limitation D-064
-records for explicit modes, not a regression). The narrow half ran REAL, no
-stub: with the 400px emulated viewport standing as genuine device emulation of
-the top window, auto resolved to the full page, fullPage marked, and rendered.
-The sitemap-hosted samples hub boots on the fixed bundle, console clean. A
-true desktop-viewport ribbon click remains carried by the unit pins plus the
-consumer's desktop-width report.
-
-Revisit trigger: rides D-064's (if the platform starts hosting webresource
-dialogs on the narrow reflow, auto stops diverging and this check goes dormant
-with it).
+Revisit: rides D-064's (if the platform hosts webresource dialogs at narrow, auto stops
+diverging and this check goes dormant).
 
 ## D-067, the kit takes a verified mobile posture: narrow layout mechanics and the lookup's full-screen search
 
-One wave, four working rules. Narrow-layout correctness triggers on width;
-mode-appropriate interaction triggers on pointer capability; desktop rendering
-is preserved (every adaptive change sits behind its trigger, desktop changes
-only by explicit owner approval); and the reference for a native-parity
-control is the platform's own control at narrow, observed live, never
-imagined. A fifth rule emerged during the wave and is now standing: a change
-is called tested only at the rung it was actually tested at, and the rungs are
-named explicitly (story-verified: renders its states; org-verified: measured
-live on a deployed bundle at narrow).
+One wave, working rules: narrow-layout correctness triggers on width; interaction on
+pointer capability; desktop rendering is preserved (adaptive changes sit behind their
+trigger, desktop changes need owner approval); the parity reference is the platform's
+own control at narrow, observed live; and a change is called tested only at the rung it
+was tested at (story-verified: renders its states; org-verified: measured live on a
+deployed bundle at narrow).
 
-**The native references, recorded from live walks on the dev org at a 400px
-viewport.** The entity list is a card list (full-width cards, per-card
-overflow). A narrow FORM keeps labels beside fields at desktop density (about
-176px label plus 156px control, 30px inputs): card presentation is a grid
-idiom, not a form idiom. The date picker opens a compact anchored popup
-(222x254, single month, 24x24 day cells: the kit calendar's existing density,
-so no change there). A choice field opens an anchored listbox at field width
-with 32px options. Secondary chrome is 32px even on phone (search buttons,
-chip actions); 44px-class targets apply to primary row targets only. The one
-exception to "anchored flyouts everywhere" is the LOOKUP: its search opens a
-dedicated full-screen takeover (own top chrome, search input, a scope row
-with one button per target plus a Recent-records segment, edge-to-edge 48px
-two-line rows with expand chevrons, a pinned "+ New / Advanced" footer), and
-tapping a row commits the value immediately (the surface then closes; the
-platform autosaves on a form). That takeover is the parity target for the
-kit lookup, and only for it: no other picker gets full-screened.
+**Native references (live at 400px):** the entity list is a card list; a narrow FORM
+keeps labels beside fields at desktop density (~176px label + 156px control, 30px
+inputs); the date picker opens a compact anchored popup (222x254, 24x24 day cells, the
+kit calendar's existing density); a choice field opens an anchored listbox at field
+width with 32px options; secondary chrome is 32px even on phone, 44px-class targets are
+primary-row only. The one exception to anchored flyouts is the LOOKUP: its search opens
+a full-screen takeover (own chrome, a scope row one button per target, 48px two-line
+rows, a pinned New/Advanced footer), a row tap commits immediately. Only the lookup is
+full-screened.
 
-**Layout mechanics that shipped (each behind its trigger, desktop rendering
-unchanged unless noted).**
+**Shipped (each behind its trigger, desktop unchanged unless noted):**
 
-- The five grid apps pin their grid region (flexShrink 0) inside the bounded
-  page column. Mechanism, worth keeping: the app page is a bounded flex
-  column (height 100 percent, overflowY auto) and the grid's scroll wrapper
-  has non-visible overflow, which resolves the flex min-height of auto to 0,
-  so sibling growth (a detail panel mounting on row select) crushed the grid
-  to nothing before the page ever scrolled. The pin makes the page scroll
-  instead.
-- Pagination wraps its range label to its own line under width pressure; the
-  pager controls travel as one cluster. DateTimeField wraps its date and time
-  row in narrow containers (the time side carries flexBasis 220, replacing a
-  misleading fixed width the Fluent TimePicker overflowed). MultiLookupField
+- The five grid apps pin their grid region (flexShrink 0) so the page scrolls instead
+  of the grid crushing to zero when a detail panel mounts (the grid's non-visible
+  overflow had resolved flex min-height to 0).
+- Pagination wraps its range label; DateTimeField wraps the date/time row (time
+  flexBasis 220, replacing a fixed width the TimePicker overflowed); MultiLookupField
   wraps its tag row.
-- DegradedState renders long messages multiline (owner-approved desktop
-  change: long banners previously escaped the bar at any width).
-  MultiSelectOptionSetField read-only renders the flat FieldShell text like
-  every other field (owner-approved; was a greyed disabled dropdown).
-- The wizard, territory cascade, and template apps own an inner scroll
-  container (height 100 percent, overflowY auto, overflowX hidden): the shell
-  pins body overflow hidden, so page-scroll reliance meant unreachable
-  content on a short viewport. The counterparty webresource app gets the same
-  bound through a wrapper in its registration, because its View is shared
-  with the dataset PCF and stays height-neutral on purpose (the PCF hosting
-  scrolls the form; forcing a height would collapse in an auto-height
-  container).
-- The shell renders its own Back bar above a full-page launch (fullPage
-  marker plus the Web client), wired to history back, above a bounded
-  scrolling app region. Every other hosting renders the app bare.
-- MeasuredWidth is the shared container-width primitive (class component,
-  ResizeObserver on its own full-width div, children(width) render prop,
-  width-only so auto-height PCF containers keep content height; width 0
-  means unmeasured and the consumer renders its default). The counterparty
-  grid rides it for the persona switch; its public props are unchanged.
-- Baseline stories pin the pre-wave desktop rendering of every state the
-  audit flagged, and the two scenario stories mirror the shell's viewport
-  bound (height 100vh plus overflowY auto), which is the fidelity gap that
-  had hidden the grid crush. App scenario stories should carry the shell
-  bound as a rule.
+- DegradedState multiline and MultiSelectOptionSetField read-only flat FieldShell text
+  (both owner-approved desktop changes).
+- The wizard, territory, and template apps own an inner scroll container (the shell
+  pins body overflow hidden); the counterparty app gets the same via a wrapper in its
+  registration, its View being PCF-shared and height-neutral.
+- The shell renders its own Back bar above a full-page launch (fullPage marker, wired to
+  history back); every other hosting renders the app bare.
+- MeasuredWidth is the shared container-width primitive (ResizeObserver, children(width)
+  render prop, width-only so auto-height PCF containers keep content height; width 0 is
+  unmeasured); the counterparty grid rides it for the persona switch.
+- Baseline stories pin the pre-wave desktop rendering, and the scenario stories mirror
+  the shell's viewport bound (100vh + overflowY auto), the fidelity gap that had hidden
+  the grid crush.
 
-**The lookup's narrow search is a full-screen takeover.** The presentational
-NativeLookupField takes fullscreenSearch (OrObservable of boolean, default
-false: absent, the anchored flyout renders unchanged, pinned by the untouched
-pre-wave test suite). When the flag is true and the search opens, the same
-content tree (one shared SurfaceContent: loading, results tree, footer)
-renders in a fixed inset-0 inline surface (never portaled, so the theme
-variables resolve in a PCF) with takeover chrome: a dismiss X (no confirm
-button: the observed native behavior is that a row tap commits immediately,
-so the kit does the same, tap commits and closes, X or Escape leaves without
-change), the current value as a clearable chip, an autofocused search input,
-a scope row with one button per target (aria-pressed marks the active one;
-the flyout keeps its Menu switcher), and the pinned New and Advanced footer.
-Takeover rows render at the native 48px: tighter vertical padding plus
-border-box, because the rows are otherwise content-box and the 48px
-minHeight was never the rendered height (the flyout's 64px rows are exactly
-that minHeight plus its padding; the flyout keeps them). The scope row
-carries no Recent-records segment: the platform MRU is not exposed to this
-tier, a recorded divergence rather than an invented one. The z-index is a
-large explicit value so the surface clears the form chrome when the control
-lives in the UCI page.
+**The lookup's narrow search is a full-screen takeover.** NativeLookupField takes
+fullscreenSearch (OrObservable, default false: absent, the anchored flyout is
+unchanged). When true, the same content tree renders in a fixed inset-0 inline surface
+(never portaled, so theme variables resolve in a PCF) with takeover chrome: a dismiss X
+(no confirm button, native tap commits immediately), the value as a clearable chip, an
+autofocused input, a scope row one button per target (aria-pressed), and the
+New/Advanced footer. Rows render at 48px (the flyout's 64px rows are that minHeight plus
+padding). No Recent-records segment: the platform MRU is not exposed to this tier, a
+recorded divergence. A large explicit z-index clears form chrome.
 
-**The trigger is the viewport, resolved live.** LibraryUtils gains
-trackNarrowViewport (an Observable of boolean plus dispose), sharing the
-top-most same-origin window resolution and the 768px query with
-isNarrowViewport through one private helper, so the resting read and the
-live tracker cannot drift; the change listener rides matchMedia (with the
-deprecated addListener fallback), and an absent matchMedia yields a false
-flag that never changes. SmartNativeLookup tracks the viewport itself and
-disposes in its unmount path; the PCF root creates its own tracker in init
-and disposes it in destroy, passing the Observable through, because the
-platform owns a virtual control's React root and destroy is the one
-teardown the control can rely on. The smart wrapper's fullscreenSearch prop
-exists as that plumbing channel (host-supplied flag wins, otherwise
-self-track); it is lifecycle plumbing, not a mode switch. Container width
-was rejected as the trigger on purpose: a narrow desktop section must not
-take over the screen, and the platform keys this idiom to the phone reflow.
+**The trigger is the viewport.** LibraryUtils gains trackNarrowViewport (Observable of
+boolean plus dispose), sharing isNarrowViewport's top-most same-origin window resolution
+and 768px query. SmartNativeLookup self-tracks and disposes in unmount; the PCF root
+creates its tracker in init and disposes in destroy (the platform owns a virtual
+control's React root). The smart wrapper's fullscreenSearch prop is that plumbing
+channel (host flag wins, else self-track), not a mode switch. Container width was
+rejected as the trigger: a narrow desktop section must not take over the screen, and the
+platform keys this idiom to the phone reflow.
 
-**Alternatives rejected.** Full-screening the other pickers (native keeps
-date and choice anchored at narrow; parity means matching that, not
-inventing). A confirm-button commit in the takeover (the observed native
-tap commits immediately; a dead check button would be chrome without
-behavior). getFormFactor or container width as the trigger (the device is
-not the reflow, and the container is not the viewport).
+**Alternatives rejected:** full-screening the other pickers (native keeps date and
+choice anchored); a confirm-button commit (native tap commits immediately); getFormFactor
+or container width as the trigger.
 
-**Evidence rungs, per item, stated plainly.**
+**Evidence rungs.** Org-verified at 400px on the deployed webresource bundle: the grid
+pin (activities grid, the wide table scrolling inside its wrapper), company search
+(inside a full-page launch), DegradedState multiline, the three inner-scroll apps under
+staged height pressure, the Back bar, the counterparty persona reflow, and the lookup
+takeover (rows at 48px, tap committed and closed). Structural-only on this org: the
+merged-grid and opportunity-search pins (the dev org has no Sales solution, no
+opportunity or territory entities, so those apps degrade by design, portability
+working). Story-verified ceiling (no org surface): the MultiLookupField tag wrap, the
+MultiSelectOptionSetField read-only rendering, and the DateTimeField date+time wrap. The
+lookup PCF is deployed at manifest 1.2.2 and exercised as code by the same shared path;
+the side-by-side drive against the native lookup on the form has not been performed, and
+the claim stays at that rung.
 
-- Org-verified at 400px on the deployed webresource bundle: the grid pin on
-  the activities grid (45 live rows, computed flexShrink 0, the wide table
-  scrolling inside its wrapper, no page pan) and company search (12 rows,
-  re-driven inside a full-page launch); DegradedState multiline (shown
-  naturally, contained at 352x60); the three inner-scroll apps under staged
-  height pressure (content scrolled inside the container, the last control
-  reachable, the body never panning); the Back bar end to end (fullPage
-  payload, 400x41 bar, app region below it, Back walking iframe history);
-  the counterparty persona reflow (a visible-tab walk: full card list at
-  400px, no grid, no horizontal scroll); and the lookup takeover (covers
-  the full app area, ten live rows all exactly 48px, autofocused input,
-  tap committed and closed with the chip appearing, clear worked).
-- Structural-only on this org: the merged grid and opportunity search pins
-  (this dev org carries no opportunity or territory entities, so those apps
-  degrade gracefully by design and their data paths cannot be exercised
-  here; the degrade itself is the org-verified part).
-- Story-verified ceiling, no org surface exists today: the MultiLookupField
-  tag wrap and the MultiSelectOptionSetField read-only rendering (no sample
-  app or PCF consumes them) and the DateTimeField date-plus-time wrap (the
-  sample bindings are date-only; the date picker PCF binds a datetime
-  column, so a redeploy wave can lift this one).
-- The lookup PCF: deployed at manifest 1.2.2 and exercised as code by the
-  same tests and the same shared path the webresource runs; the side-by-side
-  drive against the native lookup on the form itself has not been performed
-  and the claim stays at that rung until it is.
-
-**Environment fact recorded.** The dev org has no Sales solution: no
-opportunity entity set and no territory entity. The merged grid and
-opportunity search show their designed degraded state there ("could not be
-loaded in this environment"), which is portability behavior working, not a
-defect.
-
-**Open, deliberately.** Grid card-list mode at narrow is the remaining big
-divergence (native lists are cards; the kit grids stay dense tables with
-inner horizontal scroll). Owner directive recorded for whenever it is
-scoped: card mode is chosen by the implementer per app, never default grid
-behavior; PersonaList and MeasuredWidth are the building blocks. The
-re-graded touch items: the 32px small-target step-up is a real parity fix
-but native runs 32px at desktop too, so it is a desktop change awaiting
-explicit approval; the FieldShell hint tooltip staying unreachable by
-keyboard and touch is an accessibility defect worth fixing regardless of
-this wave; combobox tap-to-open under a coarse pointer stays proposed;
-column resize at narrow is a recorded limitation (native phone grids do not
-resize); calendar density closed at parity; MultiLookupField open-seeding is
-deprioritized until the control has a consumer.
-
-Revisit triggers: the grid card-mode scope call; a consumer for the three
-no-surface fixes (or their removal); the platform changing the narrow lookup
-idiom (the takeover then follows it).
+**Open, deliberately:** grid card-list mode at narrow (the remaining big divergence;
+owner directive: implementer-chosen per app, never default grid behavior, PersonaList
+and MeasuredWidth are the building blocks); the 32px small-target step-up (a real parity
+fix but a desktop change awaiting approval, native runs 32px at desktop too); the
+FieldShell hint tooltip unreachable by keyboard and touch (an accessibility defect);
+combobox tap-to-open under a coarse pointer (proposed); column resize at narrow (a
+recorded limitation, native phone grids do not resize); calendar density closed at
+parity; MultiLookupField open-seeding deprioritized until it has a consumer. Revisit
+triggers: the grid card-mode scope call; a consumer for the three no-surface fixes (or
+their removal); the platform changing the narrow lookup idiom.
 
 ## D-068, the kit speaks the user's language and formats: es and nl chrome ships built in, money and time follow user settings, and the choice PCF reads metadata
 
-A full audit on the dev org with the user switched to Spanish (language and
-formats, LCID 3082) found the data pipeline already correct: metadata display
-names, option labels, view headers, and server-formatted cell values all
-arrive localized, decimal-comma input parses, dates display and parse
-day-first, and the Spanish calendar names ride the host date formatting. Four
-things did not follow the user. Every string the kit itself renders was
-English for every non-English user, because nothing ever resolved the
-language (configureKitStrings existed with zero callers, the kit's own apps
-and PCFs included). A second set of kit strings was hardcoded OUTSIDE
-kitStrings, where even that hook could not reach them (stepper Back/Next, the
-search bar, the grid empty and accessibility strings, the grid command bar's
-Delete and Refresh, the counterparty feature's synthesized column and
-overflow strings, the dataset pager, the calendar footer and navigation
-labels, the shell's full-page Back, the tooltip PCF's no-description
-fallback). The currency symbol always rendered as a leading prefix where the
-platform renders "1.234,56" then the euro sign for this user (usersettings
-currencyformatcode 3, amount space symbol). And the time of day followed the
-BROWSER locale (the compat time picker received no hour cycle), so an en-US
-browser showed "3:00 PM" to an "H:mm" user whose native time control renders
-"15:00".
+A full audit on the dev org with the user switched to Spanish (LCID 3082) found the
+data pipeline already correct (metadata names, option labels, view headers, and
+server-formatted values localized; decimal-comma input parses; day-first dates; Spanish
+calendar names). Four things did not follow the user: every kit-rendered string was
+English (configureKitStrings had zero callers, the kit's own apps included); a second
+set of strings was hardcoded OUTSIDE kitStrings (stepper, search bar, grid chrome/aria,
+grid command bar Delete/Refresh, counterparty, dataset pager, calendar footer/nav, shell
+Back, tooltip PCF fallback); the currency symbol always rendered as a leading prefix
+where the platform renders "1.234,56" then the euro (usersettings currencyformatcode 3);
+and the time of day followed the BROWSER locale (no hour cycle), "3:00 PM" where the
+user's native control renders "15:00".
 
-**The shipped shape.** kitStrings gains a language layer: complete built-in
-tables for English, Spanish, and Dutch, resolved once at context creation
-from the host user language by all three adapters (8.x through its
-deprecated user-LCID getter), with configureKitStrings preserved as the
-consumer override, now layered over the active table and order-independent,
-and registerKitStrings for languages the kit does not carry (a complete
-IKitStrings per language, compiler-enforced). The Spanish wording is
-anchored to the platform's own UI strings captured live (Nuevo, Avanzada,
-Eliminar, Actualizar, Ir a hoy, No se encontraron registros); the Dutch
-table is authored to standard Microsoft terminology, not captured from a
-Dutch org, and is labeled accordingly. Every user-facing kit string that
-lived outside kitStrings moved in; developer-facing text (bootstrap boot
-errors, sample apps, stories) stays English by decision. IFormattingInfo
-gains currencyFormatCode (the usersettings currencyformatcode, the .NET
-CurrencyPositivePattern, with the PCF host's numberFormattingInfo
-currencyPositivePattern as its native source there) and timeFormat (host
-ShortTimePattern first, usersettings timeformatstring as the fallback; the
-fallback query now selects both new columns). CurrencyField maps the code to
-a leading or trailing affix with the platform's spacing, an absent code
-keeping the old rendering exactly; NumberField gains a verbatim suffix
-sibling to its prefix (affixes render verbatim, the caller owns spacing);
-DateTimeField takes an hourCycle the smart tier derives from the time
-pattern ("H" means the 24-hour clock, "h" the 12-hour one).
+**Shipped.** kitStrings gains a language layer (built-in en/es/nl tables resolved once
+at context creation by all three adapters, 8.x via its deprecated user-LCID getter),
+configureKitStrings preserved as an order-independent override, and registerKitStrings
+for other languages (a complete IKitStrings, compiler-enforced). Spanish is anchored to
+platform UI strings captured live (Nuevo, Avanzada, Eliminar, Actualizar, Ir a hoy, No
+se encontraron registros); Dutch is authored to standard Microsoft terminology and
+labeled as such. Every user-facing string moved in; developer text stays English.
+IFormattingInfo gains currencyFormatCode (usersettings currencyformatcode / the .NET
+CurrencyPositivePattern) and timeFormat (host ShortTimePattern, usersettings
+timeformatstring fallback). CurrencyField maps the code to a leading/trailing affix
+(absent code keeps the old rendering), NumberField gains a verbatim suffix, and
+DateTimeField takes an hourCycle the smart tier derives from the time pattern ("H" the
+24-hour clock, "h" the 12-hour).
 
-**Two PCF corrections the wave surfaced.** The date picker PCF passed only
-the host display formatter to the field, so its calendar rendered the compat
-picker's own defaults (English names, Sunday-first, browser-locale time, and
-browser m/d/y parsing of typed dates that could commit the wrong date for a
-day-first user); the root now normalizes the host date formatting once per
-paint and threads the same calendar strings, first day, pattern parser, and
-hour cycle the smart tier passes, and resolves the kit chrome language itself
-since it builds no kit context. The option set PCF was rebuilt from the
-parameter-driven Pattern 1 to the smart pattern by owner ruling: option
-labels resolve from entity metadata in the user's language, while the bound
-parameter's own option list stays the allowed set (an option the host does
-not offer is never presented; an empty host list means no filtering, so a
-harness never blanks the control). Its retired Pattern 1 root is kept
-verbatim inside the control project (a pattern1-reference folder beside the
-live root: the project's tsconfig compiles it and editors resolve its types,
-but nothing imports it, so it never ships in the bundle) and the PCF guide's
-pattern roster was rewritten around the graduation: Pattern 1 is rescoped to
-bindings whose parameter values carry no language. The thin stateless
-App-component layer both field PCFs had grown was flattened into their roots
-in the same pass (the layer earns its place only where the child is a real
-stateful component, as in the tooltip and counterparty controls).
+**Two PCF corrections.** The date picker PCF now threads the same calendar strings,
+first day, pattern parser, and hour cycle the smart tier passes (it had rendered the
+compat picker's English Sunday-first defaults and browser m/d/y parsing) and resolves
+the chrome language itself. The option set PCF was rebuilt from Pattern 1 to the smart
+pattern by owner ruling: labels resolve from entity metadata in the user's language
+while the bound parameter's option list stays the allowed set; its retired Pattern 1
+root is kept as a pattern1-reference folder (compiled, imported by nothing), and the PCF
+guide's roster was rewritten (Pattern 1 rescoped to bindings whose values carry no
+language). The thin App layer both field PCFs had grown was flattened out.
 
-**A wrong mechanism corrected in the docs.** The recorded claim that the
-calendar's first day of week derives from the user's Language was an
-assumption, and it was wrong: a controlled switch on the dev org (org format
-en-US to en-GB, user fully es-ES throughout) flipped
-dateFormattingInfo.FirstDayOfWeek from 0 to 1 with every user-driven member
-unchanged, and the native picker followed. The first day is the
-ORGANIZATION-level format setting; usersettings has no first-day column. The
-gotchas entry, the smart date picker's JSDoc, and its story now state the
-verified mechanism, and D-044 carries the dated correction. The kit needed no
-code change there: it reads the same host member the native picker reads, so
-it matches whatever the org serves.
+**A wrong mechanism corrected.** The claim that the calendar's first day of week derives
+from the user's Language was an assumption and wrong: a controlled dev-org switch (org
+format en-US to en-GB, user es-ES throughout) flipped dateFormattingInfo.FirstDayOfWeek
+from 0 to 1 with user members unchanged, and the native picker followed. The first day
+is the ORGANIZATION-level format setting; D-044 carries the dated correction. The kit
+needed no code change, it reads the same host member.
 
-**Alternatives rejected.** Documenting configureKitStrings wiring as the
-consumer's job (nobody had wired it, including the kit's own apps, so the
-out-of-box experience contradicted the kit's native-parity claim). Browser
-Intl formatting (the usersettings row is the authority the platform itself
-formats by, and the browser locale routinely disagrees with it; the audit
-browser was en-US against an es-ES user). A negative-format code map and
-grouped numbers in the pager prose (declined as recorded limitations: the
-first for scope, the second because the strings layer deliberately never
-sees the user's separators). A standalone uncompiled reference folder for
-the retired Pattern 1 root (moved inside the control project by owner call:
-the editor and the project's own typecheck keep it honest, where a
-projectless folder showed spurious editor errors).
+**Alternatives rejected:** documenting configureKitStrings wiring as the consumer's job
+(nobody had wired it, contradicting the native-parity claim); browser Intl formatting
+(usersettings is the authority the platform formats by, and the browser locale disagrees);
+a negative-format code map and grouped pager numbers (recorded limitations, the latter
+because the strings layer never sees the user's separators); a standalone uncompiled
+folder for the retired Pattern 1 root (moved inside the project so its typecheck keeps it
+honest).
 
-**Platform findings recorded for reuse.** The manifest display-name-key and
-description-key attributes reject apostrophes (the import XSD's
-noAposStringType), and pac solution import can exit 0 on a FAILED import, so
-scripted deploys must check the output text; both are now in the PCF guide.
-A republished control keeps serving the previous bundle to an already-open
-form until a fresh page load (reconfirmed live; the recorded
-redeploy-needs-reload behavior).
+**Platform findings for reuse:** the manifest display-name and description keys reject
+apostrophes (the import XSD's noAposStringType), and pac solution import can exit 0 on a
+FAILED import (check the output text); both in the PCF guide. A republished control keeps
+serving the previous bundle until a fresh page load.
 
-**Verification.** Live on the dev org under the Spanish user, on the
-deployed bundles, with the org format at en-GB: Spanish pager, lookup,
-wizard, command bar, and calendar chrome measured verbatim on the
-webresource tier; typed "1234,56" committed and rendered "1.234,56" with the
-euro sign trailing the input, matching the server's own FormattedValue; the
-date picker PCF renders "junio 2026", Monday-first day headers, the Spanish
-month picker, "Ir a hoy", and a 24-hour "15:00" on an en-US browser; the
-lookup PCF renders "Buscar Cuenta primaria", live rows, "Avanzada", and "No
-se encontraron registros"; the counterparty PCF renders the Contraparte
-header beside platform-localized view headers. An independent report-only
-test pass re-drove both tiers end to end (11 of 13 checks passed outright;
-the two exceptions were checklist premises, not defects: the tooltip's
-Spanish no-description fallback cannot be exercised because the bound sample
-column carries an authored description, so that one string stays
-unit-verified; and the second option-set binding did not yet exist). The
-option set PCF's served bundle was verified by content, not by rendering:
-its option list is identical under the old and new code for an
-untranslated column, so the registered version (customcontrols row) and two
-marker strings that exist only in the new build were checked instead, and
-after the owner bound the control to a translated out-of-box choice column
-it rendered the Spanish labels from metadata (owner-verified; the binding's
-presence DOM-measured). Unit-pinned: language resolution by LCID and tag,
-override composition in both orders, runtime table completeness, the four
-currency compositions plus the unchanged default, hour-cycle derivation,
-24-hour rendering independent of the runner locale, and the camelCase PCF
-date-format object driven end to end through the shared helpers. Whether the
-PCF parameter's own option labels localize when translations exist was left
-untested on purpose: the control no longer reads labels from the parameter,
-so the question is moot for the kit and is recorded, not asserted either
-way. The full gate is green at the tip; control manifests carry their
-redeploy bumps (1.2.3 to 1.2.5 across the five) and re-align at the next
-release per the versioning policy.
+**Verification.** Live on the dev org under the Spanish user (org format en-GB): Spanish
+pager, lookup, wizard, command bar, and calendar chrome verbatim on the webresource tier;
+typed "1234,56" rendered "1.234,56" with the euro trailing, matching the server
+FormattedValue; the date picker PCF renders "junio 2026", Monday-first headers, "Ir a
+hoy", and 24-hour "15:00" on an en-US browser; the lookup and counterparty PCFs render
+Spanish. An independent report-only pass re-drove both tiers (11 of 13; the two exceptions
+were checklist premises: the tooltip es fallback, which the authored sample description
+masks, and a second option-set binding that did not yet exist). The option set PCF was
+verified by served-bundle content (identical option list for an untranslated column, so
+the registered version plus two new-build markers were checked), then rendered Spanish
+labels from metadata after the owner bound a translated column. Unit pins cover language
+resolution by LCID and tag, override composition both orders, table completeness, the
+four currency compositions plus the default, hour-cycle derivation, and 24-hour rendering
+independent of the runner locale. Full gate green; manifests carry redeploy bumps (1.2.3
+to 1.2.5 across the five), re-aligning next release.
 
-Revisit triggers: a consumer wants LCID resolution for a registered language
-(today only tags resolve for non-built-ins); a user on a leading-zero time
-pattern reports the missing zero; a locale whose negative formats matter in
-practice; a fourth format member turning out to be org-level the way the
-first day of week did.
+Revisit triggers: LCID resolution wanted for a registered language (today only tags
+resolve for non-built-ins); a leading-zero time pattern; a locale whose negative formats
+matter; a fourth format member turning out org-level like the first day of week.
 
 ## D-069, kit fields wear the New Look filled appearance: the platform's field styling is stock Fluent filled-darker, and the kit now defaults to it
 
-The owner reported kit fields rendering white beside the platform's grey
-form fields, against the kit's native-look claim. Two questions were settled
-with evidence before touching code. First, whether Dynamics 365 CE apps
-style differently from custom model-driven apps: they do not; the modern
-refreshed look ("New Look") is one platform experience for all model-driven
-apps, first-party included, documented as mandatory as of the 2026 wave 1
-release (users cannot revert, makers cannot switch an app back, only an
-admin environment setting remains). Second, what the grey actually is:
-measured live on a native text input beside the kit's controls on one form,
-the New Look field is Fluent v9's stock `filled-darker` input appearance,
-verbatim: rest background rgb(245,245,245) (colorNeutralBackground3), 1px
-borders present but fully transparent, hover and focus-within borders
-resolving colorTransparentStrokeInteractive (the appearance's own stylesheet
-rules, extracted from the page), the standard Fluent brand focus underline,
-4px radius, 32px height, 14px/400 type, placeholder rgb(112,112,112). No
-custom platform styling is involved, so the kit's divergence was exactly one
-axis: its fields rendered Fluent's implicit `outline` appearance (white,
-visibly bordered). Tokens, sizing, typography, and the focus affordance
-already matched because the components and the theme are shared.
+The owner reported kit fields rendering white beside the platform's grey form fields.
+Two questions were settled with evidence first. New Look is one platform experience for
+all model-driven apps (first-party included), mandatory as of the 2026 wave 1 release (no
+revert, only an admin environment setting). And the grey is Fluent v9's stock
+`filled-darker` input appearance, verbatim: rest background rgb(245,245,245)
+(colorNeutralBackground3), 1px fully transparent borders, hover and focus-within borders
+resolving colorTransparentStrokeInteractive, the Fluent brand focus underline, 4px radius,
+32px height, 14px/400 type, placeholder rgb(112,112,112). The kit's divergence was one
+axis: its fields rendered Fluent's implicit `outline` appearance (white, bordered); tokens,
+sizing, typography, and focus already matched (shared components and theme).
 
-**The shipped shape.** Every presentational field control hardcodes
-`appearance="filled-darker"` on its Fluent input primitive: TextField and
-NumberField (Input, the currency field rides it), MultilineTextField
-(Textarea), OptionSetField and MultiSelectOptionSetField (Dropdown),
-LookupField (its inline Combobox and its dialog-mode browse Input),
-MultiLookupField (Combobox), DateTimeField (the compat DatePicker and
-TimePicker, both of which accept the appearance), and NativeLookupField's
-resting field input. BooleanField renders a Switch, where appearance does
-not apply. The native lookup's full-screen takeover keeps its separately
-measured filled-lighter search input. No new prop: the filled appearance is
-the platform's mandatory field look, and native parity is the kit's point.
+**Shipped.** Every presentational field control hardcodes `appearance="filled-darker"` on
+its Fluent input primitive (TextField/NumberField/currency Input, MultilineTextField
+Textarea, OptionSet/MultiSelect Dropdown, LookupField Combobox + browse Input,
+MultiLookupField Combobox, DateTimeField DatePicker/TimePicker, NativeLookupField resting
+input). BooleanField's Switch has no appearance; the native lookup takeover keeps its
+measured filled-lighter search input. No new prop: the filled look is mandatory and native
+parity is the point.
 
-**The valued lookup states.** The appearance pass alone left a hole the
-owner caught on the org: both lookups LOST the grey surface the moment they
-held a value, where native keeps the same grey field with the value and its
-inline buttons sitting on it. The causes were structural, not token-level.
-LookupField's valued inline branch swaps the Combobox for a plain flex div
-(icon + name link) with the clear button beside it on an unpainted row, so
-nothing painted a surface. NativeLookupField's field row carried a comment
-claiming the grey while painting nothing; its empty state only looked right
-because the filled-darker search Input paints itself, and the valued chip
-rendered on the bare row. The fix gives the valued state the same recipe
-the filled Input carries (colorNeutralBackground3 rest, strokeWidthThin
-fully transparent border, borderRadiusMedium, 32px min height, hover and
-focus-within border resolving colorTransparentStrokeInteractive), applied
-where each control needs it: LookupField folds it into the valued branch's
-one surface div, now wrapping the value content AND the clear button so the
-button sits on the grey as native does, with the medium input's 10px text
-inset; NativeLookupField gains a valuedField rule merged onto the chip-state
-field row ONLY. Putting the recipe unconditionally on the field row was
-considered and rejected: the search state's Input already paints the
-surface, and two painted surfaces must not nest (double hover border,
-double focus chrome), so the recipe rides the branch and the field row's
-comment now states which branch paints what. The chip keeps its own
-focus-within outline box, the native focused-chip affordance, inside the
-new surface, and the takeover and flyout are untouched.
+**The valued lookup states.** Both lookups LOST the grey surface once valued, where
+native keeps the grey field with the value and its inline buttons on it (structural, not
+token-level: the valued branches painted no surface). The fix gives the valued state the
+filled Input's recipe (colorNeutralBackground3 rest, strokeWidthThin transparent border,
+borderRadiusMedium, 32px min height, hover/focus-within colorTransparentStrokeInteractive):
+LookupField folds it into the valued branch's surface div wrapping value AND clear button
+(10px text inset); NativeLookupField gains a valuedField rule on the chip-state row ONLY.
+Putting it unconditionally on the field row was rejected: the search state's Input already
+paints, and two painted surfaces must not nest.
 
-**Deliberately untouched.** SearchBar (grid and command chrome, not a form
-field; its native reference, the list page's quick find, is unmeasured and
-it stays outline until that reference is captured). DataGrid, Pagination,
-Stepper, FieldShell's label and read-only text, and the takeover surface.
+**Deliberately untouched:** SearchBar (its native reference, the list page's quick find,
+is unmeasured, so it stays outline), DataGrid, Pagination, Stepper, FieldShell
+label/read-only text, the takeover surface.
 
-**Alternatives rejected.** An appearance prop with a filled default (no
-consumer asked for outline, and the platform look is mandatory; a prop can
-be added the day a non-model-driven consumer wants it). Custom css over the
-outline appearance (the filled appearance already carries the correct rest,
-hover, focus, and disabled recipes from Fluent itself; restyling outline
-would re-implement what the component ships).
+**Alternatives rejected:** an appearance prop with a filled default (no consumer wants
+outline, the look is mandatory); custom css over outline (the filled appearance already
+carries the correct recipes from Fluent).
 
-**Verification.** Native reference measured live on the dev org (computed
-styles plus extracted hover and focus stylesheet rules). After redeploying
-the webresources and all five controls (manifest bumps, the platform serves
-cached bundles otherwise), the kit's fields were re-measured on the deployed
-bundle across five field types (text, number, choice dropdown, date, lookup
-combobox): every one renders rgb(245,245,245), 1px fully transparent
-borders, 4px radius, 32px height, matching the native recipe value for
-value. A unit pin renders the text field beside bare filled and outline
-inputs and asserts the filled-only atomic classes are present, without
-pinning hashed class names. Full gate green at the tip; the three
-field-shipping PCF projects typecheck clean.
+**Verification.** Native reference measured live on the dev org. After redeploying the
+webresources and all five controls, the kit's fields re-measured across five field types
+(text, number, choice, date, lookup combobox) render rgb(245,245,245), 1px transparent
+borders, 4px radius, 32px height, matching value for value; a unit pin asserts the
+filled-only atomic classes. The valued lookup states were verified on the master-detail
+app (KitNativeLookup reimported at 1.2.6): pre-fix both valued surfaces measured fully
+transparent, post-fix both measure the recipe verbatim with the clear button inside the
+surface and the value text within 2px of the empty state (no shift). Rung note: that is
+the webresource tier; the KitNativeLookup PCF ships identical source but its on-form
+rendering was not re-measured (record forms mount no field controls in an unfronted tab).
 
-The valued lookup states were verified the same way, on the master-detail
-webresource app against the deployed bundles (webresources redeployed,
-KitNativeLookup reimported at 1.2.6). Pre-fix, both valued surfaces
-measured fully transparent (background rgba(0,0,0,0), no border, no
-radius). Post-fix, both measure the recipe verbatim: rgb(245,245,245)
-background, 1px fully transparent border, 4px radius, 32px min height,
-with the hover and focus-within rules extracted from the deployed
-stylesheet resolving colorTransparentStrokeInteractive, the clear button
-inside the surface, and the value text within 2px of the empty state's
-input text (no shift on the empty-to-set toggle). Rung note: that is the
-webresource tier measured end to end; the KitNativeLookup PCF ships the
-identical shared source and its registered version was confirmed, but its
-on-form rendering was not re-measured this pass (record forms mount no
-field controls in an unfronted tab).
-
-Revisit trigger: the SearchBar's native quick-find reference gets measured
-(then it follows); a platform wave moves the field appearance again (the
-next fidelity re-verification pass catches it, the README's maintained-claim
-cadence); a consumer embedding the kit outside a model-driven page asks for
-the outline look back (then the appearance becomes a prop with the filled
-default).
+Revisit: the SearchBar quick-find reference gets measured (then it follows); a platform
+wave moves the field appearance (the next fidelity pass catches it); a consumer outside a
+model-driven page asks for outline (then it becomes a prop with the filled default).
 
 ## D-070, four datetime and New Look follow-ups the owner caught on the contact form: the tooltip input, the empty time picker, the date/time layout, and the mobile time list overlay
 
-After the appearance and valued-lookup work landed, the owner found more
-rough spots on the sample contact form (three New Look compliance gaps and,
-once those shipped, a mobile layering bug in the time list). All four fixes
-are presentational-tier and ride both the webresource and PCF hosts.
+After the appearance and valued-lookup work, the owner found more rough spots on the
+sample contact form (three New Look gaps and, once those shipped, a mobile time-list
+layering bug). All four are presentational-tier and ride both hosts.
 
-**The tooltip input.** KitTooltip's smart body renders its own Fluent Input
-(not the presentational TextField, because the PCF supplies the field label
-and the hint button chrome itself), so it never saw the appearance sweep and
-rendered Fluent's white outline. It now passes appearance="filled-darker"
-like every kit field. This is the same New Look decision applied to a control
-that composes its own input rather than reusing TextField.
+**The tooltip input.** KitTooltip's smart body renders its own Fluent Input (the PCF
+supplies the label and hint chrome), so it missed the appearance sweep and rendered white
+outline; it now passes appearance="filled-darker".
 
-**The empty time picker.** DateTimeField disabled the time picker whenever
-the field held no date value, and a disabled filled field is transparent, so
-an empty datetime showed a grey date beside a white time (the date is never
-disabled that way). The owner's call: the time is always an editable grey
-field, native parity, and picking a time with no date defaults the date to
-today (handleTimeChange), so the two halves always read the same. The disable
-now tracks only the field's own disabled and readOnly state. Styling the
-disabled state to merely look grey was rejected: a disabled field that reads
-as enabled misleads.
+**The empty time picker.** DateTimeField disabled the time picker when the field held no
+date, and a disabled filled field is transparent (grey date beside white time). Owner's
+call: the time is always an editable grey field, and picking a time with no date defaults
+the date to today (handleTimeChange); the disable now tracks only the field's own
+disabled/readOnly. Styling the disabled state to merely look grey was rejected (misleads).
 
-**The date/time layout.** The row wrapped the time onto its own line even at
-a normal field width, and the wrapped time did not fill the line. The date
-and time now share one line by default and stack onto their own full-width
-lines only when the container is too narrow for the date to stay readable
-beside the time, a MeasuredWidth-driven switch (the pure decision,
-dateTimeStacked, is unit-pinned; the container width, not the viewport, is
-what matters in an embedded PCF). The forcing constraint is the compat
-TimePicker: it is a Combobox, an inline-grid whose input column is min-content
-sized with a wide default min-width, so by default it will neither fill a wide
-line nor shrink to share a narrow one. Making it a block grid with a
-minmax(0, 1fr) input column and the min-widths relaxed down through the inner
-input (a Griffel "& input" rule) lets it fill its wrapper when stacked and
-stay compact beside the date. The exact CSS chain was found by live
-measurement against the real TimePicker in Storybook; pure flex-wrap was
-rejected because it cannot make the wrapped time fill the line, and fighting
-deeper into the Combobox to shrink the time below its roughly 207px floor was
-rejected as brittle (207px is readable). The threshold (340px) is tuned so
-the date keeps a readable width beside the time before the pair stacks.
+**The date/time layout.** The row wrapped the time onto its own line even at a normal
+width, and the wrapped time did not fill the line. Date and time now share one line and
+stack onto full-width lines only when the container is too narrow (a MeasuredWidth switch,
+dateTimeStacked, unit-pinned; container width, not viewport, matters in an embedded PCF).
+The forcing constraint is the compat TimePicker (a Combobox whose input column is
+min-content with a wide min-width); making it a block grid with a minmax(0, 1fr) input
+column and min-widths relaxed through the inner input (a Griffel "& input" rule) lets it
+fill when stacked and stay compact beside the date. Pure flex-wrap was rejected (cannot
+fill the wrapped line), and shrinking the time below its ~207px floor was rejected as
+brittle. The threshold is 340px.
 
-**The mobile time list overlay.** Once the empty time picker became openable
-(the enable fix above), the owner hit a layering bug at phone width: opening
-the time list left the form behind it, and the timeline pane painted over the
-bottom of the list. The list is mounted inside the themed form tree (mountNode,
-the D-058-era fix for the transparent portal, kept because in-place anchoring
-had misplaced the combobox listbox), and there it inherited the default
-stacking (z-index auto) and, with no explicit positioning, mis-anchored on a
-narrow form (measured left minus 6, width 160 against a 207 field). The date
-picker beside it does not have the bug because its own popup (inlinePopup) gets
-z-index 1 and a correct anchor. The fix keeps mountNode (so the theme and the
-desktop placement are untouched) and adds to the TimePicker an explicit
-positioning (below, align start, matchTargetSize width) plus a listbox slot
-that lifts it (z-index 1000) and caps its height (40vh) so a long list scrolls
-instead of running off a phone screen. Switching the time list to inlinePopup
-to mirror the date picker was reconsidered and again set aside: the recorded
-reason it was rejected before (misplaced combobox listbox in the form host)
-still stands, and the surgical positioning plus z-index keeps the desktop path
-byte-identical in intent.
+**The mobile time list overlay.** Once the time picker became openable, opening the list
+at phone width left the form behind it and the timeline pane painted over it: the list
+mounts inside the themed form tree (mountNode, the D-058-era transparent-portal fix) and
+inherited z-index auto with no explicit positioning (mis-anchored, width 160 against a
+207 field). The date picker's own inlinePopup gets z-index 1 and a correct anchor. The fix
+keeps mountNode and adds to the TimePicker explicit positioning (below, align start,
+matchTargetSize width) plus a listbox slot that lifts it (z-index 1000) and caps its
+height (40vh). Switching to inlinePopup was set aside again (the recorded
+misplaced-listbox reason stands).
 
-**Verification.** Measured live on the dev org against the redeployed bundles
-(webresources; KitTooltip reimported at 1.2.5, KitDatePicker at 1.2.7, under
-the shared fields solution). The tooltip input measures rgb(245,245,245).
-The empty datetime's time picker is now enabled and rgb(245,245,245) (it was
-disabled and fully transparent before), and its valued state stays grey. The
-datetime field renders the date and time on one line at the 377px form cell
-in both the valued and empty states (it was two lines before). Shrinking the
-field container to 300px stacks them onto full-width lines with the time
-filling its own line, driven by the live ResizeObserver on the mounted form.
-The mobile time list was verified at a 400px emulated viewport: the open list
-now measures z-index 1000, matches the field width (207px), anchors to the
-field (flipping above when the field sits low), and a hit test at its center
-returns one of its own options as the topmost element, so the timeline no
-longer paints over it. Desktop was not re-measured this pass (the session's
-browser stayed pinned to the emulated 400px viewport), but the positioning is
-width-agnostic and the desktop mount path (mountNode) is unchanged, and on
-desktop the timeline sits in a side column where the overlap never arose. A
-unit pin covers the stacking decision across the boundary. Full gate green;
-KitTooltip and KitDatePicker typecheck clean.
+**Verification.** Live on the dev org against redeployed bundles (KitTooltip 1.2.5,
+KitDatePicker 1.2.7): the tooltip input measures rgb(245,245,245); the empty datetime's
+time picker is enabled and rgb(245,245,245) (was disabled/transparent); the datetime
+renders on one line at the 377px form cell, and shrinking the container to 300px stacks
+them with the time filling its line (live ResizeObserver). The mobile time list at a 400px
+emulated viewport measures z-index 1000, matches the 207px field width, anchors (flipping
+above when low), and a center hit test returns its own option as topmost. Desktop was not
+re-measured this pass (browser pinned at 400px), but the positioning is width-agnostic and
+the mount path unchanged. A unit pin covers the stacking decision. Full gate green.
 
-Revisit trigger: a wide (webresource) datetime consumer appears and wants the
-side-by-side time wider than its compact floor (then the row mode's time
-sizing is revisited); a Fluent version changes the compat TimePicker's
-internal grid structure (the block-grid override is pinned to today's
-Combobox internals, and the next fidelity pass catches a drift); the desktop
-time list wants its own live re-measure once a non-emulated viewport is in
-hand; the surgical z-index plus positioning ever proves insufficient in some
-host (then the inlinePopup path is reopened, with explicit positioning to
-cure the historical misplacement).
+Revisit: a wide datetime consumer wants the side-by-side time wider than its compact floor;
+a Fluent version changes the TimePicker's internal grid (the block-grid override is pinned
+to today's Combobox internals); the desktop time list wants a live re-measure on a
+non-emulated viewport; the z-index-plus-positioning proves insufficient in some host (then
+inlinePopup reopens).
 
-*(2026-07-14: the desktop time list was live re-measured on a non-emulated
-desktop viewport (the restored primary workstation, app window 2069 to 2560
-CSS px), closing the "wants its own live re-measure" trigger above. The list
-anchors under the field at the field width, lifts above the form at z-index
-1000, and stays within the viewport, both when the field sits low (the list
-flips up) and mid-form. Recorded honestly: the compat TimePicker sets its own
-inline max-height from available space (816 px on a 1263 px viewport), which
-wins over the listbox class's 40vh, so the 40vh is not the binding cap on a
-tall desktop viewport; the anchor and the z-index elevation are the
-load-bearing parts and the list stays on screen either way. The same session
-exercised the narrow half at 400 px: the date and time stack onto full-width
-rows and the native lookup search takes over full screen.)*
+*(2026-07-14: the desktop time list was live re-measured on a non-emulated desktop
+viewport (2069 to 2560 CSS px), closing the re-measure trigger. The list anchors under the
+field at field width, lifts above the form at z-index 1000, and stays within the viewport
+(flipping up when the field sits low). Recorded: the compat TimePicker sets its own inline
+max-height from available space (816px on a 1263px viewport), which wins over the listbox
+class's 40vh, so 40vh is not the binding cap on a tall viewport; the anchor and z-index
+elevation are the load-bearing parts. The same session ran the narrow half at 400px, date
+and time stack and the native lookup takes over full screen.)*
 
 ## D-071, the kit cuts release 1.3.0: the mobile, multilanguage, and New Look waves ship as one minor bump
 
-Context: since 1.2.0 (2026-07-04) the kit gained a verified mobile posture
-(D-067), a multilanguage and locale-format layer (D-068), the New Look filled
-field appearance with its datetime follow-ups (D-069, D-070), the openClientUI
-full-page auto mode (D-064), the SolutionPackager 2.x pin (D-065), the
-narrow-viewport top-window fix (D-066), and the injected-host boot-race fix
-(D-063). The owner called the release after a two-viewport live re-verification
-on the restored primary workstation.
+Since 1.2.0 (2026-07-04) the kit gained a verified mobile posture (D-067), a
+multilanguage and locale-format layer (D-068), the New Look filled field appearance and
+its datetime follow-ups (D-069, D-070), the openClientUI full-page auto mode (D-064), the
+SolutionPackager 2.x pin (D-065), the narrow-viewport top-window fix (D-066), and the
+injected-host boot-race fix (D-063). The owner called the release after a two-viewport
+live re-verification.
 
-The decision. The release is 1.3.0, a minor bump: a substantial feature wave
-with no API break. The version pass follows the one rule: package.json carries
-1.3.0 and all five control manifests align to it. They had drifted to
-intermediate dev versions across the wave (KitCounterpartyGrid 1.2.4,
-KitTooltip 1.2.5, KitNativeLookup 1.2.6, KitOptionSet 1.2.6, KitDatePicker
-1.2.7); the manifest bump is load-bearing, since the platform serves a cached
-bundle when the control version does not move.
+The release is 1.3.0, a minor bump (a substantial feature wave, no API break). The version
+pass follows the one rule: package.json carries 1.3.0 and all five control manifests align
+to it, from the dev versions they had drifted to across the wave (KitCounterpartyGrid
+1.2.4, KitTooltip 1.2.5, KitNativeLookup 1.2.6, KitOptionSet 1.2.6, KitDatePicker 1.2.7);
+the manifest bump is load-bearing (cached bundle otherwise). The New Look filled appearance
+changes every field control's default look, a visible default change disclosed in the
+release notes under notable changes (per D-062), not an API break. Releases carry the
+sample solution only, unchanged from 1.2.0.
 
-The New Look default. The filled appearance changes the default look of every
-field control (the previous default becomes filled-darker). It is a visible
-default change, not an API break, and nothing is published to a package, so
-there is no version-range consumer to protect. The release notes call it out
-under notable changes rather than burying it, per the disclosure rule. Releases
-carry the sample solution only, unchanged from 1.2.0.
+Verification: the full gate is green at the release tip (floor check, lint, typecheck,
+build, 571 unit + 12 smoke, storybook), and the waves were live-verified on the dev org at
+desktop (2069px) and narrow (400px): filled fields match native, the time list anchors and
+overlays the form at desktop, the date and time stack and the native lookup takes over at
+phone, company search loads live rows with localized chrome, no console errors either mode.
+The solution artifact is built and exercised locally, not by CI (the Package stage is
+defined but connected to no runner, the standing gap from 1.2.0).
 
-Verification. The full gate is green at the release tip (floor check, lint,
-typecheck, build, 571 unit plus 12 smoke, storybook). The waves were
-live-verified on the dev org in both a desktop (2069 px) and a narrow (400 px)
-viewport: filled fields match the native ones, the time list anchors and
-overlays the form at desktop width, the date and time stack and the native
-lookup takes over full screen at phone width, company search loads live rows
-with localized chrome and pager, and no console errors appear in either mode.
-The shipped solution artifact is built and exercised locally, not by CI: the
-Package pipeline stage remains defined but connected to no runner, the standing
-gap carried from 1.2.0.
-
-Owner step still pending. The tag, the push, and the GitHub Release (with the
-sample solution artifact) are owner-gated and not done in the session that
-recorded this. The version pass and this entry land on master ahead of them; a
-dated addendum records the tag and Release when they happen.
-
-Revisit trigger: the first npm package publish moves the presentational tier
-onto its own strict-semver line, and this milestone-marker policy then governs
-only the solution version; connecting the Package pipeline to a runner closes
-the "built locally, not by CI" caveat.
+Owner step pending: the tag, the push, and the GitHub Release (sample solution artifact)
+are owner-gated; the version pass and this entry land on master ahead of them, a dated
+addendum to record the tag and Release. Revisit: the first npm package publish moves the
+presentational tier onto its own semver line; connecting the Package pipeline closes the
+built-locally-not-CI caveat.
 
 ## D-072, the quality gate stays local by choice: the pipeline file is a reference for forks, and the docs now say so
 
-Context: since the v1.2.0 close-out the repo carried an open decision with
-three exits: connect azure-pipelines.yml to Azure DevOps, port its Package
-stage to GitHub Actions, or soften the docs' CI claims. Every cold evaluation
-run of the public tree (six of six, recorded alongside the public agent-layer
-work) flagged the same gap the same way: the docs described a two-stage CI in
-the present tense, only the Storybook Pages workflow actually runs, and
-nothing gates a pull request server-side.
+Since the v1.2.0 close-out the repo carried an open decision with three exits: connect
+azure-pipelines.yml to Azure DevOps, port its Package stage to GitHub Actions, or soften
+the docs' CI claims. Every cold evaluation of the public tree (six of six) flagged the same
+gap: the docs described a two-stage CI in the present tense, only the Storybook Pages
+workflow runs, and nothing gates a PR server-side.
 
-The decision (owner, 2026-07-16): soften the claims; connect nothing. The
-kit's audience builds enterprise-internal webresources and PCF controls,
-consumed as a template the consumer owns, with every dependency pinned exact
-and a bare local `npm run verify` as the merge bar. In that model a hosted
-pipeline proves little the local gate does not already prove, and it carries
-a real maintenance tax of its own: platform-specific binary dependencies are
-the classic failure, and the owner hit exactly that class attempting the gate
-on a second same-OS machine (binary dependency failures on an AMD Windows
-laptop). Years of shipping this class of component from a lockfile with exact
-pins, without hosted CI, sit behind the call; the kit is not a public-facing
-SPA product, and the rigor budget goes to the gate itself and the live-org
-verification discipline instead.
+The decision (owner, 2026-07-16): soften the claims, connect nothing. The kit's audience
+builds enterprise-internal webresources and PCF controls, consumed as a template the
+consumer owns, with every dependency pinned exact and a bare local `npm run verify` as the
+merge bar; a hosted pipeline proves little the local gate does not, and it carries a real
+maintenance tax (platform-specific binary dependencies are the classic failure, and the
+owner hit exactly that on a second same-OS machine, an AMD Windows laptop). Years of
+shipping this class of component from a lockfile with exact pins, without hosted CI, sit
+behind the call; the kit is not a public-facing SPA product.
 
-What changed. docs/deployment.md's CI section states the posture first (the
-gate is local by choice, the Storybook Pages workflow is the one live
-automation) and reframes azure-pipelines.yml as a committed reference
-definition for forks that want hosted CI: executable from the repo, connected
-to no service here, never run. docs/adding-a-pcf.md replaces "CI builds every
-pcfs project" with the honest local instruction (build touched controls
-yourself; the reference pipeline exists for forks). azure-pipelines.yml
-carries the same statement in its header, and its two root installs move from
-npm ci to npm install, matching the recorded lockfile story (the
-Windows-generated lockfile omits Linux-only optional binaries; strict npm ci
-rejects that on a Linux runner, as the Storybook workflow's comment records),
-so the reference is consistent with the repo's own findings; the per-PCF
-npm ci steps stay (each PCF's own lockfile installs in its own context). The
-agent-facing skills' CI-reality notes now state the ruling instead of an open
-decision.
+What changed: deployment.md's CI section states the posture first (the gate is local by
+choice, the Storybook Pages workflow is the one live automation) and reframes
+azure-pipelines.yml as a committed reference for forks (executable, connected to nothing,
+never run); adding-a-pcf.md replaces "CI builds every pcfs project" with the honest local
+instruction; azure-pipelines.yml's two root installs move npm ci to npm install (the
+Windows-generated lockfile omits Linux-only optional binaries, which strict npm ci rejects
+on a Linux runner), the per-PCF npm ci steps stay; the agent-facing skills state the ruling.
 
-Revisit trigger: external contributions arrive in volume (server-side gating
-starts protecting something real), or a published npm package ships (a
-package earns a pipeline of its own).
+Revisit: external contributions arrive in volume (server-side gating starts protecting
+something real), or a published npm package ships (a package earns its own pipeline).
 
 ## D-073, the presentational boundary is enforced by resolution, not by string match: the sibling smart import that slipped past the lint pattern
 
-Context: invariant 1 (presentational controls are CRM-agnostic) is enforced in
-eslint.config.mjs with a `no-restricted-imports` rule. That rule matches the
-import SPECIFIER STRING, not the resolved file. Its smart-tier pattern was
-`**/controls/smart/**`, and from `shared/controls/presentational/` the natural
-sibling import of the smart tier is `../smart/X`, whose specifier carries no
-`controls` segment. So `../../controls/smart/X` was flagged and the equivalent
-`../smart/X` was not. Verified 2026-07-16 with a staged probe file: the sibling
-spelling passed clean while the controls/smart spelling was flagged, a single
-`no-restricted-imports` error. The owner found the same bypass independently on
-another machine, which double-confirms it. No shipped file exploited the hole:
-the tiers are clean in practice (Storybook renders every presentational control
-with zero mocks, which would break on a real smart import), so this was an
-enforcement gap, not a live contamination. The boundary check confirms it,
-reporting zero findings against the current tree (24 presentational files).
+Invariant 1 (presentational controls are CRM-agnostic) is enforced in eslint.config.mjs
+with a `no-restricted-imports` rule that matches the import SPECIFIER STRING, not the
+resolved file. Its smart-tier pattern was `**/controls/smart/**`, so from
+`shared/controls/presentational/` the sibling import `../smart/X` (no `controls` segment)
+dodged it while `../../controls/smart/X` was flagged. Verified 2026-07-16 with a staged
+probe (the owner found the same bypass independently). No shipped file exploited the hole
+(the tiers are clean in practice; Storybook renders every presentational control with zero
+mocks, which would break on a real smart import), so this was an enforcement gap, not
+contamination (the gate reports zero findings against the current 24 presentational files).
 
-**The decision: two mechanisms, together.** The lint rule keeps its job as the
-editor-time signal and gains the sibling spelling: the group now lists
-`**/smart/**` alongside `**/controls/smart/**`, so a developer sees the error as
-they type either spelling, with the same didactic message. The guarantee moves
-to a resolution gate. `scripts/check-layer-boundaries.mjs` (first in
-`npm run verify`, right after the PCF floor check) resolves every relative
-import from every presentational file to a real source file and fails if the
-resolution lands in the context, metadata, data, queries, LibraryUtils, or
-controls/smart tiers, whatever the specifier looks like. String matching can be
-spelled around; resolution cannot.
+**The decision: two mechanisms.** The lint rule keeps its editor-time job and gains the
+sibling spelling (`**/smart/**` alongside `**/controls/smart/**`). The guarantee moves to a
+resolution gate: `scripts/check-layer-boundaries.mjs` (first in `npm run verify`, after the
+PCF floor check) resolves every relative import from every presentational file and fails if
+it lands in the context, metadata, data, queries, LibraryUtils, or controls/smart tiers,
+whatever the specifier looks like. String matching can be spelled around; resolution cannot.
 
-**Scope.** The gate checks the direct imports of the presentational files (the
-same contract the lint rule states, made resolution-based). Because it visits
-every file under the two presentational roots, a presentational-tier helper's
-own forbidden import is caught too. It does not chase re-exports through an
-intermediary that sits OUTSIDE the presentational tree; no such barrel exists in
-the kit, and the deeper net for that class is Storybook rendering every
-presentational control with zero mocks. The Xrm-global half of the boundary
-stays with eslint's `no-restricted-globals` (it is not import-based). The gate
-reuses the shape the floor checker already trusts (`scripts/check-pcf-floor.mjs`
-walks the import graph by resolution), so it adds no dependency.
+**Scope.** The gate checks direct imports of the presentational files (visiting every file
+under the two presentational roots, so a helper's own forbidden import is caught too). It
+does not chase re-exports through an intermediary outside the presentational tree (no such
+barrel exists; the deeper net is Storybook zero-mocks). The Xrm-global half stays with
+eslint's `no-restricted-globals`. The gate reuses the floor checker's resolution shape, so
+it adds no dependency.
 
-**Alternatives rejected.** A lint pattern add alone (`**/smart/**` and nothing
-else) closes the verified spelling but stays string-based, so a differently
-spelled or re-exported reach could still slip; it is kept as the editor signal,
-not leaned on as the guarantee. eslint-plugin-import-x's `no-restricted-paths`
-gives lint-native resolution zones and is the right tool in the abstract, but it
-adds a runtime-resolver dev dependency (a decision-worthy pin) and a resolver to
-wire against the flat config, for something a repo-local script in the existing
-floor-checker style does with zero new dependencies.
+**Alternatives rejected:** a lint pattern add alone (still string-based, so a differently
+spelled or re-exported reach could slip; kept as the editor signal); eslint-plugin-import-x's
+`no-restricted-paths` (the right tool in the abstract, but adds a runtime-resolver dependency
+and a resolver to wire, for what a repo-local script does with none).
 
-**Docs updated.** docs/architecture.md and CONTRIBUTING.md now describe the
-two-mechanism enforcement, and docs/deployment.md's CI gate order gains the step.
-The README's three-layer-contract claim is rescoped (owner-approved): the
-presentational boundary is machine-enforced (lint plus the gate check) while
-MVVM and no-hooks are held by convention, the samples, and review. That closes
-the enforcement-scope oversell five pre-share reviews flagged (the boundary claim
-was empirically true only once the string-match hole was closed).
+**Docs.** architecture.md and CONTRIBUTING.md describe the two-mechanism enforcement, and
+deployment.md's CI gate order gains the step. The README's three-layer-contract claim is
+rescoped (owner-approved): the presentational boundary is machine-enforced (lint plus the
+gate) while MVVM and no-hooks are held by convention, the samples, and review, closing the
+enforcement-scope oversell five pre-share reviews flagged.
 
-**Verification.** A failing-first ESLint-API test
-(tests/unit/eslint.config.test.ts) drives the real config over the sibling
-spelling through the eslint binary; it fails on the pre-fix config (no violation
-reported) and passes after the pattern add, with regression cases for the
-controls/smart spelling, a clean reactivity import, and the rule's scoping to
-the presentational tier. The gate's own tests
-(tests/unit/scripts/check-layer-boundaries.test.ts) drive the real script over
-throwaway fixture trees: the sibling spelling, every forbidden tier, the
-components/presentational root, a type-only import (a smart type is still a
-layer violation), a clean tree, and the live repo tree. Full verify is green at
-the tip (floor check, the new layer-boundary check, lint, typecheck, build, 581
-unit plus 12 smoke, storybook); the unit count rose from 571 with the ten new
-tests.
+**Verification.** A failing-first ESLint-API test (tests/unit/eslint.config.test.ts) drives
+the real config over the sibling spelling through the eslint binary (fails pre-fix, passes
+after, with regression cases). The gate's tests
+(tests/unit/scripts/check-layer-boundaries.test.ts) drive the real script over fixture trees
+(the sibling spelling, every forbidden tier, the components/presentational root, a type-only
+import, a clean tree, the live tree). Full verify green (581 unit + 12 smoke, up from 571
+with the ten new tests).
 
-Revisit trigger: an intermediary outside the presentational tree ever
-re-exports a CRM tier (the gate would then want a transitive walk, and
-Storybook-zero-mocks would already be failing), or the presentational scan roots
-move in eslint.config.mjs (keep the gate's roots in step).
+Revisit: an intermediary outside the presentational tree re-exports a CRM tier (the gate
+would want a transitive walk, and Storybook-zero-mocks would already be failing), or the
+presentational scan roots move in eslint.config.mjs (keep the gate's roots in step).
 
 ## D-074, the readme is the front door: it sells and links, and the essays live in their own homes
 
@@ -2915,3 +2131,23 @@ trade against approved positioning text.
 
 Revisit trigger: a cold evaluation again reads webresource-first, or the
 README regrows past the front-door job.
+
+## D-075, decision entries are records, not essays: the log is condensed to the early register
+
+The log had inflated 12x in words per entry (72 on average across the first
+ten entries, roughly 900 across the last ten) because each session modeled
+its entry on the longest recent ones, and the entry templates pointed at
+those as the models. The owner ruled the register back to the early shape:
+the decision, the reason, one line of verification, the revisit trigger, and
+stop; aim under 150 words, about 300 for a wave entry bundling many
+decisions. The 44 inflated entries were condensed in place (27,906 to about
+20,000 words), deleting justification and narrative only: titles, numbering,
+reversal banners, dates, commit hashes, figures, claim-strength labels, and
+enumerations (D-055's non-fixes, D-061's dated addenda) survived verbatim,
+checked against the pre-condensation file. Wave and finding-dense entries
+stay above the aim where every remaining sentence is a recorded fact. The
+entry templates now name the early entries as the model, and git history
+keeps the long forms.
+
+Revisit trigger: words per entry trending up again across a run of new
+entries.

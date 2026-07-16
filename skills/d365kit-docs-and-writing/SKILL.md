@@ -218,27 +218,23 @@ No em dashes, no doc-IDs, in subjects or bodies.
 
 Title format is `## D-0NN, <claim>`: a comma after the number, then a
 lowercase claim-shaped title, often colon-split. Newest entries go at the
-bottom; take the next free number. Amendments never rewrite an entry: append
-a dated italic paragraph. A reversal marks the OLD entry loudly at its top and
-keeps it as history ("**REVERSED by ... do not build on this entry.**").
+bottom; take the next free number. An entry is a record, not an essay: state
+the decision, the reason, one line of verification, and the revisit trigger,
+then stop. The earliest entries in the file are the model; aim under 150
+words, and a wave entry that bundles several decisions lists them with 300
+words as the ceiling. Do not model a new entry on the longest existing ones.
+Numbering never changes: later developments append a dated sentence to the
+same entry, and a reversal marks the OLD entry loudly at its top and keeps it
+as history ("**REVERSED by ... do not build on this entry.**").
 
 ```markdown
 ## D-0NN, <claim-shaped title: what is now true, and its consequence>
 
-<Context: the situation or finding that forced a choice, with enough
-mechanism that the entry stands alone. Name files, branches, and dates.>
+<The decision and the reason, a few sentences: the constraint or finding
+that forced the choice and what tipped it. Only what the next reader needs.>
 
-<The decision and the why: the options weighed and what tipped it.
-Long entries label their parts in bold:
-**What shipped.** ... **Alternatives rejected.** (each with its reason,
-so nobody re-proposes it) ...>
-
-<Consequences: what this obligates or retires elsewhere. Docs updated,
-code paths removed, claims rescoped, org state left behind.>
-
-**Verification.** <What was checked, where, when: "Verified live on the
-dev org (YYYY-MM-DD): ..." with observable evidence, or the honest label
-(accepted untested, best-effort) when it was not verified.>
+<Verification, one line: "Verified live on the dev org (YYYY-MM-DD): ..."
+or the honest label (accepted untested, best-effort).>
 
 Revisit trigger: <the concrete condition that reopens this, not "someday">.
 ```
