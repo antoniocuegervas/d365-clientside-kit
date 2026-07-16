@@ -25,6 +25,20 @@ that still does not look native. This kit is the third option: native-looking UI
 code-level control, with a realistic target of roughly one day for requirements that are
 almost standard but need a programmable extension point.
 
+## Who it is for
+
+- Teams building internal enterprise software on Dynamics 365 who want to own
+  their custom UI end to end: the kit is a template you copy and control, not
+  a dependency you subscribe to (see
+  [Contributing and reuse](#contributing-and-reuse)).
+- Maintainers who read code well but do not live in React: form-script
+  customizers, developers who touch React occasionally, and coding agents
+  generating the next control against the samples
+  ([docs/prompt-friendly-development.md](docs/prompt-friendly-development.md)).
+- It is deliberately not aimed at daily-hooks React teams hand-writing a full
+  SPA; the architecture optimizes for the intermittent maintainer instead
+  ([docs/architectural-stance.md](docs/architectural-stance.md)).
+
 ## When to reach for it (and when not)
 
 The kit is not for exotic UI by default. Where it earns its keep is the gap between what
@@ -65,7 +79,15 @@ the kit's editable field PCFs consume it: a secured column the user can edit
 stays editable. If you need native-grade column security in webresource UI, that is
 the platform's job: use a native form. See [docs/gotchas.md](docs/gotchas.md).
 
+If you are deciding whether to try the kit, the sections above plus
+[Getting started](#getting-started) are enough. Everything from here down is
+the long version: the comparisons (canvas apps, custom pages, code apps), the
+architecture, the delivery shapes, and the operational detail.
+
 ## How this relates to canvas apps and custom pages
+
+<details>
+<summary>Often the right call beside the app; the costs start when the work belongs in the grid or on the field. The comparison in full:</summary>
 
 The first reaction to "custom UI in a model-driven app" is usually "use a canvas
 app," or more currently "use a custom page." Often that is the right call, and it
@@ -109,7 +131,12 @@ your model-driven app. This kit is the right tool when you build *inside* it, in
 grid or on the field, and need a native-feeling, programmable, metadata-aware extension point
 that stays in your codebase.
 
+</details>
+
 ## Code apps
+
+<details>
+<summary>Capable beside the model-driven app; categorically not a bound control inside it. The detail:</summary>
 
 Power Apps code apps are a *build-beside* option, not a *build-inside* one: a
 standalone React/TypeScript app running on the Power Platform, the same paradigm
@@ -132,6 +159,8 @@ code-apps SDK rather than `Xrm.WebApi`). That, and the connector-reach scenarios
 it would open, is a deliberate future direction rather than a v1 deliverable. v1
 stays focused on the inside-the-model-driven-app cases, where being a native
 extension point is the differentiator.
+
+</details>
 
 ## Architectural stance
 
@@ -188,6 +217,9 @@ Because every control reaches the platform through one `IViewModelContext`, the 
 presentational component and ViewModel run unchanged as a webresource, a PCF, or a form
 script. That portability is also a development tactic, not only a deployment choice:
 
+<details>
+<summary>Develop as a webresource for the fast loop, ship as webresource or PCF; the workflow and the one compatibility floor, in full:</summary>
+
 - **Develop as a webresource first.** A webresource iterates in Storybook against
   fixture data, and refreshes on the live site without a deploy: a Fiddler
   autoresponder can serve your local bundle straight to the org, the single biggest
@@ -220,6 +252,8 @@ script. That portability is also a development tactic, not only a deployment cho
 The counterparty grid in this repo is built this way: one `shared/features/counterparty`
 module, debugged as a webresource app, shipped also as a dataset PCF
 (`pcfs/KitCounterpartyGrid`) that is a thin wrapper over the same component.
+
+</details>
 
 ## What a View looks like
 
@@ -285,7 +319,12 @@ npm run verify        # the full gate: lint + typecheck + build + tests + smoke 
 ```
 
 Day 1 is `install` + `storybook`; run `verify` before you send changes
-anywhere. Two install notes so the output does not read as trouble: the
+anywhere.
+
+<details>
+<summary>Install notes: the expected npm warnings, the Storybook fallbacks, and the one Windows trap.</summary>
+
+Two install notes so the output does not read as trouble: the
 handful of npm deprecation warnings and audit findings come from dev-time
 tooling (jest/storybook transitives at the root, the pcf-scripts toolchain
 inside each `pcfs/*` project), none of it ships in any bundle, and the state
@@ -297,6 +336,8 @@ trap: stop the Storybook dev server BEFORE reinstalling node_modules; a running
 dev server holds `esbuild.exe`, the install EPERMs halfway, and the half-deleted
 tree then fails in confusing ways (missing jest types, a wrong-version global
 eslint). Recovery is closing Storybook and rerunning `npm install`.
+
+</details>
 
 Zero-setup alternative: browse the controls live in the hosted Storybook:
 https://antoniocuegervas.github.io/d365-clientside-kit/
