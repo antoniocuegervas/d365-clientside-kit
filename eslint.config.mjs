@@ -53,7 +53,13 @@ export default tseslint.config(
                 "**/data/**",
                 "**/queries/**",
                 "**/LibraryUtils*",
+                // Both spellings of the smart tier: the "../../controls/smart/X"
+                // path and the sibling "../smart/X" (no "controls" segment, so
+                // the controls/smart pattern alone let it through). A resolution
+                // gate (scripts/check-layer-boundaries.mjs, first in verify)
+                // backs this up for any spelling a string pattern cannot see.
                 "**/controls/smart/**",
+                "**/smart/**",
               ],
               message:
                 "Presentational controls are CRM-agnostic: no context, no metadata, no Web API, no smart-tier imports. Supplied values and events only.",

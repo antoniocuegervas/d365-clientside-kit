@@ -55,8 +55,8 @@ against the shared fake context and is the pattern a new app's story copies.
 This is the fastest UI loop by far; deploy only for metadata and integration
 checkpoints.
 
-`npm run verify` runs, in order: `check:pcf-floor`, `lint`, `typecheck`,
-`build`, `test`, `smoke`, `build-storybook`. Run it bare and read npm's own
+`npm run verify` runs, in order: `check:pcf-floor`, `check:layer-boundaries`,
+`lint`, `typecheck`, `build`, `test`, `smoke`, `build-storybook`. Run it bare and read npm's own
 exit code; never pipe it through `tail` or similar (the exit code becomes the
 pipe's). `npm run smoke` on its own requires a prior `npm run build`; smoke
 loads the production `dist/` bundles.

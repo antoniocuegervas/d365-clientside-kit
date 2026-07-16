@@ -80,8 +80,8 @@ around it:
   [docs/architectural-stance.md](docs/architectural-stance.md).
 - **The three-layer contract holds.** Presentational controls never know CRM
   (no context, no entity names, no queries); smart controls are metadata-aware;
-  ViewModels own data and rules. The lint rules enforce presentational purity,
-  so please do not weaken them.
+  ViewModels own data and rules. A lint rule and a resolution check in the verify
+  gate enforce presentational purity together, so please do not weaken either.
 - **Authoring style (mainly for coding agents).** This kit is built with heavy
   AI assistance (see the README provenance note), so prompt-driven contributions
   are expected and welcome. If you use a coding agent, hold it to the house style

@@ -71,8 +71,11 @@ host's own Web API.
 | **Smart (metadata-aware)** | Yes, via `IViewModelContext` | Metadata + standard fetches | `entity` + `attribute` in, resolved presentational child out |
 | **ViewModel** | Yes | Anything, merges, multi-query pipelines | Owns Observables and app rules; binds presentational controls |
 
-Presentational purity is enforced by an ESLint `no-restricted-imports` rule
-scoped to `shared/controls/presentational/`, not by convention.
+Presentational purity is enforced, not left to convention. An ESLint
+`no-restricted-imports` rule scoped to `shared/controls/presentational/` flags a
+CRM-tier import as you type, and a resolution check in the verify gate
+(`scripts/check-layer-boundaries.mjs`) fails the build if any presentational
+import resolves into a CRM-aware tier, whatever the specifier looks like.
 
 The five kit terms used throughout (presentational, smart, ViewModel, Observable,
 observe) are defined once in the [glossary](glossary.md).

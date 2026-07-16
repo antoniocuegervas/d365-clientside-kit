@@ -100,7 +100,7 @@ machine is fully set up for kit work. Day-1 alternative before the full gate:
 `package.json` defines:
 
 ```
-"verify": "npm run check:pcf-floor && npm run lint && npm run typecheck && npm run build && npm run test && npm run smoke && npm run build-storybook"
+"verify": "npm run check:pcf-floor && npm run check:layer-boundaries && npm run lint && npm run typecheck && npm run build && npm run test && npm run smoke && npm run build-storybook"
 ```
 
 The `&&` chain stops at the first failure, so the failing step is the last
@@ -109,12 +109,13 @@ one that printed output before npm's error trailer.
 | # | Step | Actual command | What it proves | Typical failure smell |
 |---|---|---|---|---|
 | 1 | `check:pcf-floor` | `node scripts/check-pcf-floor.mjs` | Every PCF keeps the virtual-control setup (details below) | `PCF platform-floor check FAILED:` plus a bullet per violation naming the PCF and the drifted value |
-| 2 | `lint` | `eslint .` | House rules plus the presentational purity rule | `no-restricted-imports` errors under `shared/controls/presentational` or `shared/components/presentational`: a CRM import leaked into the CRM-agnostic tier |
-| 3 | `typecheck` | `tsc --noEmit` | Types repo-wide; the ONLY type gate, because webpack builds are transpile-only | TS errors in files that step 4 would happily bundle |
-| 4 | `build` | `webpack --mode production` | Both deliverable bundles compile and emit | Module-not-found; or a `kit.config.json` read failure (webpack reads it for the prefix) |
-| 5 | `test` | `jest --testPathIgnorePatterns tests/smoke` | Unit behavior in jsdom, `tests/` roots | Red tests; missing jest types usually mean a broken install (see traps) |
-| 6 | `smoke` | `jest tests/smoke` | The PRODUCTION bundles from `dist/` boot in jsdom on modern AND legacy Xrm mocks | `Bundle not found at ... run 'npm run build' before 'npm run smoke'` when `dist/` is missing or stale |
-| 7 | `build-storybook` | `storybook build` | Every story compiles against fixture data | Vite build errors in `tests/storybook/**` |
+| 2 | `check:layer-boundaries` | `node scripts/check-layer-boundaries.mjs` | No presentational file resolves an import into a CRM tier (the lint rule's guarantee, made resolution-based) | `Presentational layer-boundary check FAILED:` plus a bullet per offending import and where it resolves |
+| 3 | `lint` | `eslint .` | House rules plus the presentational purity rule | `no-restricted-imports` errors under `shared/controls/presentational` or `shared/components/presentational`: a CRM import leaked into the CRM-agnostic tier |
+| 4 | `typecheck` | `tsc --noEmit` | Types repo-wide; the ONLY type gate, because webpack builds are transpile-only | TS errors in files that step 5 would happily bundle |
+| 5 | `build` | `webpack --mode production` | Both deliverable bundles compile and emit | Module-not-found; or a `kit.config.json` read failure (webpack reads it for the prefix) |
+| 6 | `test` | `jest --testPathIgnorePatterns tests/smoke` | Unit behavior in jsdom, `tests/` roots | Red tests; missing jest types usually mean a broken install (see traps) |
+| 7 | `smoke` | `jest tests/smoke` | The PRODUCTION bundles from `dist/` boot in jsdom on modern AND legacy Xrm mocks | `Bundle not found at ... run 'npm run build' before 'npm run smoke'` when `dist/` is missing or stale |
+| 8 | `build-storybook` | `storybook build` | Every story compiles against fixture data | Vite build errors in `tests/storybook/**` |
 
 Step details worth knowing cold:
 
@@ -125,13 +126,21 @@ Step details worth knowing cold:
   React-18-only APIs. The check-by-check enumeration is homed in
   `d365kit-config-and-versioning` (axis 2). Folders named `pcfs/_*` are
   skipped by design (local deploy wrappers, see `d365kit-run-and-operate`).
+- **check:layer-boundaries** (`scripts/check-layer-boundaries.mjs`) resolves
+  every relative import from every presentational file and fails if it lands
+  in the context, metadata, data, queries, LibraryUtils, or controls/smart
+  tier. It exists because the lint rule below matches the import specifier
+  STRING, so the sibling spelling `../smart/X` (no `controls` segment) used to
+  slip past `**/controls/smart/**`; resolution catches any spelling. Point it
+  at a fixture tree with `KIT_LAYER_BOUNDARY_ROOT`.
 - **lint** uses ESLint 9 flat config (`eslint.config.mjs`). `pcfs/**` and
   `deployment/**` are excluded (`pac pcf init` projects carry their own
   generated lint wiring; do not fight it). The presentational purity rule
-  is enforcement, not convention: `no-restricted-imports` bans
+  is the editor-time enforcement: `no-restricted-imports` bans
   `**/context/**`, `**/metadata/**`, `**/data/**`, `**/queries/**`,
-  `**/LibraryUtils*`, and `**/controls/smart/**` from the presentational
-  folders, and `no-restricted-globals` bans `Xrm` there.
+  `**/LibraryUtils*`, `**/controls/smart/**`, and `**/smart/**` from the
+  presentational folders, and `no-restricted-globals` bans `Xrm` there. The
+  resolution gate above is the string-proof backstop.
 - **typecheck** exists as its own step because the webpack build uses
   `ts-loader` with `transpileOnly: true`: builds stay fast, type errors
   surface in exactly one place. A change can BUILD and still fail the gate

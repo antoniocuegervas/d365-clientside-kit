@@ -36,7 +36,7 @@ pattern; do not reach for a reason to change the pattern.
 
 | # | Invariant | Enforcement | Why | Where recorded |
 |---|-----------|-------------|-----|--------|
-| 1 | Presentational controls are CRM-agnostic: values and Observables in, events out. No context, metadata, Web API, queries, LibraryUtils, smart-tier imports, no `Xrm` global. | ESLint, not review: `no-restricted-imports` (patterns `**/context/**`, `**/metadata/**`, `**/data/**`, `**/queries/**`, `**/LibraryUtils*`, `**/controls/smart/**`) plus `no-restricted-globals` for `Xrm`, scoped to `shared/controls/presentational/**` and `shared/components/presentational/**` | Storybook with zero mocks; the boundary survives intermittent maintainers | `eslint.config.mjs`; `docs/architecture.md` |
+| 1 | Presentational controls are CRM-agnostic: values and Observables in, events out. No context, metadata, Web API, queries, LibraryUtils, smart-tier imports, no `Xrm` global. | ESLint plus a resolution gate, not review: `no-restricted-imports` (patterns `**/context/**`, `**/metadata/**`, `**/data/**`, `**/queries/**`, `**/LibraryUtils*`, `**/controls/smart/**`, `**/smart/**`) and `no-restricted-globals` for `Xrm`, scoped to `shared/controls/presentational/**` and `shared/components/presentational/**`; plus `scripts/check-layer-boundaries.mjs` (second verify step) resolving every presentational import and failing if it lands in a CRM tier, catching spellings the string patterns miss (the sibling `../smart/X`) | Storybook with zero mocks; the boundary survives intermittent maintainers | `eslint.config.mjs`; `scripts/check-layer-boundaries.mjs`; `docs/architecture.md` |
 | 2 | Hosts own state: ViewModels, smart wrappers, and PCF roots create Observables; presentational controls only subscribe (via `ObserverComponent`), never mirror into `useState`. | Base-class structure (`ObserverComponent` owns subscribe/unsubscribe/disposed flag) | One state paradigm; unsubscribe and disposal cannot be forgotten | `shared/reactivity/ObserverComponent.ts` |
 | 3 | Every Observable a render reads is listed in `this.observe(...)`. | Dev-only warning (`renderReadCheck` brackets each render); silent in production | This is the kit's ONE silently-failing contract: an unobserved read renders once and never updates again, no error | `docs/glossary.md`; `shared/reactivity/renderReadCheck.ts` |
 | 4 | ViewModel shape is fixed: constructor takes `IViewModelContext` and kicks the initial load; public Observables named for CRM concepts; handlers as arrow properties; `dispose()` via `SubscriptionTracker`; async callbacks check `tracker.isDisposed`. | Convention plus the sample apps as the reference; contract tests in `tests/unit/clientui/` | A returning developer (or a cold-start agent) orients in one file | `docs/architectural-stance.md` |
@@ -289,8 +289,9 @@ bootstrap, and grid sources named above.
 Re-verification one-liners for facts that drift (PowerShell):
 
 - Lint rules intact: `Select-String -Path eslint.config.mjs -Pattern 'no-restricted-imports|no-restricted-globals'`
+- Boundary gate intact: `node scripts/check-layer-boundaries.mjs` (expect the OK line naming the presentational file count)
 - Floor values: `Select-String -Path pcfs/platform-floor.json -Pattern 'reactDevVersion|fluentApiFloor|declaredPlatformLibraries'`
-- Floor check still first in verify: `Select-String -Path package.json -Pattern 'check-pcf-floor'`
+- Floor and boundary checks first in verify: `Select-String -Path package.json -Pattern 'check-pcf-floor|check-layer-boundaries'`
 - escapeXml exists: `Select-String -Path shared/utils/LibraryUtils.ts -Pattern 'static escapeXml'`
 - Live form binding intact: `Get-ChildItem shared/context -Recurse -File | Select-String 'LazyFormBinding'`
 - Disposal centralization: `Select-String -Path clientui/AppContract.ts -Pattern 'AppDisposer|dispose'`

@@ -166,7 +166,7 @@ extension point is the differentiator.
 
 Two decisions carry the design.
 
-**A three-layer contract**, enforced by lint, not just convention:
+**A three-layer contract.** The presentational boundary is machine-enforced (lint plus a resolution check in the gate); MVVM and no-hooks are held by convention, the samples, and review:
 
 | Layer | Knows CRM? | Queries? | Role |
 |---|---|---|---|

@@ -2809,3 +2809,78 @@ decision.
 Revisit trigger: external contributions arrive in volume (server-side gating
 starts protecting something real), or a published npm package ships (a
 package earns a pipeline of its own).
+
+## D-073, the presentational boundary is enforced by resolution, not by string match: the sibling smart import that slipped past the lint pattern
+
+Context: invariant 1 (presentational controls are CRM-agnostic) is enforced in
+eslint.config.mjs with a `no-restricted-imports` rule. That rule matches the
+import SPECIFIER STRING, not the resolved file. Its smart-tier pattern was
+`**/controls/smart/**`, and from `shared/controls/presentational/` the natural
+sibling import of the smart tier is `../smart/X`, whose specifier carries no
+`controls` segment. So `../../controls/smart/X` was flagged and the equivalent
+`../smart/X` was not. Verified 2026-07-16 with a staged probe file: the sibling
+spelling passed clean while the controls/smart spelling was flagged, a single
+`no-restricted-imports` error. The owner found the same bypass independently on
+another machine, which double-confirms it. No shipped file exploited the hole:
+the tiers are clean in practice (Storybook renders every presentational control
+with zero mocks, which would break on a real smart import), so this was an
+enforcement gap, not a live contamination. The boundary check confirms it,
+reporting zero findings against the current tree (24 presentational files).
+
+**The decision: two mechanisms, together.** The lint rule keeps its job as the
+editor-time signal and gains the sibling spelling: the group now lists
+`**/smart/**` alongside `**/controls/smart/**`, so a developer sees the error as
+they type either spelling, with the same didactic message. The guarantee moves
+to a resolution gate. `scripts/check-layer-boundaries.mjs` (first in
+`npm run verify`, right after the PCF floor check) resolves every relative
+import from every presentational file to a real source file and fails if the
+resolution lands in the context, metadata, data, queries, LibraryUtils, or
+controls/smart tiers, whatever the specifier looks like. String matching can be
+spelled around; resolution cannot.
+
+**Scope.** The gate checks the direct imports of the presentational files (the
+same contract the lint rule states, made resolution-based). Because it visits
+every file under the two presentational roots, a presentational-tier helper's
+own forbidden import is caught too. It does not chase re-exports through an
+intermediary that sits OUTSIDE the presentational tree; no such barrel exists in
+the kit, and the deeper net for that class is Storybook rendering every
+presentational control with zero mocks. The Xrm-global half of the boundary
+stays with eslint's `no-restricted-globals` (it is not import-based). The gate
+reuses the shape the floor checker already trusts (`scripts/check-pcf-floor.mjs`
+walks the import graph by resolution), so it adds no dependency.
+
+**Alternatives rejected.** A lint pattern add alone (`**/smart/**` and nothing
+else) closes the verified spelling but stays string-based, so a differently
+spelled or re-exported reach could still slip; it is kept as the editor signal,
+not leaned on as the guarantee. eslint-plugin-import-x's `no-restricted-paths`
+gives lint-native resolution zones and is the right tool in the abstract, but it
+adds a runtime-resolver dev dependency (a decision-worthy pin) and a resolver to
+wire against the flat config, for something a repo-local script in the existing
+floor-checker style does with zero new dependencies.
+
+**Docs updated.** docs/architecture.md and CONTRIBUTING.md now describe the
+two-mechanism enforcement, and docs/deployment.md's CI gate order gains the step.
+The README's three-layer-contract claim is rescoped (owner-approved): the
+presentational boundary is machine-enforced (lint plus the gate check) while
+MVVM and no-hooks are held by convention, the samples, and review. That closes
+the enforcement-scope oversell five pre-share reviews flagged (the boundary claim
+was empirically true only once the string-match hole was closed).
+
+**Verification.** A failing-first ESLint-API test
+(tests/unit/eslint.config.test.ts) drives the real config over the sibling
+spelling through the eslint binary; it fails on the pre-fix config (no violation
+reported) and passes after the pattern add, with regression cases for the
+controls/smart spelling, a clean reactivity import, and the rule's scoping to
+the presentational tier. The gate's own tests
+(tests/unit/scripts/check-layer-boundaries.test.ts) drive the real script over
+throwaway fixture trees: the sibling spelling, every forbidden tier, the
+components/presentational root, a type-only import (a smart type is still a
+layer violation), a clean tree, and the live repo tree. Full verify is green at
+the tip (floor check, the new layer-boundary check, lint, typecheck, build, 581
+unit plus 12 smoke, storybook); the unit count rose from 571 with the ten new
+tests.
+
+Revisit trigger: an intermediary outside the presentational tree ever
+re-exports a CRM tier (the gate would then want a transitive walk, and
+Storybook-zero-mocks would already be failing), or the presentational scan roots
+move in eslint.config.mjs (keep the gate's roots in step).

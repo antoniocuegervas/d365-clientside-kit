@@ -127,7 +127,8 @@ Scripts, one line each:
 | `storybook` | `storybook dev -p 6006` |
 | `build-storybook` | `storybook build` (what the Pages workflow publishes) |
 | `check:pcf-floor` | `node scripts/check-pcf-floor.mjs` |
-| `verify` | `check:pcf-floor`, then lint, typecheck, build, test, smoke, build-storybook, chained with `&&` |
+| `check:layer-boundaries` | `node scripts/check-layer-boundaries.mjs` |
+| `verify` | `check:pcf-floor`, then `check:layer-boundaries`, then lint, typecheck, build, test, smoke, build-storybook, chained with `&&` |
 
 Run `npm install` first in a fresh workspace (the install-vs-ci story is
 `d365kit-build-and-env`'s). Never pipe `npm run verify` through anything that
@@ -225,9 +226,11 @@ dual CJS/ESM).
 - The presentational purity rule, scoped to
   `shared/controls/presentational/**` and `shared/components/presentational/**`:
   `no-restricted-imports` bans `**/context/**`, `**/metadata/**`, `**/data/**`,
-  `**/queries/**`, `**/LibraryUtils*`, `**/controls/smart/**`, and
-  `no-restricted-globals` bans `Xrm`. This rule IS the architecture's
-  enforcement mechanism (values in, events out), not code review.
+  `**/queries/**`, `**/LibraryUtils*`, `**/controls/smart/**`, `**/smart/**`, and
+  `no-restricted-globals` bans `Xrm`. This rule is the architecture's
+  editor-time enforcement (values in, events out), not code review. It matches
+  the import specifier STRING, so a resolution gate
+  (`scripts/check-layer-boundaries.mjs`, second verify step) backs it up.
 
 ### 9. webpack.config.mjs
 

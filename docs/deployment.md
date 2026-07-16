@@ -530,8 +530,9 @@ that do want hosted CI. It is executable from the repo (no org credential, no
 secrets anywhere in it) but it is connected to no service here and has never
 had a real run. Its two stages:
 
-- **Verify** (ubuntu) mirrors the local gate (floor check → lint → typecheck →
-  build → unit → smoke → storybook) plus conditional production PCF builds when
+- **Verify** (ubuntu) mirrors the local gate (floor check → layer-boundary check
+  → lint → typecheck → build → unit → smoke → storybook) plus conditional
+  production PCF builds when
   `shared/`, `pcfs/`, or the root dependencies changed, and publishes `dist/`
   as the `webresources` artifact. The root install is `npm install`, not
   `npm ci`: the Windows-generated lockfile omits the Linux-only optional

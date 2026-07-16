@@ -34,11 +34,11 @@ more.
 
 | Rung | Evidence | What it proves | Claim it licenses | Suffices when |
 |---|---|---|---|---|
-| 1 | `npm run lint` + `npm run typecheck` | Types line up; layer rules hold (the presentational tier's CRM-agnosticism is lint-enforced) | "compiles", "typechecks" | Never alone. An intermediate signal while editing, nothing more |
+| 1 | `npm run lint` + `npm run typecheck` (and `npm run check:layer-boundaries`) | Types line up; layer rules hold (the presentational tier's CRM-agnosticism is enforced by lint plus a resolution gate) | "compiles", "typechecks" | Never alone. An intermediate signal while editing, nothing more |
 | 2 | Unit tests, Jest + jsdom on scripted fakes (`tests/unit/**`) | Logic behaves against the host contract as the mocks encode it | "unit-tested", "pinned" | Pure logic: Observables, utils, ViewModels, adapters, metadata reads. A defect fix needs a failing-first test here |
 | 3 | Storybook on fixture data (`tests/storybook/**`; the gate step is `npm run build-storybook`) | Presentational controls render every state; the visual contract | "renders its states" | Presentational control changes, short of native-parity claims (those are side-by-side on a live form) |
 | 4 | Smoke against PRODUCTION bundles (`npm run build` then `npm run smoke`) | The built artifact itself boots end to end: bundling, UMD globals, adapter selection, the legacy XHR data path | "the bundle boots" | Bundling, bootstrap, webpack, kit.config-driven naming changes |
-| 5 | The full verify gate (`npm run verify`) | All of the above in order, plus the PCF platform-floor check | "verify green" | The minimum bar for ANY merge (section 2) |
+| 5 | The full verify gate (`npm run verify`) | All of the above in order, plus the PCF platform-floor check and the presentational layer-boundary check | "verify green" | The minimum bar for ANY merge (section 2) |
 | 6 | Live-org verification | Real host behavior: the platform, its caches, its metadata store, its focus management, its timing | "works", "verified", "live-verified" | Any claim about behavior on a form, in an app, or across an import. The strongest rung and the only one that supports "works" |
 
 What rung 6 takes, no shortcuts (mechanics in `d365kit-run-and-operate`):
@@ -83,7 +83,7 @@ record which way it fell.
 `npm run verify` runs, in order (package.json):
 
 ```
-check:pcf-floor -> lint -> typecheck -> build -> test -> smoke -> build-storybook
+check:pcf-floor -> check:layer-boundaries -> lint -> typecheck -> build -> test -> smoke -> build-storybook
 ```
 
 Run `npm install` first in a fresh workspace (the install-vs-ci story is
@@ -124,9 +124,10 @@ step failed; read `$LASTEXITCODE` to know WHETHER it failed.
 | Step | Result |
 |---|---|
 | check:pcf-floor | OK: 5 virtual PCFs, declared Fluent 9.46.2, API floor 9.61.0 (`pcfs/platform-floor.json`), shared/ clear of React-18-only APIs |
+| check:layer-boundaries | OK: 24 presentational files, none resolve into a CRM tier |
 | lint, typecheck | pass |
 | build | both bundles compiled (clientui shell + clienthooks UMD) |
-| test (unit) | 42 suites, 571 tests, all pass |
+| test (unit) | 44 suites, 581 tests, all pass |
 | smoke | 2 suites, 12 tests, all pass |
 | build-storybook | green |
 

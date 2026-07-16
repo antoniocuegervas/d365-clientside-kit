@@ -63,14 +63,15 @@ prefix `kit.config.json` names.
 
 ## Local build and test: the verify gate
 
-`npm run verify` runs, in order: `check:pcf-floor`, `lint`, `typecheck`,
-`build`, `test`, `smoke`, `build-storybook` (package.json). What each step's
-failure smells like:
+`npm run verify` runs, in order: `check:pcf-floor`, `check:layer-boundaries`,
+`lint`, `typecheck`, `build`, `test`, `smoke`, `build-storybook`
+(package.json). What each step's failure smells like:
 
 | Step | Runs | Failure smell |
 |---|---|---|
 | `check:pcf-floor` | `node scripts/check-pcf-floor.mjs` | Prints `<PcfName>: <message>` lines. A PCF drifted from `pcfs/platform-floor.json`: manifest not virtual or wrong platform-library versions, React/Fluent outside devDependencies or off the floor versions, `pcfReactPlatformLibraries` missing in featureconfig.json, an UNDECLARED `@fluentui/*-compat` import anywhere in the control's import graph, tabster overrides where none are allowed, a version range instead of an exact pin, or a React-18-only API in `shared/` |
-| `lint` | `eslint .` | Ordinary rule hits, plus the boundary rule: "Presentational controls are CRM-agnostic: no context, no metadata, no Web API, no smart-tier imports." (`no-restricted-imports` scoped to `shared/{controls,components}/presentational/`, eslint.config.mjs). That one means the fix is moving code between layers, not adding a suppress |
+| `check:layer-boundaries` | `node scripts/check-layer-boundaries.mjs` | Prints `<file> imports "<spec>" (resolves to ...), the <tier> tier`. A presentational file imports something that resolves into a CRM tier (context, metadata, data, queries, LibraryUtils, controls/smart), whatever the specifier is spelled like. The fix is moving that code to a smart control or ViewModel, not tweaking the spelling to dodge it |
+| `lint` | `eslint .` | Ordinary rule hits, plus the boundary rule: "Presentational controls are CRM-agnostic: no context, no metadata, no Web API, no smart-tier imports." (`no-restricted-imports` scoped to `shared/{controls,components}/presentational/`, eslint.config.mjs). That one means the fix is moving code between layers, not adding a suppress. The resolution gate above is the string-proof backstop for imports the lint pattern cannot see |
 | `typecheck` | `tsc --noEmit` | Type errors. Note: `build` uses ts-loader transpileOnly, so a green `build` with a red `typecheck` is normal, the types are ONLY checked here |
 | `build` | `webpack --mode production` | Module resolution or loader errors; emits `dist/clientui/<prefix>clientui.*` and `dist/clienthooks/<prefix>clienthooks.js` |
 | `test` | `jest` excluding `tests/smoke` | Normal Jest output. One benign trap: a PASSING test prints `console.warn` "PCFContext: no client URL is resolvable; metadata and cds-client calls use relative same-origin URLs." mid-run. Do not stop on it; read Jest's own summary |

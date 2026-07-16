@@ -23,9 +23,10 @@ ones.
 | Excessive rendering, live form | `&perf=true` render-count flags | Same overlay, per-control flags | No kit control flagged; native twins flag at 2-3 (the platform's own band); a flagged kit control is a regression toward the pre-batching behavior |
 | Render commits, repeatable and offline | React Profiler pinned tests | `npx jest tests/unit/shared/controls/smart/smartControls.test.tsx -t "form-load render batching"` | At most 2 Profiler commits: one loading paint, one content paint |
 | Bundle sizes | `skills/d365kit-diagnostics-and-tooling/scripts/bundle-size-report.mjs` | `node skills/d365kit-diagnostics-and-tooling/scripts/bundle-size-report.mjs` | Virtual PCFs 7-82 KB recorded band, date picker ~380 KB, shell ~890 KB full / ~425 KB trimmed, zero SUSPECT flags |
-| Regression breadth | Unit + smoke suites | `npm run test` then `npm run smoke` (smoke needs `dist/`) | 42 suites / 571 unit tests and 2 suites / 12 smoke tests at v1.3.0; the counts only go up |
+| Regression breadth | Unit + smoke suites | `npm run test` then `npm run smoke` (smoke needs `dist/`) | 44 suites / 581 unit tests and 2 suites / 12 smoke tests (post-1.3.0, after the layer-boundary tests); the counts only go up |
 | Untested-code visibility | Coverage | `npm run coverage` | Every first-party file appears in the table, including files no test imports (that is the point) |
 | Virtual-control posture | Floor checker | `node scripts/check-pcf-floor.mjs` | One OK line naming all five controls on declared Fluent 9.46.2 / API floor 9.61.0, exit 0 |
+| Presentational layer purity | Boundary checker | `node scripts/check-layer-boundaries.mjs` | One OK line naming the presentational file count, none resolving into a CRM tier, exit 0 |
 | Static solution health | Solution Checker | Maker portal or `pac solution check` against a built zip | Zero actionable findings on the virtual controls; `web-avoid-window-top` on a bundled-Fluent PCF is a recorded false positive |
 | Hooks behavior on a live form | Console injection | Runbook below | Notifications render, the dialog opens, the grid row locks |
 | Values actually committed | Web API spot check | Console query below | The value a kit control wrote comes back from the platform |
