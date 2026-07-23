@@ -318,7 +318,7 @@ are mentioned:
 
 | Item | Why untested | Recorded in |
 |---|---|---|
-| The V8 synthesis path (pre-v9 metadata synthesis, the V8 adapter generally beyond its smoke boot) | No 8.x environment available; the v8 smoke proves the shell boots and the legacy FetchXML data path runs against the mock, not a real 8.x org | README; the roadmap |
+| The V8 path against a real 8.x SERVER | No 8.x environment available. The path is contract-verified: a diagnostic harness drives the real v8 client and metadata synthesis against the v8.2 Web API line a modern org still serves, which caught and fixed two real defects. The engine behind that line is modern, so a real 8.x server run is still owed | README; the decision log |
 | Offline behavior itself | Not verifiable from a desktop session; the metadata rework made the reads offline-CAPABLE (native store, host IWebApi), which is a design property, not an observed one | the roadmap |
 | FLS against real column-security profiles | Org security deliberately not reconfigured; the capability flags are unit-tested against scripted descriptors only | the roadmap |
 | The CI Package stage (and azure-pipelines.yml as a whole) | Never executed by a real pipeline. Executable-from-repo (the zip built and content-checked locally), not CI-executed | the decision log |
@@ -327,7 +327,9 @@ Rules:
 
 - New work must NOT silently convert accepted-untested into claimed-working.
   Touching the V8 adapter and passing its unit tests does not make V8
-  "supported"; it stays accepted-untested until an 8.x org run is recorded.
+  "supported"; it stays accepted-untested until an 8.x SERVER run is
+  recorded. Contract-verification at the v8.2 API line raised the evidence,
+  not the label.
 - If your change makes one of these testable, the live protocol in section 5
   applies, and the register entry (here, plus the roadmap/README mentions)
   gets updated in the same change.

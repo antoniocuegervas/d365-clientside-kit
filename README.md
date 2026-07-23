@@ -61,10 +61,11 @@ One shared library, four places it lands:
 | `pcfs/` | Sample PCF projects importing `shared/` as source |
 
 Runs against modern orgs (v9.2+/UCI) natively. CRM 8.x support is designed in
-(a legacy context adapter, tested against 8.x-shaped mocks) but has not yet
-been exercised against a live 8.x org; treat it as best-effort until then.
-"Legacy" means old server APIs, not old browsers: modern evergreen browsers
-only.
+(a legacy context adapter) and tested two ways: against 8.x-shaped mocks, and
+against the v8.2 Web API contract a modern org still serves, a pass that caught
+two real v8 defects, since fixed. It has not run against a live 8.x server, so
+treat it as best-effort until then. "Legacy" means old server APIs, not old
+browsers: modern evergreen browsers only.
 
 ## Who it is for
 

@@ -313,8 +313,10 @@ here so it is not lost with the round's working notes.
   so the kit sits inside the platform's own 2-3 band (it was 5 before the
   batching). Remaining checks: offline behavior itself (not verifiable from a
   desktop session), FLS behavior against real column-security profiles (org
-  security deliberately not reconfigured), the V8 synthesis path (no v8
-  environment), and the pre-existing "control initialized more than once
+  security deliberately not reconfigured), the V8 synthesis path against a
+  real 8.x server (it is contract-verified at the v8.2 API line a modern org
+  still serves, which found two defects, but no v8 environment exists), and
+  the pre-existing "control initialized more than once
   during form load" platform note on the lookup PCF (still present, still
   init-count only, still worth one targeted DevTools look). On the cds
   synthesis path the two-requests-per-attribute shape remains by choice; it

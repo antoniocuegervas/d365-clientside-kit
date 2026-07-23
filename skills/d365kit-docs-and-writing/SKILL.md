@@ -294,8 +294,9 @@ neither):
 1. Does the evidence support the claim today? (`d365kit-validation-and-qa`
    holds what is verified, live-verified, and accepted untested.)
 2. Is unproven capability labeled inside the claim itself? Model: the v8 path
-   "has not yet been exercised against a live 8.x org; treat it as
-   best-effort until then" (README, the delivery-model section).
+   "has not run against a live 8.x server, so treat it as best-effort until
+   then" (README, the delivery-model section), stated right beside what HAS
+   been tested (mocks, and the v8.2 Web API contract a modern org serves).
 3. Does a decaying claim state its re-verification cadence? The
    maintained-claim pattern, README Status verbatim: "Native fidelity is a
    maintained claim, not a static property" and the part to revisit is "the

@@ -2152,6 +2152,77 @@ keeps the long forms.
 Revisit trigger: words per entry trending up again across a run of new
 entries.
 
+## D-076, the v8 claim gets its instrument: a context adapter tester ships as one self-contained webresource
+
+The kit's v8 path has never been exercised against a live 8.x org, and no
+supported route exists to deliver a solution there from a modern org: the old
+export-for-earlier-version wizard never crossed major versions, and the
+ExportSolution TargetVersion parameter is disabled platform-wide (verified
+live 2026-07-22 on the 9.2 dev org: 0x80040203 "Exporting to a target version
+is not supported in this release", for 8.2 and even 9.0). Online v8 no longer
+exists, so a v8 environment means 8.2 on-premises (extended support ended
+2026-01-13). The solution configuration page survives on both ends, moot
+without an importable zip. The unsupported zip-repack route (rewriting the
+solution.xml version stamps) stays viable-untested for webresource-only
+payloads, not taken.
+
+Decided: the tester is kit test infrastructure under tests/adapter-tester/,
+not a product and not in the samples solution. Plain TypeScript and DOM, no
+React, reusing findXrm and createContextFromXrm so adapter auto-detection is
+itself under test. npm run build emits one self-contained HTML artifact (JS
+inlined, ~96 KB) created manually as a single webresource in any org and
+opened via main.aspx?pagetype=webresource&webresourceName=<name>, no extra
+query parameters (the platform rejects them there, observed live). It is a
+debugging instrument, owner-shaped: every test records an operation
+transcript (the literal query strings, FetchXML, and payloads, shown on
+screen and in the copied report), and a hand-curated capability matrix
+states which platform capabilities the kit REQUIRES (11, each joined to its
+probes: annotations, the FetchXML channel and paging contract on every host,
+link-entity alias key shape, savedQuery, query options, $batch, the
+OData-EntityId create header, polymorphic @odata.bind, the metadata
+synthesis endpoints, settings reads) versus informational classifiers (5)
+and a deliberately-not-used list, so a v9-only dependency can never ship
+invisibly. 33 tests in sections; tier 2, behind a labeled button, includes
+the escaped-literal positive match (a created XML-special-character name
+FetchXML-queried back expecting exactly one row) with cleanup reported
+loudly per record. An API version lab (owner idea) sweeps every
+/api/data/vX.Y service document and drives the kit's real v8 client and
+metadata-synthesis code against the v8.2 path, labeled contract-level
+evidence throughout: the same modern engine serves every path, so v8-era
+quirks are measured, never assumed. An API version selector pins the DATA
+channel to any served path and re-runs the whole battery there; host-surface
+and version-explicit tests skip honestly under a pin, and the pin banner
+rides the header, the strip, and the copied report.
+
+Verification: gate green (47 suites, 639 unit, 12 smoke); live on the dev
+org 2026-07-22/23 across four SHA-gated deploy rounds: final state 32 of 33
+pass plus the expected modern-host skip, all 11 kit-required capabilities
+confirmed, write cleanups verified with zero residue, the copy path proven.
+Lab findings, live: the org serves ALL six version paths (8.0 through 9.2,
+each HTTP 200); the v8.2 path DOES reproduce the v8-era x002e link-alias
+encoding (pc_x002e_contactid, fixed at the client the same day, see the
+next entry); feature gating on old paths is NOT faithful ($apply answers
+200 at v8.2); the v8 metadata synthesis spine passes against the v8.2
+contract. The pinned v8.2 battery (2026-07-23) surfaced the next real gap:
+savedquery.layoutjson does not exist at the 8.2 contract, so
+metadata.getView fails there (t1-view, "Could not find a property named
+'layoutjson'"; recorded as the next v8 defect candidate); everything else
+the kit requires held at the v8.2 path, including both write shapes. The
+v8 half stays best-effort until a real 8.2 run's report comes back.
+
+The public v8 claim moved on this evidence (2026-07-23, owner-directed): it
+no longer reads mocks-only. The README, testing.md, the roadmap, the
+accepted-untested register, and both skill sets now say the path is tested
+two ways, against 8.x-shaped mocks and against the v8.2 Web API contract a
+modern org still serves, a pass that caught two real defects. What did not
+change is the best-effort clause: the engine behind every version path is
+the modern one, so a live 8.x SERVER run is still owed. The claim ladder
+gained the rung this sits on (contract-verified, above mocks, below a live
+old server).
+
+Revisit trigger: the first 8.2 report (moves the claim the rest of the way),
+or a supported down-level delivery path appearing.
+
 ## D-077, the kit delivers dotted alias keys on every host: cds-client decodes the v8 x002e encoding at the parse boundary
 
 v8-era engines return FetchXML link-entity aliased columns with the alias

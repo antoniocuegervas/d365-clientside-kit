@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
 import HtmlWebpackPlugin from "html-webpack-plugin";
+import webpack from "webpack";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -11,6 +12,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const prefix = JSON.parse(
   readFileSync(path.resolve(__dirname, "kit.config.json"), "utf8")
 ).publisherPrefix;
+
+// Kit version, stamped into the adapter-tester bundle at build time.
+const kitVersion = JSON.parse(
+  readFileSync(path.resolve(__dirname, "package.json"), "utf8")
+).version;
 
 /** Shared loader/resolve settings for both bundles. */
 const common = {
@@ -69,4 +75,42 @@ const clienthooks = {
   },
 };
 
-export default [clientui, clienthooks];
+/**
+ * adapter-tester, a self-contained diagnostic webresource: one HTML file with
+ * the JS inlined, so a colleague can create a single webresource in any org
+ * (modern 9.x or CRM 8.2) and run the kit's context adapter surface live.
+ * Not in deploy.ps1's mapping or the solution project: it is created manually.
+ */
+const adapterTesterArtifact = `${prefix}adaptertester.html`;
+const adapterTesterJs = `${prefix}adaptertester.js`;
+const adapterTester = {
+  ...common,
+  name: "adapter-tester",
+  entry: path.resolve(__dirname, "tests/adapter-tester/index.ts"),
+  output: {
+    path: path.resolve(__dirname, "dist/tester"),
+    filename: adapterTesterJs,
+    clean: true,
+  },
+  plugins: [
+    new webpack.DefinePlugin({
+      __KIT_VERSION__: JSON.stringify(kitVersion),
+      __ARTIFACT_NAME__: JSON.stringify(adapterTesterArtifact),
+    }),
+    new HtmlWebpackPlugin({
+      template: path.resolve(__dirname, "tests/adapter-tester/template.html"),
+      filename: adapterTesterArtifact,
+      inject: false,
+      // Inline the compiled bundle into the HTML so the artifact is one file.
+      // The asset exists in the compilation by the time the template renders;
+      // `</script>` in the source is split so it cannot close the inline tag.
+      templateParameters: (compilation) => {
+        const source = compilation.getAsset(adapterTesterJs)?.source.source() ?? "";
+        const script = String(source).replace(/<\/script>/gi, "<\\/script>");
+        return { inlinedScript: script };
+      },
+    }),
+  ],
+};
+
+export default [clientui, clienthooks, adapterTester];
