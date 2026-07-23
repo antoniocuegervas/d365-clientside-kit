@@ -474,3 +474,76 @@ describe("parseLayoutColumnsFromJson", () => {
     expect(parseLayoutColumnsFromJson("{}")).toEqual([]);
   });
 });
+
+// A v8 org has no savedquery.layoutjson, and asking for a property the type
+// does not have fails the whole request there, so the select is version-shaped.
+describe("KitMetadataSource savedquery select, by API version", () => {
+  const VIEW_ID = "33330000-0000-0000-0000-000000000003";
+  let server: FakeXhrServer;
+  let urls: string[];
+
+  const sourceAt = (apiVersion?: string) => {
+    const client = new CdsClient({ clientUrl: "https://org.crm.dynamics.com", apiVersion });
+    return new KitMetadataSource({ dataReads: new CdsWebApi(client), client });
+  };
+
+  beforeEach(() => {
+    LibraryUtils.clearEntitySetNameCache();
+    urls = [];
+    server = new FakeXhrServer();
+    server.install();
+    server.respondWith((request) => {
+      if (!request.url.includes("savedqueries")) {
+        return undefined;
+      }
+      urls.push(request.url);
+      // A v8-shaped record: layoutxml only, no layoutjson.
+      const record = {
+        savedqueryid: VIEW_ID,
+        name: "Active Accounts",
+        returnedtypecode: "account",
+        fetchxml: "<fetch/>",
+        layoutxml: '<grid><row><cell name="name" width="300" /></row></grid>',
+      };
+      return {
+        status: 200,
+        responseText: JSON.stringify(
+          request.url.includes("savedqueries(") ? record : { value: [record] }
+        ),
+      };
+    });
+  });
+
+  afterEach(() => {
+    server.uninstall();
+    LibraryUtils.clearEntitySetNameCache();
+  });
+
+  it("omits layoutjson on the v8 line", async () => {
+    await sourceAt("8.2").loadView("account", `{${VIEW_ID}}`);
+    expect(urls[0]).toContain("layoutxml");
+    expect(urls[0]).not.toContain("layoutjson");
+  });
+
+  it("keeps layoutjson on the modern line", async () => {
+    await sourceAt().loadView("account", `{${VIEW_ID}}`);
+    expect(urls[0]).toContain("layoutjson");
+  });
+
+  it("omits it on every view read path, not just the by-id one", async () => {
+    const source = sourceAt("8.2");
+    await source.loadView("account");
+    await source.loadLookupView("account");
+    await source.loadViewByName("account", "Active Accounts");
+    expect(urls).toHaveLength(3);
+    for (const url of urls) {
+      expect(url).not.toContain("layoutjson");
+    }
+  });
+
+  it("still resolves columns and widths from layoutxml alone", async () => {
+    const view = await sourceAt("8.2").loadView("account", `{${VIEW_ID}}`);
+    expect(view.columns).toEqual([{ name: "name", width: 300 }]);
+    expect(view.layoutJson).toBeUndefined();
+  });
+});

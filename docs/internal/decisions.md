@@ -2182,3 +2182,36 @@ kit channel pc.contactid out.
 
 Revisit trigger: a real 8.2 run contradicting the contract-path behavior,
 or encoded keys appearing outside collection responses.
+
+## D-078, view reads ask only for what the host has: the v8 line selects layoutxml, not layoutjson
+
+The tester's v8.2-pinned battery failed on metadata.getView: savedquery has
+no layoutjson at the 8.2 contract, and asking for a property the type lacks
+fails the WHOLE request ("Could not find a property named 'layoutjson'"), so
+saved-view resolution, the spine under SmartViewGrid and the lookups, was
+dead on a v8 org. The owner confirmed the platform fact from field
+experience: 8.2 serves layoutxml instead.
+
+Decided: KitMetadataSource builds its savedquery $select from the client's
+apiVersion (one private viewSelect, used by all three view reads), omitting
+layoutjson below version 9. Nothing downstream changed: toViewDefinition
+already preferred layoutjson and fell back to layoutxml, so the fallback
+only needed to stop being blocked by the request. Alternatives rejected:
+retrying on the error text (a wasted round trip per view read on every v8
+org, keyed to a message string), and dropping layoutjson everywhere (loses
+related-entity resolution on modern, a real regression). Accepted
+degradation, documented in gotchas: layoutxml carries names, widths, hidden
+cells, and sort flags, but not an aliased link-entity column's owning
+entity, so v8 view columns resolve without their related-entity name.
+
+Verification: failing-first unit tests (the v8 select and all three read
+paths go red on the pre-fix code; the modern-line guard and the
+layoutxml-only parse stay green either way); gate green; live on the dev
+org 2026-07-23, where the tester's v8.2-pinned t1-view, the test that found
+this, now passes with 5 columns, the same count the modern run resolves,
+and the wire confirms both branches (v8.2 selects layoutxml alone, v9.2
+still selects layoutjson). The pinned battery went 14 pass 1 fail to 15
+pass 0 fail, with nothing else moving.
+
+Revisit trigger: a real 8.2 run showing layoutxml absent or shaped
+differently, or another savedquery column diverging by version.

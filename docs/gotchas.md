@@ -137,6 +137,15 @@ Examples: `navigateTo` beyond entityrecord/webresource, `openFile`, the current
 app properties on `globalContext`, and the newer `formContext` members. Treat a
 rejection as "this host can't do it", not as a bug.
 
+Where the platform shape itself differs, the kit adapts under the hood instead
+of handing you the difference. Two it absorbs today: FetchXML link-entity alias
+keys arrive `x002e`-encoded on a v8 line and are normalized back to the dotted
+form before any consumer sees them, and `savedquery.layoutjson` does not exist
+there, so view reads select `layoutxml` alone on that line. The one visible
+consequence is in the second: layoutxml carries column names, widths, hidden
+cells, and sort flags, but not the owning entity of an aliased link-entity
+column, so on v8 those columns resolve without their related-entity name.
+
 ## Entity icon URLs rest on a path convention, not a documented API
 
 `metadata.getEntityIconUrl` resolves an entity's icon two ways: a custom entity

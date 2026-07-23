@@ -52,8 +52,23 @@ export class KitMetadataSource implements IMetadataSource {
     this.client = options.client;
   }
 
+  /**
+   * The savedquery columns every view read selects. `layoutjson` postdates the
+   * CRM 8.x Web API, and asking for a property the type does not have fails the
+   * WHOLE request there ("Could not find a property named 'layoutjson'"), so
+   * the v8 line omits it and `toViewDefinition` falls back to layoutxml. The
+   * fallback keeps column names, widths, hidden cells, and sort flags; what
+   * layoutxml cannot carry is the owning entity of an aliased link-entity
+   * column, whose cell name there is an opaque composite.
+   */
+  private viewSelect(): string {
+    const major = Number(/^(\d+)/.exec(this.client.apiVersion)?.[1] ?? "9");
+    const layout = major >= 9 ? "layoutxml,layoutjson" : "layoutxml";
+    return `$select=name,fetchxml,${layout},returnedtypecode,savedqueryid`;
+  }
+
   async loadView(entityLogicalName: string, savedQueryId?: string): Promise<IViewDefinition> {
-    const select = "?$select=name,fetchxml,layoutxml,layoutjson,returnedtypecode,savedqueryid";
+    const select = `?${this.viewSelect()}`;
     let raw: Record<string, unknown>;
     if (savedQueryId) {
       raw = await this.dataReads.retrieveRecord("savedquery", savedQueryId, select);
@@ -77,7 +92,7 @@ export class KitMetadataSource implements IMetadataSource {
   }
 
   async loadLookupView(entityLogicalName: string): Promise<IViewDefinition> {
-    const select = "?$select=name,fetchxml,layoutxml,layoutjson,returnedtypecode,savedqueryid";
+    const select = `?${this.viewSelect()}`;
     // Default lookup view for the entity (querytype 64), the one the native
     // single-record lookup uses. Filter percent-encoded whole, same as loadView.
     const filter =
@@ -99,7 +114,7 @@ export class KitMetadataSource implements IMetadataSource {
    * savedqueries on name + returnedtypecode + active state; expect exactly one.
    */
   async loadViewByName(entityLogicalName: string, viewName: string): Promise<IViewDefinition> {
-    const select = "$select=name,fetchxml,layoutxml,layoutjson,returnedtypecode,savedqueryid";
+    const select = this.viewSelect();
     // The expression goes into the URL percent-encoded whole: a display name
     // like "R&D Accounts" would otherwise split the $filter parameter and 400.
     const filter =
