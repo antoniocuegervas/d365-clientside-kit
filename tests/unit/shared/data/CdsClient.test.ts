@@ -622,6 +622,89 @@ describe("CdsClient", () => {
     });
   });
 
+  describe("alias key decoding (v8 x002e/x0040 normalization)", () => {
+    // A v8-era engine encodes a link-entity alias dot as _x002e_ (and, where it
+    // appears, the annotation @ as _x0040_); modern serves the dotted shape. The
+    // kit reads dotted keys, so parseCollection normalizes encoded keys back to
+    // the modern shape for every consumer, whatever the wire sent.
+    it("decodes an x002e-encoded alias key to the modern dotted shape", async () => {
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({
+          value: [{ name: "A", pc_x002e_contactid: "c1" }],
+        }),
+      });
+      const result = await makeClient().retrieveMultiple("accounts", "?$select=name");
+      expect(result.entities[0]).toEqual({ name: "A", "pc.contactid": "c1" });
+      expect(result.entities[0]).not.toHaveProperty("pc_x002e_contactid");
+    });
+
+    it("decodes an annotation-bearing encoded key, leaving the @ suffix intact", async () => {
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({
+          value: [
+            {
+              pc_x002e_contactid: "c1",
+              "pc_x002e_contactid@OData.Community.Display.V1.FormattedValue": "Jim Glynn",
+            },
+          ],
+        }),
+      });
+      const result = await makeClient().retrieveMultiple("accounts", "?$select=name");
+      expect(result.entities[0]).toEqual({
+        "pc.contactid": "c1",
+        "pc.contactid@OData.Community.Display.V1.FormattedValue": "Jim Glynn",
+      });
+    });
+
+    it("decodes the x0040 (@) token when the engine encodes the annotation separator too", async () => {
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({
+          value: [
+            {
+              pc_x002e_name_x0040_OData_x002e_Community_x002e_Display_x002e_V1_x002e_FormattedValue:
+                "Jim Glynn",
+            },
+          ],
+        }),
+      });
+      const result = await makeClient().retrieveMultiple("accounts", "?$select=name");
+      expect(result.entities[0]).toEqual({
+        "pc.name@OData.Community.Display.V1.FormattedValue": "Jim Glynn",
+      });
+    });
+
+    it("fills the memoized key map lazily: an encoded key first seen in row 3 is still decoded", async () => {
+      server.respondAlways({
+        status: 200,
+        responseText: JSON.stringify({
+          value: [
+            { name: "A" },
+            { name: "B" },
+            { name: "C", pc_x002e_contactid: "c3" },
+          ],
+        }),
+      });
+      const result = await makeClient().retrieveMultiple("accounts", "?$select=name");
+      expect(result.entities[2]).toEqual({ name: "C", "pc.contactid": "c3" });
+      expect(result.entities[0]).toEqual({ name: "A" });
+    });
+
+    it("passes a modern dotted response through untouched (the fast bail costs nothing)", async () => {
+      const rows = [
+        { name: "A", "pc.contactid": "c1" },
+        { name: "B", "pc.contactid": "c2" },
+      ];
+      server.respondAlways({ status: 200, responseText: JSON.stringify({ value: rows }) });
+      const result = await makeClient().retrieveMultiple("accounts", "?$select=name");
+      expect(result.entities).toEqual(rows);
+      // Key order and shape are preserved byte-for-byte on the unencoded path.
+      expect(Object.keys(result.entities[0])).toEqual(["name", "pc.contactid"]);
+    });
+  });
+
   describe("errors", () => {
     it("throws CdsClientError with the platform message on failure", async () => {
       server.respondAlways({

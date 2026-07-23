@@ -2151,3 +2151,34 @@ keeps the long forms.
 
 Revisit trigger: words per entry trending up again across a run of new
 entries.
+
+## D-077, the kit delivers dotted alias keys on every host: cds-client decodes the v8 x002e encoding at the parse boundary
+
+v8-era engines return FetchXML link-entity aliased columns with the alias
+dot encoded (pc_x002e_contactid; x0040 for the annotation separator). The
+kit's consumers read dotted keys (EntityModel, counterparty, saved-view
+grids), so encoded responses silently broke aliased columns on the v8 path.
+Live-measured on the dev org's /api/data/v8.2/ contract path (2026-07-23)
+and matching the owner's own 8.2 field experience, so the fix proceeded
+without waiting for a live 8.2 org.
+
+Decided: normalize at the one choke point, CdsClient.parseCollection
+(decodeEntityKeys): keys carrying the encoding tokens are renamed with the
+tokens decoded, values untouched, so every consumer receives the modern
+shape (the kit ships the latest Dataverse shape and adapts underneath).
+Performance, the owner's stated concern: one indexOf bail per key on
+unencoded responses (the common case pays nothing), a per-response memoized
+key map otherwise, so a large result costs map lookups, not per-cell string
+surgery. Alternatives rejected: adapter-level (misses cds-client's direct
+consumers), consumer-end conversion (spreads the burden the kit exists to
+absorb). Accepted theoretical false positive: a column literally named with
+a token would be decoded.
+
+Verification: failing-first unit fixtures (encoded, annotation-bearing,
+x0040, sparse rows, modern pass-through kept byte-identical), confirmed red
+on the pre-fix code; gate green (48 suites, 660 unit, 12 smoke); live
+2026-07-23 via the tester's v8.2-path lab test: wire pc_x002e_contactid in,
+kit channel pc.contactid out.
+
+Revisit trigger: a real 8.2 run contradicting the contract-path behavior,
+or encoded keys appearing outside collection responses.

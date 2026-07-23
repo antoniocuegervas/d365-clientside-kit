@@ -778,6 +778,89 @@ function bodyAfterHeaders(httpResponse: string): string {
   return separator ? httpResponse.slice(separator.index + separator[0].length).trim() : "";
 }
 
+//#region v8 alias key decoding
+
+/** v8-era engines encode a link-entity alias dot as this token; modern serves ".". */
+const ENCODED_DOT = "_x002e_";
+/** v8-era engines encode the "@" annotation separator as this token; modern serves "@". */
+const ENCODED_AT = "_x0040_";
+/** Both tokens begin here, so one indexOf clears an unencoded key (the common case). */
+const ENCODED_MARKER = "_x00";
+
+/**
+ * Normalizes v8-era encoded record KEY NAMES back to the modern dotted shape.
+ *
+ * Constraint: a v8-era engine encodes a FetchXML link-entity alias dot as
+ * `_x002e_` (so `pc.contactid` arrives as `pc_x002e_contactid`, and an
+ * annotation key as `pc_x002e_contactid@OData...` or, when the engine also
+ * encodes the separator, `..._x0040_OData...`); a modern engine serves the
+ * dotted shape. The kit's contract is the modern dotted shape on every host, so
+ * a key carrying either token is renamed with the token decoded. Values are
+ * never touched; only keys.
+ *
+ * Performance: the common case (no encoded key) pays one indexOf per key and
+ * nothing else, no allocation and no rewrite. When encoding is present, each
+ * DISTINCT key string is decoded once into a memoized Map and every later row
+ * reuses that entry, so a large result costs map lookups, not string surgery
+ * per cell. Rows are sparse (null columns are omitted per row), so the map
+ * fills lazily as new keys appear rather than assuming row 1 carries them all.
+ *
+ * Accepted theoretical false positive: a real column literally named with the
+ * `_x002e_` or `_x0040_` token would be decoded too. That is legal in theory
+ * and never seen in practice.
+ */
+function decodeEntityKeys(rows: Array<Record<string, unknown>>): void {
+  // Raw key -> decoded key, memoized across every row and filled lazily. A key
+  // whose decode equals itself maps to itself, so a repeat is one map lookup.
+  const decodedByKey = new Map<string, string>();
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    // Left undefined until this row's first encoded key, so an all-plain row is
+    // never rebuilt (and keeps its identity, the byte-identical pass-through).
+    let rebuilt: Record<string, unknown> | undefined;
+    for (const key of Object.keys(row)) {
+      // Fast bail: both tokens start "_x00", so a single indexOf clears every
+      // unencoded key with no allocation.
+      if (key.indexOf(ENCODED_MARKER) === -1) {
+        if (rebuilt) {
+          rebuilt[key] = row[key];
+        }
+        continue;
+      }
+      let decoded = decodedByKey.get(key);
+      if (decoded === undefined) {
+        decoded = key.split(ENCODED_DOT).join(".").split(ENCODED_AT).join("@");
+        decodedByKey.set(key, decoded);
+      }
+      if (decoded === key) {
+        // A "_x00" that is not the alias/annotation encoding: nothing to rename.
+        if (rebuilt) {
+          rebuilt[key] = row[key];
+        }
+        continue;
+      }
+      // First encoded key in this row: copy the plain keys seen so far, then
+      // land every later key (decoded or plain) onto the rebuilt row, so key
+      // order is preserved and the raw name never survives.
+      if (!rebuilt) {
+        rebuilt = {};
+        for (const seen of Object.keys(row)) {
+          if (seen === key) {
+            break;
+          }
+          rebuilt[seen] = row[seen];
+        }
+      }
+      rebuilt[decoded] = row[key];
+    }
+    if (rebuilt) {
+      rows[i] = rebuilt;
+    }
+  }
+}
+
+//#endregion
+
 function parseCollection(json: string): IRetrieveMultipleResult {
   const payload = JSON.parse(json) as {
     value?: Array<Record<string, unknown>>;
@@ -788,8 +871,12 @@ function parseCollection(json: string): IRetrieveMultipleResult {
     "@Microsoft.Dynamics.CRM.morerecords"?: boolean;
     "@Microsoft.Dynamics.CRM.fetchxmlpagingcookie"?: string;
   };
+  const entities = payload.value ?? [];
+  // Deliver the modern dotted key shape whatever the wire sent (v8 aliases
+  // arrive x002e-encoded). The fast bail makes this free for modern responses.
+  decodeEntityKeys(entities);
   const result: IRetrieveMultipleResult = {
-    entities: payload.value ?? [],
+    entities,
     nextLink: payload["@odata.nextLink"],
   };
   // FetchXML paging annotations, total via returntotalrecordcount, or
