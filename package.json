@@ -1,6 +1,6 @@
 {
   "name": "d365-clientside-kit",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "private": true,
   "description": "Dynamics 365 / Dataverse client-side UI kit, metadata-aware React building blocks with refreshed-UCI (Fluent v9) fidelity. Spiritual successor to SparkleXrm.",
   "license": "Apache-2.0",
